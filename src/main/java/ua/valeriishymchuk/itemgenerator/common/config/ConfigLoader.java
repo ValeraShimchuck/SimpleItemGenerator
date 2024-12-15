@@ -84,7 +84,7 @@ public class ConfigLoader {
                 ).flatMap(Arrays::stream)
                 .filter(c -> c.getParameterCount() == 0)
                 .peek(c -> c.setAccessible(true)).findFirst()
-                .orElseThrow();;
+                .get();
         return () -> {
             try {
                 return (C) constructor.newInstance();

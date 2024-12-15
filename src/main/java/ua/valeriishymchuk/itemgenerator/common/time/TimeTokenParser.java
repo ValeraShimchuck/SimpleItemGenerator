@@ -47,7 +47,7 @@ public class TimeTokenParser {
         if (hours > 0) sb.append(hours).append("h ");
         if (minutes > 0) sb.append(minutes).append("m ");
         if (seconds > 0) sb.append(seconds).append("s ");
-        if (millis > 0) sb.append(millis).append("ms ");
+        if (millis > 0) sb.append(millis);
         return sb.toString().trim();
     }
 

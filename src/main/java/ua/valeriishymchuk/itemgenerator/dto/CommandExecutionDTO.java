@@ -15,4 +15,8 @@ public class CommandExecutionDTO {
     boolean executeAsConsole;
     String command;
 
+    @Override
+    public String toString() {
+        return command;
+    }
 }

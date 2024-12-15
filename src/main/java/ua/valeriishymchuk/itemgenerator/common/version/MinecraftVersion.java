@@ -66,6 +66,7 @@ public class MinecraftVersion implements Comparable<MinecraftVersion> {
 
     public static MinecraftVersion parse(String version) {
         Matcher matcher = VERSION_PATTERN.matcher(version);
+        if (!matcher.find()) throw new IllegalArgumentException("Invalid version: " + version);
         return new MinecraftVersion(
                 Integer.parseInt(matcher.group(1)),
                 Integer.parseInt(matcher.group(2)),

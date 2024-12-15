@@ -4,11 +4,13 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import ua.valeriishymchuk.itemgenerator.common.component.RawComponent;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
 @Getter
+@ConfigSerializable
 public class LangEntity {
 
     RawComponent giveItemSuccessfully = new RawComponent("Custom item %key% was successfully given to %player%.");

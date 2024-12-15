@@ -1,20 +1,19 @@
 package ua.valeriishymchuk.itemgenerator.entity;
 
 import io.vavr.control.Option;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.With;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.function.UnaryOperator;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
 @Getter
 @With
+@ToString
 public class UsageEntity {
 
     public static UsageEntity EMPTY = new UsageEntity(
@@ -43,13 +42,20 @@ public class UsageEntity {
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
     @RequiredArgsConstructor
     @Getter
+    @With
     public static class Command {
         boolean executeAsConsole;
         String command;
+
+        public Command replace(UnaryOperator<String> replacer) {
+            return new Command(executeAsConsole, replacer.apply(command));
+        }
+
     }
 
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
     @RequiredArgsConstructor
+    @ToString
     public static class ClickType {
 
         @Nullable
@@ -66,8 +72,8 @@ public class UsageEntity {
         }
 
         public boolean predicate(ClickType clickType) {
-            return getSide().map(side -> side == clickType.side).getOrElse(true) &&
-                    getAt().map(at -> at == clickType.at).getOrElse(true);
+            return getSide().map(side1 -> side1 == clickType.side).getOrElse(true) &&
+                    getAt().map(at1 -> at1 == clickType.at).getOrElse(true);
         }
 
     }

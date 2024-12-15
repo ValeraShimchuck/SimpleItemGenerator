@@ -9,7 +9,7 @@ import java.util.regex.Pattern;
 
 public class RegexUtils {
 
-    public static String replaceAll(Matcher matcher, Function<MatchResult, String> replacer) {
+    public static String replaceAll(Matcher matcher, Function<Matcher, String> replacer) {
         Objects.requireNonNull(replacer);
         matcher.reset();
         boolean result = matcher.find();

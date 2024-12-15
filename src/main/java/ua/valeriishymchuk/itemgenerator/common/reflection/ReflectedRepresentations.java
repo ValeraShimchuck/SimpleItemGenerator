@@ -1,15 +1,57 @@
 package ua.valeriishymchuk.itemgenerator.common.reflection;
 
+import io.vavr.CheckedConsumer;
+import io.vavr.CheckedFunction0;
+import io.vavr.CheckedFunction1;
 import io.vavr.control.Option;
 import lombok.SneakyThrows;
 import net.kyori.adventure.key.Key;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
+import net.md_5.bungee.api.chat.BaseComponent;
+import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
+import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import ua.valeriishymchuk.itemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.itemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.itemgenerator.common.version.MinecraftVersion;
 
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
+
+import static ua.valeriishymchuk.itemgenerator.common.reflection.MinecraftReflection.getCraftBukkit;
 
 public class ReflectedRepresentations {
+
+    public static class ConsoleCommandSender {
+        public static final Class<org.bukkit.command.ConsoleCommandSender> CLASS = org.bukkit.command.ConsoleCommandSender.class;
+
+        public static void sendComponentMessage(
+                org.bukkit.command.ConsoleCommandSender consoleCommandSender,
+                Component component
+        ) {
+            boolean isSent = Option.ofOptional(Arrays.stream(CLASS.getMethods()).filter(m -> m.getName().equals("spigot"))
+                    .findFirst())
+                    .flatMap(CheckedFunction1.lift(method -> {
+                        Object spigot = method.invoke(consoleCommandSender);
+                        Class<?> spigotClass = spigot.getClass();
+                        Method sendMessage = spigotClass.getMethod("sendMessage", BaseComponent[].class);
+                        sendMessage.invoke(spigot, (Object) KyoriHelper.convert(component));
+                        return true;
+                    })).getOrElse(false);
+            if (!isSent) consoleCommandSender.sendMessage(KyoriHelper.toLegacy(component));
+        }
+
+    }
 
     public static class NamespacedKey {
 
@@ -32,7 +74,7 @@ public class ReflectedRepresentations {
         public static Key getKyoriKey(ReflectionObject reflectionObject) {
             validate();
             if (reflectionObject.getClazz() != CLASS)
-                throw new IllegalArgumentException("Not a namespaced key " + reflectionObject.getClazz());
+                throw new IllegalArgumentException("Not a namespaced key " + reflectionObject.getClazz() + " " + reflectionObject.getObject());
             return Key.key(reflectionObject.getObject().toString());
         }
 
@@ -55,6 +97,70 @@ public class ReflectedRepresentations {
 
     public static class ItemMeta {
         public static final Class<org.bukkit.inventory.meta.ItemMeta> CLASS = org.bukkit.inventory.meta.ItemMeta.class;
+        public static final Class<?> CRAFT_META = getCraftBukkit("inventory.CraftMetaItem");
+        public static final Field DISPLAY_NAME_FIELD;
+        public static final Field LORE_FIELD;
+
+        static {
+            try {
+                DISPLAY_NAME_FIELD = CRAFT_META.getDeclaredField("displayName");
+                LORE_FIELD = CRAFT_META.getDeclaredField("lore");
+                DISPLAY_NAME_FIELD.setAccessible(true);
+                LORE_FIELD.setAccessible(true);
+            } catch (NoSuchFieldException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        public static boolean isDisplayNameString() {
+            return DISPLAY_NAME_FIELD.getType() == String.class;
+        }
+
+        @SneakyThrows
+        public static void setDisplayName(org.bukkit.inventory.meta.ItemMeta meta, Component displayName) {
+            // it will probably break on older versions
+            if (!FeatureSupport.TEXT_COMPONENTS_IN_ITEMS_SUPPORT) {
+                meta.setDisplayName(KyoriHelper.toLegacy(displayName));
+                return;
+            }
+            Field displayNameField = CRAFT_META.getDeclaredField("displayName");
+            displayNameField.setAccessible(true);
+            if (isDisplayNameString()) DISPLAY_NAME_FIELD.set(meta, KyoriHelper.toJson(displayName));
+            else DISPLAY_NAME_FIELD.set(meta, MinecraftReflection.toMinecraftComponent(displayName).getObject());
+        }
+
+        @SneakyThrows
+        public static Option<Component> getDisplayName(org.bukkit.inventory.meta.ItemMeta meta) {
+            Object displayName = DISPLAY_NAME_FIELD.get(meta);
+            if (displayName == null)
+                return Option.none();
+            if (displayName instanceof String) {
+                if (!FeatureSupport.TEXT_COMPONENTS_IN_ITEMS_SUPPORT)
+                    return Option.some(KyoriHelper.fromLegacy((String) displayName));
+                return Option.some(KyoriHelper.fromJson((String) displayName));
+            }
+            return Option.some(MinecraftReflection.fromMinecraftComponent(ReflectionObject.of(displayName)));
+        }
+
+        @SneakyThrows
+        public static void setLore(org.bukkit.inventory.meta.ItemMeta meta, Collection<Component> lore) {
+            LORE_FIELD.set(meta, lore.stream().map(component -> {
+                if (!FeatureSupport.TEXT_COMPONENTS_IN_ITEMS_SUPPORT) return KyoriHelper.toLegacy(component);
+                if (isDisplayNameString()) return KyoriHelper.toJson(component);
+                else return MinecraftReflection.toMinecraftComponent(component).getObject();
+            }).collect(Collectors.toList()));
+        }
+
+        @SneakyThrows
+        public static List<Component> getLore(org.bukkit.inventory.meta.ItemMeta meta){
+            List<Object> rawLore = (List<Object>) LORE_FIELD.get(meta);
+            if (rawLore == null || rawLore.isEmpty()) return Collections.emptyList();
+            return rawLore.stream().map(obj -> {
+                if (!FeatureSupport.TEXT_COMPONENTS_IN_ITEMS_SUPPORT) return KyoriHelper.fromLegacy((String) obj);
+                if (isDisplayNameString()) return KyoriHelper.fromJson((String) obj);
+                else return MinecraftReflection.fromMinecraftComponent(ReflectionObject.of(obj));
+            }).collect(Collectors.toList());
+        }
 
         @SneakyThrows
         public static Option<Integer> getCustomModelData(org.bukkit.inventory.meta.ItemMeta itemMeta) {
@@ -112,7 +218,8 @@ public class ReflectedRepresentations {
 
         public static ReflectionObject getNamespacedKey(org.bukkit.enchantments.Enchantment enchantment) {
             ensureNamespacedEnchantmentsSupport();
-            return new ReflectionObject(CLASS, enchantment).invokePublic("getKey").get();
+            return new ReflectionObject(CLASS, enchantment).invokePublic("getKey")
+                    .get();
         }
 
         public static Key getKyoriKey(org.bukkit.enchantments.Enchantment enchantment) {

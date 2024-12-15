@@ -62,7 +62,18 @@ public class ReflectionObject {
 
     @SneakyThrows
     public Option<ReflectionObject> invokePublic(String methodName, ReflectionObject... args) {
-        Method method = clazz.getMethod(methodName, toClassesArray(args));
+        //Method method = clazz.getMethod(methodName, toClassesArray(args));
+        Method method = Arrays.stream(clazz.getMethods())
+                .filter(filterMethod -> filterMethod.getName().equals(methodName))
+                .filter(filterMethod -> {
+                    if (filterMethod.getParameterCount() != args.length) return false;
+                    for (int i = 0; i < args.length; i++) {
+                        if (!filterMethod.getParameterTypes()[i].isAssignableFrom(args[i].getClazz())) return false;
+                    }
+                    return true;
+                }).findFirst().orElseThrow(() -> new NullPointerException(
+                        "Method " + methodName + " with parameters " + Arrays.toString(toClassesArray(args)) + " not found"
+                ));
         Class<?> returnClass = method.getReturnType();
         return Option.of(method.invoke(object, toObjectsArray(args)))
                 .map(obj -> new ReflectionObject(returnClass, obj));

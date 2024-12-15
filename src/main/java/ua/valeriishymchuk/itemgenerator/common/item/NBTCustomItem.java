@@ -37,40 +37,41 @@ public class NBTCustomItem {
         });
     }
 
-    public static Cooldown getCooldown(ItemStack itemStack) {
+    public static Cooldown getCooldown(ItemStack itemStack, int cooldownId) {
         return NBT.get(itemStack, nbt -> {
             Long cooldown = getBukkitValues(nbt)
-                    .map(bukkitValues -> bukkitValues.getLong(CUSTOM_ITEM_COOLDOWN_KEY.asString())).getOrNull();
+                    .map(bukkitValues -> bukkitValues.getLong(CUSTOM_ITEM_COOLDOWN_KEY.asString() + cooldownId)).getOrNull();
             Long freezetime = getBukkitValues(nbt)
-                    .map(bukkitValues -> bukkitValues.getLong(CUSTOM_ITEM_COOLDOWN_KEY.asString())).getOrNull();
+                    .map(bukkitValues -> bukkitValues.getLong(CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY.asString() + cooldownId)).getOrNull();
             if (cooldown == null || cooldown < System.currentTimeMillis()) return CooldownType.NONE.toCooldown(0);
             if (freezetime == null || freezetime < System.currentTimeMillis()) return CooldownType.DEFAULT.toCooldown(cooldown);
             return CooldownType.FROZEN.toCooldown(freezetime);
         });
     }
 
-    public static Cooldown queryCooldown(ItemStack itemStack, long cooldownMillis, long freezetimeMillis) {
-        Cooldown cooldown = getCooldown(itemStack);
+    public static Cooldown queryCooldown(ItemStack itemStack, long cooldownMillis, long freezetimeMillis, int cooldownId) {
+        Cooldown cooldown = getCooldown(itemStack, cooldownId);
         if (cooldown.isFrozen()) return cooldown;
         if (cooldown.isAbsent()) {
-            updateCooldown(itemStack, System.currentTimeMillis() + cooldownMillis);
+            updateCooldown(itemStack, System.currentTimeMillis() + cooldownMillis, cooldownId);
+            updateFreezetime(itemStack, System.currentTimeMillis() + freezetimeMillis, cooldownId);
             return CooldownType.NONE.toCooldown(0);
         }
-        updateFreezetime(itemStack, System.currentTimeMillis() + freezetimeMillis);
+        updateFreezetime(itemStack, System.currentTimeMillis() + freezetimeMillis, cooldownId);
         return cooldown;
     }
 
-    public static void updateCooldown(ItemStack itemStack, @Nullable Long cooldown) {
+    public static void updateCooldown(ItemStack itemStack, @Nullable Long cooldown, int cooldownId) {
         NBT.modify(itemStack, nbt -> {
             ReadWriteNBT bukkitValues = nbt.getOrCreateCompound(PUBLIC_BUKKIT_VALUES);
-            bukkitValues.setLong(CUSTOM_ITEM_COOLDOWN_KEY.asString(), cooldown);
+            bukkitValues.setLong(CUSTOM_ITEM_COOLDOWN_KEY.asString() + cooldownId, cooldown);
         });
     }
 
-    public static void updateFreezetime(ItemStack itemStack, @Nullable Long freezetime) {
+    public static void updateFreezetime(ItemStack itemStack, @Nullable Long freezetime, int cooldownId) {
         NBT.modify(itemStack, nbt -> {
             ReadWriteNBT bukkitValues = nbt.getOrCreateCompound(PUBLIC_BUKKIT_VALUES);
-            bukkitValues.setLong(CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY.asString(), freezetime);
+            bukkitValues.setLong(CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY.asString() + cooldownId, freezetime);
         });
     }
 

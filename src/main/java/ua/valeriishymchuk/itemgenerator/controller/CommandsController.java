@@ -45,7 +45,8 @@ public class CommandsController {
                             .peek(tuple -> tuple._1.getInventory().addItem(tuple._2));
                 }));
 
-        commandManager.command(commandManager.commandBuilder("reload")
+        commandManager.command(builder
+                        .literal("reload")
                 .permission(COMMAND_PERMISSION_PREPEND + "reload")
                 .handler(ctx -> KyoriHelper.sendMessage(ctx.getSender(), itemService.reload())));
     }

@@ -34,15 +34,21 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok:1.18.36")
     //compileOnly("io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT")
 
-    compileOnly("org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT") // you can compile with this only
+    compileOnly("org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT") // you can compile with this
 
-    //compileOnly("org.spigotmc:spigot-api:1.13-R0.1-SNAPSHOT")
+    val version = 19
+    var finalVersion: String = "$version"
+    if (version == 16) {
+        finalVersion += ".5"
+    }
+    //compileOnly("org.spigotmc:spigot-api:1.$finalVersion-R0.1-SNAPSHOT")
 
 
     //compileOnly("org.spigotmc:spigot:1.8-R0.1-SNAPSHOT") // can be obtained from buildtools, being used only for investigation purposes
     val adventureVersion = "4.17.0"
     implementation("net.kyori:adventure-text-minimessage:$adventureVersion")
     implementation("net.kyori:adventure-text-serializer-gson:$adventureVersion")
+    implementation("net.kyori:adventure-text-serializer-legacy:$adventureVersion")
 
 
     compileOnly("com.github.LoneDev6:API-ItemsAdder:3.6.1")
@@ -83,11 +89,13 @@ java {
 //    }
 //}
 
-tasks.processResources {
+tasks.named<ProcessResources>("processResources") {
     val props = mapOf(
         "version" to version
     )
-    inputs.properties.putAll(props)
+    props.forEach { (key, value) ->
+        inputs.property(key, value)
+    }
     filteringCharset = "UTF-8"
     filesMatching("plugin.yml") {
         expand(props)
@@ -95,10 +103,12 @@ tasks.processResources {
 }
 
 tasks.named("shadowJar", com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar::class) {
-    val mainPackage = group + "." + project.name.lowercase()
+    val mainPackage = project.group.toString() + "." + project.name.lowercase()
     relocate("cloud.commandframework", "$mainPackage.commandframework")
     relocate("net.kyori", "$mainPackage.kyori")
     relocate("de.tr7zw.changeme.nbtapi", "$mainPackage.nbtapi")
+    relocate("org.spongepowered", "$mainPackage.spongepowered")
+    relocate("org.yaml.snakeyaml", "$mainPackage.snakeyaml")
 }
 
 

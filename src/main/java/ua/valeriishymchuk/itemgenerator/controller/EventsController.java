@@ -6,10 +6,7 @@ import lombok.experimental.FieldDefaults;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
-import org.bukkit.event.Listener;
+import org.bukkit.event.*;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -23,10 +20,11 @@ public class EventsController implements Listener {
 
     IItemService itemService;
 
-    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.HIGH)
     private void onUsage(PlayerInteractEvent event) {
-         ItemUsageResultDTO result = itemService.useItem(event.getPlayer(), event.getAction(), event.getItem());
-         handleResult(result, event.getPlayer(), event);
+        if (event.useItemInHand() == Event.Result.DENY) return;
+        ItemUsageResultDTO result = itemService.useItem(event.getPlayer(), event.getAction(), event.getItem());
+        handleResult(result, event.getPlayer(), event);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
@@ -55,7 +53,7 @@ public class EventsController implements Listener {
     private void handleResult(ItemUsageResultDTO result, Player player, Cancellable event) {
         event.setCancelled(result.isShouldCancel());
         result.getCommands().forEach(commands -> {
-            CommandSender sender = commands.isExecuteAsConsole()? Bukkit.getConsoleSender() : player;
+            CommandSender sender = commands.isExecuteAsConsole() ? Bukkit.getConsoleSender() : player;
             Bukkit.dispatchCommand(sender, commands.getCommand());
         });
         result.getMessage().peek(message -> KyoriHelper.sendMessage(player, message));

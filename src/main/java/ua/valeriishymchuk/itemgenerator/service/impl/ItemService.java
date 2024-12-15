@@ -28,12 +28,13 @@ import java.util.List;
 import java.util.Locale;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
 public class ItemService implements IItemService {
 
-    private static final Pattern TIME_PATTERN = Pattern.compile("%time_(?<timeunit>[a-z])(\\.(?<precision>\\d+f))?%");
+    private static final Pattern TIME_PATTERN = Pattern.compile("%time_(?<timeunit>[a-z])(\\.(?<precision>\\d+)f)?%");
 
     IConfigRepository configRepository;
 
@@ -48,7 +49,7 @@ public class ItemService implements IItemService {
 
     @Override
     public ItemUsageResultDTO useItem(Player player, Action action, ItemStack item) {
-        boolean isBlock = action == Action.RIGHT_CLICK_BLOCK || action == Action.RIGHT_CLICK_AIR;
+        boolean isBlock = action == Action.RIGHT_CLICK_BLOCK || action == Action.LEFT_CLICK_BLOCK;
         boolean isLeftClick = action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK;
         UsageEntity.ClickType clickType = new UsageEntity.ClickType(
                 isLeftClick ? UsageEntity.ClickButton.LEFT : UsageEntity.ClickButton.RIGHT,
@@ -79,33 +80,40 @@ public class ItemService implements IItemService {
                 Collections.emptyList(),
                 true
         );
-        UsageEntity usage = customItem.getUsages().stream()
+        List<UsageEntity> usages = customItem.getUsages().stream()
                 .filter(usageFilter -> usageFilter.accepts(clickType))
-                .findFirst().orElse(null);
-        if (usage == null) return new ItemUsageResultDTO(
+                .collect(Collectors.toList());
+        return usages.stream().map(usage -> {
+            NBTCustomItem.Cooldown cooldown = NBTCustomItem
+                    .queryCooldown(item, usage.getCooldownMillis(), usage.getCooldownFreezeTimeMillis(), usages.indexOf(usage));
+            if (cooldown.isFrozen()) return new ItemUsageResultDTO(
+                    null,
+                    Collections.emptyList(),
+                    true
+            );
+            if (cooldown.isDefault()) return new ItemUsageResultDTO(
+                    null,
+                    usage.getOnCooldown().stream().map(it -> prepareCooldown(cooldown.getRemainingMillis(), player, it))
+                            .collect(Collectors.toList()),
+                    true
+            );
+            return new ItemUsageResultDTO(
+                    null,
+                    usage.getCommands().stream()
+                            .map(command -> prepare(command, player))
+                            .collect(Collectors.toList()),
+                    usage.isCancel()
+            );
+        }).reduce((acc, e) -> new ItemUsageResultDTO(
+                null,
+                Stream.of(acc, e).map(ItemUsageResultDTO::getCommands)
+                        .flatMap(List::stream).collect(Collectors.toList()),
+                acc.isShouldCancel() || e.isShouldCancel()
+        )).orElse(new ItemUsageResultDTO(
                 null,
                 Collections.emptyList(),
                 true
-        );
-        NBTCustomItem.Cooldown cooldown = NBTCustomItem.queryCooldown(item, usage.getCooldownMillis(), usage.getCooldownFreezeTimeMillis());
-        if (cooldown.isFrozen()) return new ItemUsageResultDTO(
-                null,
-                Collections.emptyList(),
-                true
-        );
-        if (cooldown.isDefault()) return new ItemUsageResultDTO(
-                null,
-                usage.getOnCooldown().stream().map(it -> prepareCooldown(cooldown.getRemainingMillis(), player, it))
-                        .collect(Collectors.toList()),
-                true
-        );
-        return new ItemUsageResultDTO(
-                null,
-                usage.getCommands().stream()
-                        .map(command -> prepare(command, player))
-                        .collect(Collectors.toList()),
-                usage.isCancel()
-        );
+        ));
     }
 
     private CommandExecutionDTO prepare(UsageEntity.Command command, Player player) {
@@ -157,6 +165,7 @@ public class ItemService implements IItemService {
 
     @Override
     public void updateItem(ItemStack itemStack, Player player) {
+        if (!PapiSupport.isPluginEnabled()) return;
         config().updateItem(itemStack, player);
     }
 

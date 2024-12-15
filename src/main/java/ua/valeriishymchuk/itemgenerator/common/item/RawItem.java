@@ -1,5 +1,6 @@
 package ua.valeriishymchuk.itemgenerator.common.item;
 
+import io.vavr.control.Option;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
@@ -13,9 +14,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import ua.valeriishymchuk.itemgenerator.common.message.KyoriHelper;
-import ua.valeriishymchuk.itemgenerator.common.reflection.ReflectionObject;
 import ua.valeriishymchuk.itemgenerator.common.reflection.ReflectedRepresentations;
-import ua.valeriishymchuk.itemgenerator.common.version.FeatureSupport;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -27,11 +26,11 @@ import java.util.stream.Collectors;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
 @With
-public class RawItem {
+public class RawItem implements Cloneable {
 
     public static final RawItem EMPTY = new RawItem();
 
-    Material material;
+    String material;
     @Nullable
     String name;
     List<String> lore;
@@ -39,9 +38,19 @@ public class RawItem {
     List<ItemFlag> itemFlags;
     Map<String, Integer> enchantments;
 
+    @Override
+    public RawItem clone(){
+        return withName(name);
+    }
+
+    public RawItem replace(String placeholder, String value) {
+        return withName(Option.of(name).map(s -> s.replace(placeholder, value)).getOrNull())
+                .withLore(lore.stream().map(s -> s.replace(placeholder, value)).collect(Collectors.toList()));
+    }
+
     private RawItem() {
         this(
-                Arrays.stream(Material.values()).findFirst().get(),
+                "DIAMOND",
                 null, Collections.emptyList(),
                 null,
                 Collections.emptyList(),
@@ -50,10 +59,10 @@ public class RawItem {
     }
 
     public ItemStack bake() {
-        ItemStack item = new ItemStack(material);
+        ItemStack item = new ItemStack(Material.valueOf(material));
         ItemMeta meta = item.getItemMeta();
-        if (name != null) meta.setDisplayName(KyoriHelper.parseMiniMessage(name));
-        if (!lore.isEmpty()) meta.setLore(lore.stream()
+        if (name != null) ReflectedRepresentations.ItemMeta.setDisplayName(meta, KyoriHelper.parseMiniMessage(name));
+        if (!lore.isEmpty()) ReflectedRepresentations.ItemMeta.setLore(meta, lore.stream()
                 .map(KyoriHelper::parseMiniMessage)
                 .collect(Collectors.toList())
         );
