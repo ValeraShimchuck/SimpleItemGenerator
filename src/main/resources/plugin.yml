@@ -1,0 +1,6 @@
+name: ItemGeneratorPlugin
+version: '1.0-SNAPSHOT'
+main: ua.valeriishymchuk.itemgenerator.ItemGeneratorPlugin
+softdepend:
+  - ItemsAdder
+  - PlaceholderAPI
