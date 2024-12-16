@@ -18,6 +18,7 @@ import org.spongepowered.configurate.yaml.NodeStyle;
 import ua.valeriishymchuk.itemgenerator.common.config.ConfigLoader;
 import ua.valeriishymchuk.itemgenerator.common.config.builder.ConfigLoaderConfigurationBuilder;
 import ua.valeriishymchuk.itemgenerator.common.message.KyoriHelper;
+import ua.valeriishymchuk.itemgenerator.common.metrics.MetricsHelper;
 import ua.valeriishymchuk.itemgenerator.common.scheduler.BukkitTaskScheduler;
 import ua.valeriishymchuk.itemgenerator.controller.CommandsController;
 import ua.valeriishymchuk.itemgenerator.controller.EventsController;
@@ -46,12 +47,12 @@ public final class ItemGeneratorPlugin extends JavaPlugin {
         new CommandsController(itemService).setupCommands(commandManager);
         Bukkit.getPluginManager().registerEvents(new EventsController(itemService), this);
         new TickController(itemService, taskScheduler).start();
-
+        MetricsHelper.init(this);
     }
 
     @Override
     public void onDisable() {
-        // Plugin shutdown logic
+        MetricsHelper.shutdown();
     }
 
     private ConfigLoader yamlLoader() {

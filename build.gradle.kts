@@ -68,6 +68,7 @@ dependencies {
     implementation("cloud.commandframework:cloud-bukkit:$cloudVersion")
     implementation("cloud.commandframework:cloud-core:$cloudVersion")
     implementation("cloud.commandframework:cloud-minecraft-extras:$cloudVersion")
+    implementation("org.bstats:bstats-bukkit:3.0.2")
 }
 
 val targetJavaVersion = 8
@@ -109,6 +110,7 @@ tasks.named("shadowJar", com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
     relocate("de.tr7zw.changeme.nbtapi", "$mainPackage.nbtapi")
     relocate("org.spongepowered", "$mainPackage.spongepowered")
     relocate("org.yaml.snakeyaml", "$mainPackage.snakeyaml")
+    relocate("org.bstats", "$mainPackage.bstats")
 }
 
 
