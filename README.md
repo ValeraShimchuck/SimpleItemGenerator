@@ -1,4 +1,4 @@
-# ItemGenerator
+# SimpleItemGenerator
 
 ## Information
 ItemGenerator is a lightweight item generator with simple, but functional configurations. Those configurations support PlaceholderAPI, ItemsAdder and MiniMessage. Another feature of the plugin is big variety of versions starting from 1.8 and ending up to the latest version of the game. 

@@ -1,6 +1,6 @@
-name: ItemGenerator
+name: SimpleItemGenerator
 version: '${version}'
-main: ua.valeriishymchuk.itemgenerator.ItemGeneratorPlugin
+main: ua.valeriishymchuk.simpleitemgenerator.ItemGeneratorPlugin
 softdepend:
   - ItemsAdder
   - PlaceholderAPI
