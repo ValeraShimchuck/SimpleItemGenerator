@@ -27,7 +27,7 @@ import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
 
 import java.util.function.Function;
 
-public final class ItemGeneratorPlugin extends JavaPlugin {
+public final class SimpleItemGeneratorPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {

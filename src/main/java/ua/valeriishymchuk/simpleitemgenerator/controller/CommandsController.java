@@ -21,12 +21,12 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CommandsController {
 
-    private static final String COMMAND_PERMISSION_PREPEND = "itemgenerator.commands.";
+    private static final String COMMAND_PERMISSION_PREPEND = "simpleitemgenerator.commands.";
 
     IItemService itemService;
 
     public void setupCommands(CommandManager<CommandSender> commandManager) {
-        Command.Builder<CommandSender> builder = commandManager.commandBuilder("itemgenerator")
+        Command.Builder<CommandSender> builder = commandManager.commandBuilder("simpleitemgenerator", "sig")
                 .permission(COMMAND_PERMISSION_PREPEND + "general");
         commandManager.command(builder.literal("give")
                 .permission(COMMAND_PERMISSION_PREPEND + "give")

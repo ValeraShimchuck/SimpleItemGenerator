@@ -14,9 +14,9 @@ import org.jetbrains.annotations.Nullable;
 
 public class NBTCustomItem {
 
-    private static final Key CUSTOM_ITEM_ID_KEY = Key.key("itemgenerator:custom_item_id");
-    private static final Key CUSTOM_ITEM_COOLDOWN_KEY = Key.key("itemgenerator:custom_item_cooldown");
-    private static final Key CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY = Key.key("itemgenerator:custom_item_freezetime");
+    private static final Key CUSTOM_ITEM_ID_KEY = Key.key("simpleitemgenerator:custom_item_id");
+    private static final Key CUSTOM_ITEM_COOLDOWN_KEY = Key.key("simpleitemgenerator:custom_item_cooldown");
+    private static final Key CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY = Key.key("simpleitemgenerator:custom_item_freezetime");
     private static final String PUBLIC_BUKKIT_VALUES = "PublicBukkitValues";
 
     public static Option<String> getCustomItemId(ItemStack item) {

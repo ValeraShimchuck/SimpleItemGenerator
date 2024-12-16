@@ -1,14 +1,14 @@
 # SimpleItemGenerator
 
 ## Information
-ItemGenerator is a lightweight item generator with simple, but functional configurations. Those configurations support PlaceholderAPI, ItemsAdder and MiniMessage. Another feature of the plugin is big variety of versions starting from 1.8 and ending up to the latest version of the game. 
+SimpleItemGenerator is a lightweight item generator with simple, but functional configurations. Those configurations support PlaceholderAPI, ItemsAdder and MiniMessage. Another feature of the plugin is big variety of versions starting from 1.8 and ending up to the latest version of the game. 
 
 ## Commands
-To be able to see itemgenerator command you should have permission `itemgenerator.commands.general`
+To be able to see simpleitemgenerator command you should have permission `simpleitemgenerator.commands.general`
 
-`/itemgenerator reload` - reloads the plugin. Requires `itemgenerator.commands.reload` permission
+`/simpleitemgenerator reload` - reloads the plugin. Requires `simpleitemgenerator.commands.reload` permission
 
-`/itemgenerator give <item> <player>` - item is your key of the item that you configured earlier, player is optional.  Requires `itemgenerator.commands.give` permission
+`/simpleitemgenerator give <item> <player>` - item is your key of the item that you configured earlier, player is optional.  Requires `simpleitemgenerator.commands.give` permission
 
 ## Examples
 There are some examples of configuring the plugin
