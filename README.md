@@ -3,6 +3,13 @@
 ## Information
 ItemGenerator is a lightweight item generator with simple, but functional configurations. Those configurations support PlaceholderAPI, ItemsAdder and MiniMessage. Another feature of the plugin is big variety of versions starting from 1.8 and ending up to the latest version of the game. 
 
+## Commands
+To be able to see itemgenerator command you should have permission `itemgenerator.commands.general`
+
+`/itemgenerator reload` - reloads the plugin. Requires `itemgenerator.commands.reload` permission
+
+`/itemgenerator give <item> <player>` - item is your key of the item that you configured earlier, player is optional.  Requires `itemgenerator.commands.give` permission
+
 ## Examples
 There are some examples of configuring the plugin
 ### Simple Item
@@ -81,7 +88,7 @@ items:
 ```
 
 ### Complex functionality
-Well, I show it to tou just to show how hard item settings can be
+Well, I will show you how hard item settings can be
 
 ```yaml
 items:
