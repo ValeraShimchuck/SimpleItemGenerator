@@ -177,6 +177,7 @@ public class ConfigEntity {
         String customItemId = NBTCustomItem.getCustomItemId(itemStack).getOrNull();
         if (customItemId == null) return;
         CustomItem customItem = items.get(customItemId);
+        if (customItem == null) return;
         if (!customItem.hasPlaceHolders()) return;
         ItemMeta configItemMeta = customItem.getItemStack().getItemMeta();
         ItemMeta meta = itemStack.getItemMeta();
