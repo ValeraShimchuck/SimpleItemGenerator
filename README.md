@@ -73,7 +73,7 @@ items:
     - '[console] say %player% item is on cooldown! Wait %time_s.2f%s to use again!' # you can use time placeholder to display in ever way you want
     - '[console] tellraw %player% %minimessage_<red>Another example of the time placeholder %time_t% %time_h.5f% %time_m.3f% %'
     freezetime: 1s # this field can keep you for a while from spamming on-cooldown commands after them being issued
-    commands: '[console] say %player% hi, you used me!'
+    commands: '[console] say %player% hi, you used me at block %target_x% %target_y% %target_z%!' # supports context-dependant placeholders
     predicate: '[at] block' # only works when click at a block. Also supports air|entity|player
   item3:
     item: ... # item section
@@ -103,9 +103,11 @@ items:
       - at: air
         button: left
       - '[at] block'
-    - commands: '[console] tellraw %minimessage_<green>You clicked at entity%'
+    - commands: '[console] tellraw %minimessage_<green>You clicked at an entity at %target_x% %target_y% %target_z%%'
       predicate: '[at] entity'
       cancel: false
+    - commands: '[console] tellraw %minimessage_<green>You clicked at a player at %target_x% %target_y% %target_z% and his name %player_target%%'
+      predicate: '[at] player'
     - '[console] tellraw %minimessage_<green>I am issued every time you interact with me%player%'
 ```
 

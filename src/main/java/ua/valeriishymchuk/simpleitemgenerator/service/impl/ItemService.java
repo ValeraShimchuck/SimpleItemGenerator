@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
@@ -28,10 +29,8 @@ import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IConfigRepository;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -54,8 +53,8 @@ public class ItemService implements IItemService {
     }
 
     @Override
-    public ItemUsageResultDTO useItem(Player player, Action action, ItemStack item) {
-        boolean isBlock = action == Action.RIGHT_CLICK_BLOCK || action == Action.LEFT_CLICK_BLOCK;
+    public ItemUsageResultDTO useItem(Player player, Action action, ItemStack item, @Nullable Block clickedBlock) {
+        boolean isBlock = clickedBlock != null;
         boolean isLeftClick = action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK;
         UsageEntity.ClickType clickType = new UsageEntity.ClickType(
                 isLeftClick ? UsageEntity.ClickButton.LEFT : UsageEntity.ClickButton.RIGHT,
@@ -67,8 +66,32 @@ public class ItemService implements IItemService {
                 false
         );
         if (action == Action.PHYSICAL) return nop;
-        return useItem0(player, item, clickType);
+        Map<String, String> placeholders = new HashMap<>();
+        if (isBlock) placeholders.putAll(placeholdersFor(clickedBlock));
+        return useItem0(player, item, clickType, placeholders);
 
+    }
+
+    private Map<String, String> placeholdersFor(Block block) {
+        Map<String, String> placeholders = new HashMap<>();
+        placeholders.put("%target_x%", block.getX() + "");
+        placeholders.put("%target_y%", block.getY() + "");
+        placeholders.put("%target_z%", block.getZ() + "");
+        return placeholders;
+    }
+
+    private Map<String, String> placeholdersFor(Player player) {
+        Map<String, String> placeholders = new HashMap<>(placeholdersFor((Entity) player));
+        placeholders.put("%player_target%", player.getName());
+        return placeholders;
+    }
+
+    private Map<String, String> placeholdersFor(Entity entity) {
+        Map<String, String> placeholders = new HashMap<>();
+        placeholders.put("%target_x%", entity.getLocation().getX() + "");
+        placeholders.put("%target_y%", entity.getLocation().getY() + "");
+        placeholders.put("%target_z%", entity.getLocation().getZ() + "");
+        return placeholders;
     }
 
     @Override
@@ -85,19 +108,27 @@ public class ItemService implements IItemService {
                 playerReach,
                 playerReach + 1
         );
+        Map<String, String> placeholders = new HashMap<>();
         UsageEntity.ClickAt clickAt;
         if (result.hitBlock()) {
             RayTraceBlockResult castesResult = (RayTraceBlockResult) result;
             clickAt = UsageEntity.ClickAt.BLOCK;
+            placeholders.putAll(placeholdersFor(castesResult.getHitBlock()));
         } else if (result.hitEntity()) {
             RayTraceEntityResult castesResult = (RayTraceEntityResult) result;
-            if (castesResult.getEntity() instanceof Player) clickAt = UsageEntity.ClickAt.PLAYER;
-            else clickAt = UsageEntity.ClickAt.ENTITY;
+            if (castesResult.getEntity() instanceof Player) {
+                placeholders.putAll(placeholdersFor((Player) castesResult.getEntity()));
+                clickAt = UsageEntity.ClickAt.PLAYER;
+            }
+            else {
+                placeholders.putAll(placeholdersFor(castesResult.getEntity()));
+                clickAt = UsageEntity.ClickAt.ENTITY;
+            }
         } else clickAt = UsageEntity.ClickAt.AIR;
-        return useItem0(player, item, new UsageEntity.ClickType(UsageEntity.ClickButton.DROP, clickAt));
+        return useItem0(player, item, new UsageEntity.ClickType(UsageEntity.ClickButton.DROP, clickAt), placeholders);
     }
 
-    private ItemUsageResultDTO useItem0(Player player, ItemStack item, UsageEntity.ClickType clickType) {
+    private ItemUsageResultDTO useItem0(Player player, ItemStack item, UsageEntity.ClickType clickType, Map<String, String> placeholders) {
         ItemUsageResultDTO nop = new ItemUsageResultDTO(
                 null,
                 Collections.emptyList(),
@@ -125,14 +156,14 @@ public class ItemService implements IItemService {
             );
             if (cooldown.isDefault()) return new ItemUsageResultDTO(
                     null,
-                    usage.getOnCooldown().stream().map(it -> prepareCooldown(cooldown.getRemainingMillis(), player, it))
+                    usage.getOnCooldown().stream().map(it -> prepareCooldown(cooldown.getRemainingMillis(), player, it, placeholders))
                             .collect(Collectors.toList()),
                     true
             );
             return new ItemUsageResultDTO(
                     null,
                     usage.getCommands().stream()
-                            .map(command -> prepare(command, player))
+                            .map(command -> prepare(command, player, placeholders))
                             .collect(Collectors.toList()),
                     usage.isCancel()
             );
@@ -148,13 +179,16 @@ public class ItemService implements IItemService {
         ));
     }
 
-    private CommandExecutionDTO prepare(UsageEntity.Command command, Player player) {
+    private CommandExecutionDTO prepare(UsageEntity.Command command, Player player, Map< String, String> placeholders) {
         String rawCommand = replacePlayer(command.getCommand(), player);
-        return new CommandExecutionDTO(command.isExecuteAsConsole(), rawCommand);
+        AtomicReference<String> strAtomic = new AtomicReference<>(rawCommand);
+        placeholders.forEach((placeholder, value) -> strAtomic.set(strAtomic.get().replace(placeholder, value)));
+        return new CommandExecutionDTO(command.isExecuteAsConsole(), strAtomic.get());
     }
 
-    private CommandExecutionDTO prepareCooldown(long milliseconds, Player player, UsageEntity.Command command) {
-        String rawCommand = replacePlayer(command.getCommand(), player);
+    private CommandExecutionDTO prepareCooldown(long milliseconds, Player player, UsageEntity.Command command, Map< String, String> placeholders) {
+        CommandExecutionDTO halfPreparedDto = prepare(command, player, placeholders);
+        String rawCommand = halfPreparedDto.getCommand();
         String finalCommand = RegexUtils.replaceAll(TIME_PATTERN.matcher(rawCommand), matcher -> {
             String timeUnit = matcher.group("timeunit").toLowerCase();
             int precision = Option.of(matcher.group("precision")).map(Integer::parseInt).getOrElse(0);
@@ -177,11 +211,15 @@ public class ItemService implements IItemService {
             }
             return String.format(Locale.ROOT, "%." + precision + "f", value);
         });
-        return new CommandExecutionDTO(command.isExecuteAsConsole(), finalCommand);
+        return new CommandExecutionDTO(halfPreparedDto.isExecuteAsConsole(), finalCommand);
     }
 
     private String replacePlayer(String text, Player player) {
-        return PapiSupport.tryParse(player, text).replace("%player%", player.getName());
+        return PapiSupport.tryParse(player, text)
+                .replace("%player%", player.getName())
+                .replace("%player_x%", player.getLocation().getX() + "")
+                .replace("%player_y%", player.getLocation().getY() + "")
+                .replace("%player_z%", player.getLocation().getZ() + "");
     }
 
 
@@ -192,7 +230,8 @@ public class ItemService implements IItemService {
                 isRightClicked ? UsageEntity.ClickButton.RIGHT : UsageEntity.ClickButton.LEFT,
                 isPlayer ? UsageEntity.ClickAt.PLAYER : UsageEntity.ClickAt.ENTITY
         );
-        return useItem0(player, item, clickType);
+        Map<String, String> placeholders = isPlayer ? placeholdersFor((Player) clicked) : placeholdersFor(clicked);
+        return useItem0(player, item, clickType, placeholders);
     }
 
     @Override

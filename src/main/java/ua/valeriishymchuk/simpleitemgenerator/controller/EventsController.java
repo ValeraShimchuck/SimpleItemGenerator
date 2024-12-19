@@ -24,7 +24,12 @@ public class EventsController implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     private void onUsage(PlayerInteractEvent event) {
         if (event.useItemInHand() == Event.Result.DENY) return;
-        ItemUsageResultDTO result = itemService.useItem(event.getPlayer(), event.getAction(), event.getItem());
+        ItemUsageResultDTO result = itemService.useItem(
+                event.getPlayer(),
+                event.getAction(),
+                event.getItem(),
+                event.getClickedBlock()
+        );
         handleResult(result, event.getPlayer(), event);
     }
 

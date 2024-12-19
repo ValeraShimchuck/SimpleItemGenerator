@@ -1,6 +1,7 @@
 package ua.valeriishymchuk.simpleitemgenerator.service;
 
 import net.kyori.adventure.text.Component;
+import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
@@ -13,7 +14,7 @@ import java.util.List;
 
 public interface IItemService {
 
-    ItemUsageResultDTO useItem(Player player, Action action, ItemStack item);
+    ItemUsageResultDTO useItem(Player player, Action action, ItemStack item, @Nullable Block clickedBlock);
     ItemUsageResultDTO dropItem(Player player, ItemStack item);
     ItemUsageResultDTO useItemAt(Player player, boolean isRightClicked, Entity clicked, ItemStack item);
 
