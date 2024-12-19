@@ -6,6 +6,9 @@ import lombok.SneakyThrows;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.md_5.bungee.api.chat.BaseComponent;
+import org.bukkit.World;
+import org.bukkit.entity.Entity;
+import ua.valeriishymchuk.simpleitemgenerator.common.boundingbox.BoundingBox;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.MinecraftVersion;
@@ -21,6 +24,37 @@ import java.util.stream.Collectors;
 import static ua.valeriishymchuk.simpleitemgenerator.common.reflection.MinecraftReflection.getCraftBukkit;
 
 public class ReflectedRepresentations {
+
+    public static class World {
+        public static final Class<org.bukkit.World> CLASS = org.bukkit.World.class;
+
+        @SneakyThrows
+        public static int getMinHeight(org.bukkit.World world) {
+            try {
+                Method getMinHeight = CLASS.getMethod("getMinHeight");
+                return (int) getMinHeight.invoke(world);
+            } catch (NoSuchMethodException e) {
+                return 0;
+            }
+        }
+    }
+
+    public static class Entity {
+        public static final Class<org.bukkit.entity.Entity> CLASS = org.bukkit.entity.Entity.class;
+        public static final Class<?> CRAFT_ENTITY = getCraftBukkit("entity.CraftEntity");
+
+        @SneakyThrows
+        public static BoundingBox getEntitiesBoundingBox(org.bukkit.entity.Entity entity) {
+            Object nmsEntity = CRAFT_ENTITY.getMethod("getHandle").invoke(entity);
+            Object nmsBoundingBox = nmsEntity.getClass().getMethod("getBoundingBox").invoke(nmsEntity);
+            double[] inputs = Arrays.stream(nmsBoundingBox.getClass().getFields())
+                    .map(CheckedFunction1.<Field, Double>of(field -> (double) field.get(nmsBoundingBox)).unchecked())
+                    .mapToDouble(i -> i).toArray();
+            return new BoundingBox(inputs[0], inputs[1], inputs[2], inputs[3], inputs[4], inputs[5]);
+        }
+
+
+    }
 
     public static class ConsoleCommandSender {
         public static final Class<org.bukkit.command.ConsoleCommandSender> CLASS = org.bukkit.command.ConsoleCommandSender.class;

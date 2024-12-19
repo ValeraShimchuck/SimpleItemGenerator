@@ -14,6 +14,7 @@ import java.util.List;
 public interface IItemService {
 
     ItemUsageResultDTO useItem(Player player, Action action, ItemStack item);
+    ItemUsageResultDTO dropItem(Player player, ItemStack item);
     ItemUsageResultDTO useItemAt(Player player, boolean isRightClicked, Entity clicked, ItemStack item);
 
     void updateItem(ItemStack itemStack, Player player);

@@ -34,7 +34,7 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok:1.18.36")
     //compileOnly("io.papermc.paper:paper-api:1.21-R0.1-SNAPSHOT")
 
-    compileOnly("org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT") // you can compile with this
+    //compileOnly("org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT") // you can compile with this
 
     val version = 19
     var finalVersion: String = "$version"
@@ -44,11 +44,12 @@ dependencies {
     //compileOnly("org.spigotmc:spigot-api:1.$finalVersion-R0.1-SNAPSHOT")
 
 
-    //compileOnly("org.spigotmc:spigot:1.8-R0.1-SNAPSHOT") // can be obtained from buildtools, being used only for investigation purposes
+    compileOnly("org.spigotmc:spigot:1.8-R0.1-SNAPSHOT") // can be obtained from buildtools, being used only for investigation purposes
     val adventureVersion = "4.17.0"
     implementation("net.kyori:adventure-text-minimessage:$adventureVersion")
     implementation("net.kyori:adventure-text-serializer-gson:$adventureVersion")
     implementation("net.kyori:adventure-text-serializer-legacy:$adventureVersion")
+    implementation("org.joml:joml:1.10.8")
 
 
     compileOnly("com.github.LoneDev6:API-ItemsAdder:3.6.1")
@@ -111,6 +112,8 @@ tasks.named("shadowJar", com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
     relocate("org.spongepowered", "$mainPackage.spongepowered")
     relocate("org.yaml.snakeyaml", "$mainPackage.snakeyaml")
     relocate("org.bstats", "$mainPackage.bstats")
+    relocate("org.joml", "$mainPackage.joml")
+    minimize()
 }
 
 

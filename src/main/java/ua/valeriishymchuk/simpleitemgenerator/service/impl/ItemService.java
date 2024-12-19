@@ -5,6 +5,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import net.kyori.adventure.text.Component;
+import org.bukkit.Material;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
@@ -12,6 +13,10 @@ import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import ua.valeriishymchuk.simpleitemgenerator.common.component.RawComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
+import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.IRayTraceResult;
+import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceBlockResult;
+import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceEntityResult;
+import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.regex.RegexUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.PapiSupport;
 import ua.valeriishymchuk.simpleitemgenerator.dto.CommandExecutionDTO;
@@ -23,6 +28,7 @@ import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IConfigRepository;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -63,6 +69,32 @@ public class ItemService implements IItemService {
         if (action == Action.PHYSICAL) return nop;
         return useItem0(player, item, clickType);
 
+    }
+
+    @Override
+    public ItemUsageResultDTO dropItem(Player player, ItemStack item) {
+        int playerReach = 3;
+        IRayTraceResult result = RayTraceHelper.rayTrace(
+                player,
+                Arrays.stream(Material.values()).filter(material -> material.isBlock() && (
+                                material.name().endsWith("AIR") ||
+                                        material.name().endsWith("WATER") ||
+                                        material.name().endsWith("LAVA"))
+                        )
+                        .collect(Collectors.toSet()),
+                playerReach,
+                playerReach + 1
+        );
+        UsageEntity.ClickAt clickAt;
+        if (result.hitBlock()) {
+            RayTraceBlockResult castesResult = (RayTraceBlockResult) result;
+            clickAt = UsageEntity.ClickAt.BLOCK;
+        } else if (result.hitEntity()) {
+            RayTraceEntityResult castesResult = (RayTraceEntityResult) result;
+            if (castesResult.getEntity() instanceof Player) clickAt = UsageEntity.ClickAt.PLAYER;
+            else clickAt = UsageEntity.ClickAt.ENTITY;
+        } else clickAt = UsageEntity.ClickAt.AIR;
+        return useItem0(player, item, new UsageEntity.ClickType(UsageEntity.ClickButton.DROP, clickAt)); // TODO test it
     }
 
     private ItemUsageResultDTO useItem0(Player player, ItemStack item, UsageEntity.ClickType clickType) {
@@ -157,7 +189,7 @@ public class ItemService implements IItemService {
     public ItemUsageResultDTO useItemAt(Player player, boolean isRightClicked, Entity clicked, ItemStack item) {
         boolean isPlayer = clicked instanceof Player;
         UsageEntity.ClickType clickType = new UsageEntity.ClickType(
-                isRightClicked? UsageEntity.ClickButton.RIGHT : UsageEntity.ClickButton.LEFT,
+                isRightClicked ? UsageEntity.ClickButton.RIGHT : UsageEntity.ClickButton.LEFT,
                 isPlayer ? UsageEntity.ClickAt.PLAYER : UsageEntity.ClickAt.ENTITY
         );
         return useItem0(player, item, clickType);
@@ -176,11 +208,11 @@ public class ItemService implements IItemService {
                 null
         );
         ItemStack itemStack = config().bakeItem(key, player).getOrNull();
-        RawComponent message = itemStack == null? lang().getItemDoesntExist() : lang().getGiveItemSuccessfully();
+        RawComponent message = itemStack == null ? lang().getItemDoesntExist() : lang().getGiveItemSuccessfully();
         message = message.replaceText("%player%", player.getName())
                 .replaceText("%key%", key);
         return new GiveItemDTO(
-                  message.bake(),
+                message.bake(),
                 itemStack
         );
     }
@@ -198,6 +230,6 @@ public class ItemService implements IItemService {
     @Override
     public Component reload() {
         boolean result = configRepository.reload();
-        return result? lang().getReloadSuccessfully().bake() : lang().getReloadUnsuccessfully().bake();
+        return result ? lang().getReloadSuccessfully().bake() : lang().getReloadUnsuccessfully().bake();
     }
 }

@@ -8,6 +8,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
@@ -25,6 +26,12 @@ public class EventsController implements Listener {
         if (event.useItemInHand() == Event.Result.DENY) return;
         ItemUsageResultDTO result = itemService.useItem(event.getPlayer(), event.getAction(), event.getItem());
         handleResult(result, event.getPlayer(), event);
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
+    private void onDrop(PlayerDropItemEvent event) {
+        Player player = event.getPlayer();
+        handleResult(itemService.dropItem(player, event.getItemDrop().getItemStack()), player, event);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
