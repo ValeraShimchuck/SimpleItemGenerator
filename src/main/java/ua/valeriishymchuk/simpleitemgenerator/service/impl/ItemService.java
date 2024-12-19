@@ -94,7 +94,7 @@ public class ItemService implements IItemService {
             if (castesResult.getEntity() instanceof Player) clickAt = UsageEntity.ClickAt.PLAYER;
             else clickAt = UsageEntity.ClickAt.ENTITY;
         } else clickAt = UsageEntity.ClickAt.AIR;
-        return useItem0(player, item, new UsageEntity.ClickType(UsageEntity.ClickButton.DROP, clickAt)); // TODO test it
+        return useItem0(player, item, new UsageEntity.ClickType(UsageEntity.ClickButton.DROP, clickAt));
     }
 
     private ItemUsageResultDTO useItem0(Player player, ItemStack item, UsageEntity.ClickType clickType) {

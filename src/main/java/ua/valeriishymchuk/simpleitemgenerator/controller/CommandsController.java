@@ -37,7 +37,7 @@ public class CommandsController {
                 .argument(PlayerArgument.optional("player"))
                 .handler(ctx -> {
                     String key = ctx.get("key");
-                    Option<Player> playerOpt = Option.<Player>of(ctx.get("player"))
+                    Option<Player> playerOpt = Option.ofOptional(ctx.<Player>getOptional("player"))
                             .orElse(() -> Option.when(ctx.getSender() instanceof Player, () -> ((Player) ctx.getSender())));
                     GiveItemDTO result = itemService.giveItem(key, playerOpt.getOrNull());
                     KyoriHelper.sendMessage(ctx.getSender(), result.getMessage());
