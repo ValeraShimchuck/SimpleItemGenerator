@@ -114,6 +114,4 @@ items:
 # Contacts
 You have encountered a bag, or you have an idea of a feature you can create an issue in GitHub.
 
-If you need help, or have any issues when dealing with the plugin you can always reach out me on Discord: valerii_dev or if for some reason you can't, then you can always write me to the email: balerii.work@gmail.com (I always check it, because of potential job offers, so you won't be ignored)
-
-Also, my spigot forum account: valera6666
+If you need help, or have any issues when dealing with the plugin you can always reach out me on my Discord Server: https://discord.gg/ksXEuxCqdC.
