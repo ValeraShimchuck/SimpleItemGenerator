@@ -19,6 +19,7 @@ public interface IItemService {
     ItemUsageResultDTO useItemAt(Player player, boolean isRightClicked, Entity clicked, ItemStack item);
 
     void updateItem(ItemStack itemStack, Player player);
+    boolean canBeUsedInCraft(ItemStack item);
 
     GiveItemDTO giveItem(String key, @Nullable Player player);
     List<String> getItemKeys();

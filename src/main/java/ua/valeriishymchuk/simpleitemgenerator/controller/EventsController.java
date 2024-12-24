@@ -8,12 +8,16 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageResultDTO;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
+
+import java.util.Arrays;
+import java.util.Objects;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
@@ -31,6 +35,16 @@ public class EventsController implements Listener {
                 event.getClickedBlock()
         );
         handleResult(result, event.getPlayer(), event);
+    }
+
+    @EventHandler(priority = EventPriority.HIGHEST)
+    private void onWorkbench(PrepareItemCraftEvent event) {
+        boolean shouldCancel = !Arrays.stream(event.getInventory().getMatrix())
+                .filter(Objects::nonNull)
+                .allMatch(itemService::canBeUsedInCraft);
+        if (shouldCancel) {
+            event.getInventory().setResult(null);
+        }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)

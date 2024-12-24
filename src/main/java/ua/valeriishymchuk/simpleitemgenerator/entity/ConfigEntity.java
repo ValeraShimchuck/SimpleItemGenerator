@@ -213,13 +213,14 @@ public class ConfigEntity {
 
         ConfigurationNode item;
         ConfigurationNode usage;
+        Boolean isIngredient;
 
         transient Lazy<List<UsageEntity>> usages = Lazy.of(this::parseUsages);
         transient Lazy<ItemStack> itemStack = Lazy.of(this::parseItem);
         transient Lazy<Boolean> hasPlaceholders = Lazy.of(this::hasPlaceholders0);
 
         private CustomItem() {
-            this(createNode(), createNode());
+            this(createNode(), createNode(), false);
         }
 
         private static ConfigurationNode createNode() {
@@ -227,13 +228,18 @@ public class ConfigEntity {
             //return createNode(ConfigurationOptions.defaults());
         }
 
+        public boolean isIngredient() {
+            if (isIngredient == null)  return false;
+            return isIngredient;
+        }
+
         public static CustomItem of(ItemStack item, List<UsageEntity> usages) {
-            return new CustomItem(serializeItemStack(item), serializeUsages(usages));
+            return new CustomItem(serializeItemStack(item), serializeUsages(usages), false);
         }
 
         @SneakyThrows
         public static CustomItem of(RawItem item, List<UsageEntity> usages) {
-            return new CustomItem(createNode().set(item), serializeUsages(usages));
+            return new CustomItem(createNode().set(item), serializeUsages(usages), false);
         }
 
         @SneakyThrows

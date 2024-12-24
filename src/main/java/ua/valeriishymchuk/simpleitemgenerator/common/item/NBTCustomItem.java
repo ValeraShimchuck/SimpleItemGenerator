@@ -20,6 +20,7 @@ public class NBTCustomItem {
     private static final String PUBLIC_BUKKIT_VALUES = "PublicBukkitValues";
 
     public static Option<String> getCustomItemId(ItemStack item) {
+        if (item == null || item.getType().name().endsWith("AIR")) return Option.none();
         return NBT.get(item, nbt -> {
             return getBukkitValues(nbt)
                     .map(bukkitValues -> bukkitValues.getString(CUSTOM_ITEM_ID_KEY.asString()))

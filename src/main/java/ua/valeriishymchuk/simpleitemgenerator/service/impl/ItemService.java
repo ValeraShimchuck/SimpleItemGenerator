@@ -241,6 +241,16 @@ public class ItemService implements IItemService {
     }
 
     @Override
+    public boolean canBeUsedInCraft(ItemStack item) {
+        if (item == null || !NBTCustomItem.hasCustomItemId(item)) return true;
+        String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
+        if (customItemId == null) return true;
+        ConfigEntity.CustomItem customItem = config().getItem(customItemId).getOrNull();
+        if (customItem == null) return true;
+        return customItem.isIngredient();
+    }
+
+    @Override
     public GiveItemDTO giveItem(String key, @Nullable Player player) {
         if (player == null) return new GiveItemDTO(
                 lang().getSenderNotPlayer().bake(),

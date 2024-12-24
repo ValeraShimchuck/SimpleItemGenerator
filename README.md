@@ -29,6 +29,7 @@ items:
       - HIDE_ENCHANTS
       enchantments: # enchantments, optional. For 1.12 and below can vary
         minecraft:luck_of_the_sea: 1
+    is-ingredient: true # whether the item can be used in crafting or not. By default, it is false
 ```
 
 ### ItemsAdder usage
