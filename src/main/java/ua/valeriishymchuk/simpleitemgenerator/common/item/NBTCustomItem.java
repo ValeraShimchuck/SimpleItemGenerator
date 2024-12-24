@@ -54,8 +54,8 @@ public class NBTCustomItem {
         Cooldown cooldown = getCooldown(itemStack, cooldownId);
         if (cooldown.isFrozen()) return cooldown;
         if (cooldown.isAbsent()) {
-            updateCooldown(itemStack, System.currentTimeMillis() + cooldownMillis, cooldownId);
-            updateFreezetime(itemStack, System.currentTimeMillis() + freezetimeMillis, cooldownId);
+            updateCooldown(itemStack, cooldownMillis <= 0 ? null : System.currentTimeMillis() + cooldownMillis, cooldownId);
+            updateFreezetime(itemStack,  freezetimeMillis <= 0 || cooldownMillis <= 0 ? null : System.currentTimeMillis() + freezetimeMillis, cooldownId);
             return CooldownType.NONE.toCooldown(0);
         }
         updateFreezetime(itemStack, System.currentTimeMillis() + freezetimeMillis, cooldownId);
@@ -63,6 +63,8 @@ public class NBTCustomItem {
     }
 
     public static void updateCooldown(ItemStack itemStack, @Nullable Long cooldown, int cooldownId) {
+        if (cooldown == null) return;
+        if (cooldown <= 0) return;
         NBT.modify(itemStack, nbt -> {
             ReadWriteNBT bukkitValues = nbt.getOrCreateCompound(PUBLIC_BUKKIT_VALUES);
             bukkitValues.setLong(CUSTOM_ITEM_COOLDOWN_KEY.asString() + cooldownId, cooldown);
@@ -70,6 +72,8 @@ public class NBTCustomItem {
     }
 
     public static void updateFreezetime(ItemStack itemStack, @Nullable Long freezetime, int cooldownId) {
+        if (freezetime == null) return;
+        if (freezetime <= 0) return;
         NBT.modify(itemStack, nbt -> {
             ReadWriteNBT bukkitValues = nbt.getOrCreateCompound(PUBLIC_BUKKIT_VALUES);
             bukkitValues.setLong(CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY.asString() + cooldownId, freezetime);
