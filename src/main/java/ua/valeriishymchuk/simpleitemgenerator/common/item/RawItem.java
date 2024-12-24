@@ -34,6 +34,7 @@ public class RawItem implements Cloneable {
     String name;
     List<String> lore;
     @Nullable Integer cmd;
+    @Nullable Boolean unbreakable;
     List<ItemFlag> itemFlags;
     Map<String, Integer> enchantments;
 
@@ -52,6 +53,7 @@ public class RawItem implements Cloneable {
                 "DIAMOND",
                 null, Collections.emptyList(),
                 null,
+                null,
                 Collections.emptyList(),
                 Collections.emptyMap()
         );
@@ -68,6 +70,7 @@ public class RawItem implements Cloneable {
         if (cmd != null) setCustomModelData(meta, cmd);
         if (!itemFlags.isEmpty()) meta.addItemFlags(itemFlags.toArray(new ItemFlag[0]));
         if (!enchantments.isEmpty()) enchantments.forEach((k, v) -> meta.addEnchant(findEnchantment(k), v, true));
+        if (unbreakable != null) ReflectedRepresentations.ItemMeta.setUnbreakable(meta, unbreakable);
         item.setItemMeta(meta);
         return item;
     }

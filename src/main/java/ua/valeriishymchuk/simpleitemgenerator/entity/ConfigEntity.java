@@ -50,6 +50,7 @@ public class ConfigEntity {
                 "<red><bold>Cool diamond%id%",
                 Arrays.asList("<green>First lore", "<red>Second lore"),
                 FeatureSupport.CMD_SUPPORT ? 1 : null,
+                null,
                 Arrays.asList(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS),
                 io.vavr.collection.HashMap.of(serializeEnchantment(Enchantment.LUCK), 1).toJavaMap()
         );
@@ -252,6 +253,7 @@ public class ConfigEntity {
                     Option.of(meta.getDisplayName()).map(KyoriHelper::jsonToMiniMessage).getOrNull(),
                     meta.getLore().stream().map(KyoriHelper::jsonToMiniMessage).collect(Collectors.toList()),
                     ReflectedRepresentations.ItemMeta.tryGetCustomModelData(meta).getOrNull(),
+                    ReflectedRepresentations.ItemMeta.isUnbreakable(meta),
                     new ArrayList<>(meta.getItemFlags()),
                     io.vavr.collection.HashMap.ofAll(meta.getEnchants())
                             .mapKeys(ConfigEntity::serializeEnchantment)

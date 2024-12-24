@@ -24,6 +24,7 @@ items:
       - <green>Your name %player_name% # papi support
       - <red>Second lore
       cmd: 1 # custom model data For 1.14+, optional
+      unbreakable: true # makes item unbreakable. Set to else by default.
       item-flags: # item flags. Optional
       - HIDE_ATTRIBUTES
       - HIDE_ENCHANTS

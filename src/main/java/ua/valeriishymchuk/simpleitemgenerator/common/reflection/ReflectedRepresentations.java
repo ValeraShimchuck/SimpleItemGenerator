@@ -8,6 +8,7 @@ import net.kyori.adventure.text.Component;
 import net.md_5.bungee.api.chat.BaseComponent;
 import org.bukkit.World;
 import org.bukkit.entity.Entity;
+import org.bukkit.inventory.meta.ItemMeta;
 import ua.valeriishymchuk.simpleitemgenerator.common.boundingbox.BoundingBox;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
@@ -134,6 +135,27 @@ public class ReflectedRepresentations {
             } catch (NoSuchFieldException e) {
                 throw new RuntimeException(e);
             }
+        }
+
+        @SneakyThrows
+        public static void setUnbreakable(org.bukkit.inventory.meta.ItemMeta meta, boolean unbreakable) {
+            Method method = Arrays.stream(CLASS.getMethods())
+                    .filter(m -> m.getName().equals("setUnbreakable"))
+                    .findFirst().orElse(null);
+            if (method == null) {
+                meta.spigot().setUnbreakable(unbreakable);
+            } else method.invoke(meta, unbreakable);
+        }
+
+        @SneakyThrows
+        public static boolean isUnbreakable(org.bukkit.inventory.meta.ItemMeta meta) {
+            Method method = Arrays.stream(CLASS.getMethods())
+                    .filter(m -> m.getName().equals("isUnbreakable")).findFirst()
+                    .orElse(null);
+            if (method == null) {
+                return meta.spigot().isUnbreakable();
+            } else return (boolean) method.invoke(meta);
+
         }
 
         public static boolean isDisplayNameString() {
