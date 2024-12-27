@@ -27,6 +27,7 @@ repositories {
         name = "CodeMC"
         url = uri("https://repo.codemc.io/repository/maven-public/")
     }
+    maven("https://repo.negative.games/repository/maven-releases/")
 }
 
 dependencies {

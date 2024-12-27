@@ -23,6 +23,10 @@ public class MinecraftVersion implements Comparable<MinecraftVersion> {
     int minor;
     int patch;
 
+    public MinecraftVersion(int major, int minor) {
+        this(major, minor, 0);
+    }
+
     @Override
     public int compareTo(@NotNull MinecraftVersion o) {
        if (major > o.major) return 1;
