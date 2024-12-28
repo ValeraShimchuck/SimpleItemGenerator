@@ -57,7 +57,7 @@ dependencies {
     compileOnly("me.clip:placeholderapi:2.11.6")
 
 
-    implementation("de.tr7zw:item-nbt-api:2.14.0")
+    implementation("de.tr7zw:item-nbt-api:2.14.1")
 
 
     val configVersion = "4.1.2"
@@ -71,6 +71,7 @@ dependencies {
     implementation("cloud.commandframework:cloud-core:$cloudVersion")
     implementation("cloud.commandframework:cloud-minecraft-extras:$cloudVersion")
     implementation("org.bstats:bstats-bukkit:3.0.2")
+    implementation("com.github.retrooper:packetevents-spigot:2.7.0")
 }
 
 val targetJavaVersion = 8
@@ -114,6 +115,7 @@ tasks.named("shadowJar", com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
     relocate("org.yaml.snakeyaml", "$mainPackage.snakeyaml")
     relocate("org.bstats", "$mainPackage.bstats")
     relocate("org.joml", "$mainPackage.joml")
+    relocate("com.github.retrooper.packetevents", "$mainPackage.packetevents")
     minimize()
 }
 

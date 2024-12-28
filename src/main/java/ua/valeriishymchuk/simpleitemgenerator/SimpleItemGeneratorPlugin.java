@@ -4,6 +4,9 @@ import cloud.commandframework.CommandManager;
 import cloud.commandframework.bukkit.BukkitCommandManager;
 import cloud.commandframework.execution.CommandExecutionCoordinator;
 import cloud.commandframework.minecraft.extras.MinecraftExceptionHandler;
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.PacketEventsAPI;
+import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
 import lombok.SneakyThrows;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
@@ -29,8 +32,18 @@ import java.util.function.Function;
 
 public final class SimpleItemGeneratorPlugin extends JavaPlugin {
 
+    // TODO test it on 1.8 and 1.21
+
+    @Override
+    public void onLoad() {
+        PacketEvents.setAPI(SpigotPacketEventsBuilder.build(this));
+        PacketEvents.getAPI().load();
+
+    }
+
     @Override
     public void onEnable() {
+        //PacketEvents.getAPI().init(); // we don't actually need any packet-related stuff, only some utilities
         ConfigLoader configLoader = yamlLoader();
         CommandManager<CommandSender> commandManager = setupCommandManager();
         BukkitTaskScheduler taskScheduler = new BukkitTaskScheduler(this);
@@ -50,6 +63,7 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
     @Override
     public void onDisable() {
         MetricsHelper.shutdown();
+        PacketEvents.getAPI().terminate();
     }
 
     private ConfigLoader yamlLoader() {

@@ -16,8 +16,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
-import org.spongepowered.configurate.yaml.NodeStyle;
-import org.spongepowered.configurate.yaml.YamlConfigurationLoader;
+import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.RawItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
@@ -45,15 +44,20 @@ public class ConfigEntity {
 
 
     Map<String, CustomItem> items = Function0.of(() -> {
-        RawItem exampleItem = new RawItem(
+        RawItem preparedItem = new RawItem(
                 "DIAMOND",
                 "<red><bold>Cool diamond%id%",
                 Arrays.asList("<green>First lore", "<red>Second lore"),
-                FeatureSupport.CMD_SUPPORT ? 1 : null,
+                null,
                 null,
                 Arrays.asList(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS),
-                io.vavr.collection.HashMap.of(serializeEnchantment(Enchantment.LUCK), 1).toJavaMap()
+                io.vavr.collection.HashMap.of(serializeEnchantment(Enchantment.LUCK), 1).toJavaMap(),
+                Collections.emptyList()
         );
+        if (FeatureSupport.CMD_SUPPORT) {
+            preparedItem = preparedItem.withCmd(1);
+        }
+        RawItem exampleItem = preparedItem;
         UsageEntity singleCommandUsage = UsageEntity.DEFAULT
                 .withCommands(deserializeConfigCommands(
                         "[console] say %player% hi, you clicked item"
@@ -209,7 +213,6 @@ public class ConfigEntity {
         private static final Pattern SINGLE_PREDICATE_PATTERN =
                 Pattern.compile("\\[(?<enum>at|button)] (?<type>.*)");
         private static final Pattern ITEM_LINK_PATTERN = Pattern.compile("\\[(?<linktype>.+)] (?<link>.*)");
-        private static final YamlConfigurationLoader NODE_LOADER = YamlConfigurationLoader.builder().nodeStyle(NodeStyle.BLOCK).indent(2).build();
 
 
         ConfigurationNode item;
@@ -225,7 +228,7 @@ public class ConfigEntity {
         }
 
         private static ConfigurationNode createNode() {
-            return NODE_LOADER.createNode();
+            return DefaultLoader.yaml().createNode();
             //return createNode(ConfigurationOptions.defaults());
         }
 
@@ -252,13 +255,18 @@ public class ConfigEntity {
                     material.name(),
                     Option.of(meta.getDisplayName()).map(KyoriHelper::jsonToMiniMessage).getOrNull(),
                     meta.getLore().stream().map(KyoriHelper::jsonToMiniMessage).collect(Collectors.toList()),
-                    ReflectedRepresentations.ItemMeta.tryGetCustomModelData(meta).getOrNull(),
+                    null,
                     ReflectedRepresentations.ItemMeta.isUnbreakable(meta),
                     new ArrayList<>(meta.getItemFlags()),
                     io.vavr.collection.HashMap.ofAll(meta.getEnchants())
                             .mapKeys(ConfigEntity::serializeEnchantment)
-                            .toJavaMap()
+                            .toJavaMap(),
+                    Collections.emptyList() // TODO add later
             );
+            Integer cmd = ReflectedRepresentations.ItemMeta.tryGetCustomModelData(meta).getOrNull();
+            if (cmd != null) {
+                rawItem = rawItem.withCmd(cmd);
+            }
             node.set(RawItem.class, rawItem);
             return node;
         }
