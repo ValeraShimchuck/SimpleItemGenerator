@@ -16,6 +16,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
+import org.spongepowered.configurate.objectmapping.meta.Setting;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
@@ -37,6 +38,7 @@ public class RawItem implements Cloneable {
     @Nullable
     String name;
     List<String> lore;
+    @Setting("cmd")
     @Nullable ConfigurationNode customModelData;
     @Nullable Boolean unbreakable;
     List<ItemFlag> itemFlags;
