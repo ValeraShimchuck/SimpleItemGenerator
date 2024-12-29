@@ -1,7 +1,9 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.reflection;
 
 import io.vavr.CheckedFunction1;
+import io.vavr.collection.HashMap;
 import io.vavr.control.Option;
+import lombok.NonNull;
 import lombok.SneakyThrows;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
@@ -16,6 +18,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.version.MinecraftVersion;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
@@ -43,11 +46,29 @@ public class ReflectedRepresentations {
     public static class Entity {
         public static final Class<org.bukkit.entity.Entity> CLASS = org.bukkit.entity.Entity.class;
         public static final Class<?> CRAFT_ENTITY = getCraftBukkit("entity.CraftEntity");
+        //private static final NameMapper nameMapper = new NameMapper(
+        //        HashMap.of(
+        //                new MinecraftVersion(1,8), "getBoundingBox",
+        //        ).toJavaMap()
+        //);
+
+        private static Class<?> getEntityClass(@NonNull Class<?> entityDerivative) {
+            if (entityDerivative.getName().endsWith("Entity")) return entityDerivative;
+            return getEntityClass(entityDerivative.getSuperclass());
+        }
 
         @SneakyThrows
         public static BoundingBox getEntitiesBoundingBox(org.bukkit.entity.Entity entity) {
             Object nmsEntity = CRAFT_ENTITY.getMethod("getHandle").invoke(entity);
-            Object nmsBoundingBox = nmsEntity.getClass().getMethod("getBoundingBox").invoke(nmsEntity);
+            Class<?> nmsEntityClass = getEntityClass(nmsEntity.getClass());
+            Object nmsBoundingBox = Arrays.stream(nmsEntityClass.getDeclaredFields())
+                    .filter(field -> field.getType().getName().endsWith("BB"))
+                    .filter(field -> (field.getModifiers() & Modifier.STATIC) == 0)
+                    .peek(f -> f.setAccessible(true))
+                    .findFirst().orElseThrow(() -> new IllegalArgumentException("Can't find AABB field in " + nmsEntityClass.getName())).get(nmsEntity);
+            //Arrays.stream(nmsEntity.getClass().getMethods()).map(m -> m.getName() + " " + m.getReturnType())
+            //        .forEach(System.out::println);
+            //Object nmsBoundingBox = nmsEntity.getClass().getMethod("getBoundingBox").invoke(nmsEntity);
             double[] inputs = Arrays.stream(nmsBoundingBox.getClass().getFields())
                     .map(CheckedFunction1.<Field, Double>of(field -> (double) field.get(nmsBoundingBox)).unchecked())
                     .mapToDouble(i -> i).toArray();
