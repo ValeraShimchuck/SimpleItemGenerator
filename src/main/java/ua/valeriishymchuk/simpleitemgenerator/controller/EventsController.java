@@ -29,12 +29,16 @@ public class EventsController implements Listener {
     IItemService itemService;
     TickerTime tickerTime;
     Map<Player, Long> lastDropTick = new WeakHashMap<>();
+    Map<Player, Long> lastPlayerClickTick = new WeakHashMap<>();
 
     @EventHandler(priority = EventPriority.HIGH)
     private void onUsage(PlayerInteractEvent event) {
         if (event.useItemInHand() == Event.Result.DENY) return;
+        long currentTick = tickerTime.getTick();
         Long lastDropTick = this.lastDropTick.get(event.getPlayer());
-        if (lastDropTick != null && lastDropTick == tickerTime.getTick()) return;
+        Long lastPlayerClickTick = this.lastPlayerClickTick.get(event.getPlayer());
+        if (lastDropTick != null && currentTick == lastDropTick) return;
+        if (lastPlayerClickTick != null && currentTick == lastPlayerClickTick) return;
         ItemUsageResultDTO result = itemService.useItem(
                 event.getPlayer(),
                 event.getAction(),
@@ -63,6 +67,12 @@ public class EventsController implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
     private void onInteractAt(PlayerInteractAtEntityEvent event) {
+        long currentTick = tickerTime.getTick();
+        Long lastPlayerClickTickValue = this.lastPlayerClickTick.get(event.getPlayer());
+        if (lastPlayerClickTickValue != null && currentTick == lastPlayerClickTickValue) return;
+        if (event.getRightClicked() instanceof Player) {
+            lastPlayerClickTick.put(event.getPlayer(), tickerTime.getTick());
+        }
         ItemUsageResultDTO result = itemService.useItemAt(
                 event.getPlayer(),
                 true,
