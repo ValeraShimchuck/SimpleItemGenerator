@@ -13,21 +13,28 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
+import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickerTime;
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageResultDTO;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Objects;
+import java.util.WeakHashMap;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
 public class EventsController implements Listener {
 
     IItemService itemService;
+    TickerTime tickerTime;
+    Map<Player, Long> lastDropTick = new WeakHashMap<>();
 
     @EventHandler(priority = EventPriority.HIGH)
     private void onUsage(PlayerInteractEvent event) {
         if (event.useItemInHand() == Event.Result.DENY) return;
+        Long lastDropTick = this.lastDropTick.get(event.getPlayer());
+        if (lastDropTick != null && lastDropTick == tickerTime.getTick()) return;
         ItemUsageResultDTO result = itemService.useItem(
                 event.getPlayer(),
                 event.getAction(),
@@ -50,6 +57,7 @@ public class EventsController implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
     private void onDrop(PlayerDropItemEvent event) {
         Player player = event.getPlayer();
+        lastDropTick.put(player, tickerTime.getTick());
         handleResult(itemService.dropItem(player, event.getItemDrop().getItemStack()), player, event);
     }
 

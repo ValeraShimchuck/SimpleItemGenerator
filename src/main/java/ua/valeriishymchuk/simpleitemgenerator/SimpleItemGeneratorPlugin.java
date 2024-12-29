@@ -20,6 +20,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.config.builder.ConfigLoader
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.metrics.MetricsHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.scheduler.BukkitTaskScheduler;
+import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickerTime;
 import ua.valeriishymchuk.simpleitemgenerator.controller.CommandsController;
 import ua.valeriishymchuk.simpleitemgenerator.controller.EventsController;
 import ua.valeriishymchuk.simpleitemgenerator.controller.TickController;
@@ -31,8 +32,6 @@ import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
 import java.util.function.Function;
 
 public final class SimpleItemGeneratorPlugin extends JavaPlugin {
-
-    // TODO test it on 1.8 and 1.21
 
     @Override
     public void onLoad() {
@@ -55,7 +54,9 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
         }
         IItemService itemService = new ItemService(configRepository);
         new CommandsController(itemService).setupCommands(commandManager);
-        Bukkit.getPluginManager().registerEvents(new EventsController(itemService), this);
+        TickerTime tickerTime = new TickerTime(taskScheduler);
+        tickerTime.start();
+        Bukkit.getPluginManager().registerEvents(new EventsController(itemService, tickerTime), this);
         new TickController(itemService, taskScheduler).start();
         MetricsHelper.init(this);
     }
