@@ -148,7 +148,7 @@ public class ItemService implements IItemService {
                 .collect(Collectors.toList());
         return usages.stream().map(usage -> {
             NBTCustomItem.Cooldown cooldown = NBTCustomItem
-                    .queryCooldown(item, usage.getCooldownMillis(), usage.getCooldownFreezeTimeMillis(), usages.indexOf(usage));
+                    .queryCooldown(item, usage.getCooldownMillis(), usage.getCooldownFreezeTimeMillis(), customItem.getUsages().indexOf(usage));
             if (cooldown.isFrozen()) return new ItemUsageResultDTO(
                     null,
                     Collections.emptyList(),
