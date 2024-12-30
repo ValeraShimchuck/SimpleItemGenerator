@@ -70,9 +70,7 @@ public class EventsController implements Listener {
         long currentTick = tickerTime.getTick();
         Long lastPlayerClickTickValue = this.lastPlayerClickTick.get(event.getPlayer());
         if (lastPlayerClickTickValue != null && currentTick == lastPlayerClickTickValue) return;
-        if (event.getRightClicked() instanceof Player) {
-            lastPlayerClickTick.put(event.getPlayer(), tickerTime.getTick());
-        }
+        lastPlayerClickTick.put(event.getPlayer(), tickerTime.getTick());
         ItemUsageResultDTO result = itemService.useItemAt(
                 event.getPlayer(),
                 true,
