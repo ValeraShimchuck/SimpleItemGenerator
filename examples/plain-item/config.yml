@@ -1,0 +1,10 @@
+items:
+  example-item2:
+    item:
+      material: IRON_INGOT
+      name: '<gray>Steel'
+      lore:
+      - "<white>Looks like an iron, but it's steel, I promise"
+    usage:
+      cancel: false # with this parameter you can punch with te item, you can click at anything with the item, etc
+    is-ingredient: true # can be used as an ingredient in recipes

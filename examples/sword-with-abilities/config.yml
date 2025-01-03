@@ -1,0 +1,42 @@
+items:
+  super-sword:
+    item:
+      material: GOLDEN_SWORD
+      name: '<gold><bold>Sword of Areya'
+      lore:
+      - '<color:#e88f00>This mighty sword was made'
+      - '<color:#e88f00>in God`s forge by Svarog.'
+      - ''
+      - '<color:#e88f00>And now it is in your hands...'
+      enchantments:
+        minecraft:sharpness: 10
+      unbreakable: true
+      item-flags:
+      - HIDE_ENCHANTS
+      - HIDE_ATTRIBUTES
+      - HIDE_UNBREAKABLE
+    usage:
+    - predicate: '[button] left'
+      cancel: false
+    - predicate:
+      - button: right
+        at: air
+      - button: right
+        at: block
+      cooldown: 30s
+      freezetime: 500
+      on-cooldown: "[console] tellraw %player% %minimessage_<red><bold>The mighty sword is being charged. Wait for <white>%time_s.2f%</white>%"
+      commands:
+      - "[console] tellraw %player% %minimessage_<gold>The mighty sword has given to you and your nearby strength!%"
+      - "[console] summon potion %player_x_long% %player_y_long% %player_z_long% {Item:{id:splash_potion,Count:1,tag:{CustomPotionEffects:[{Id:5,Duration:200}]}}}"
+    - predicate:
+      - button: right
+        at: entity
+      - button: right
+        at: player
+      cooldown: 20s
+      freezetime: 500
+      on-cooldown: "[console] tellraw %player% %minimessage_<red><bold>The mighty sword is being charged. Wait for <white>%time_s.2f%</white>%"
+      commands:
+      - "[console] tellraw %player% %minimessage_<gold>The mighty sword has struck your foes!%"
+      - "[console] summon minecraft:lightning_bolt %target_x% %target_y% %target_z%"

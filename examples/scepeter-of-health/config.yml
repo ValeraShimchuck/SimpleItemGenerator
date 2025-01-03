@@ -1,0 +1,18 @@
+items:
+  example-item:
+    item:
+      material: BLAZE_ROD
+      name: '<red><bold>Scepeter of health'
+      lore:
+      - '<green>With this scepeter being held'
+      - '<green>in your offhand your health'
+      - '<green>will be increased by 3<red>❤</red>!'
+      attributes:
+      - attribute: MAX_HEALTH
+        name: 'additional_health'
+        operation: ADD_VALUE # adding
+        amount: 6 # 3 hearts
+        slot: OFFHAND # when item is held in offhand
+      item-flags:
+      - HIDE_ATTRIBUTES
+    usage: '[console] tellraw %player% %minimessage_<light_purple>Hello world!%'

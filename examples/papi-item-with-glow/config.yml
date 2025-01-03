@@ -1,0 +1,13 @@
+items:
+  example-item3:
+    item:
+      material: DIAMOND
+      name: '<red>Info'
+      lore:
+      - '<red>Your name is <blue>%player_name%</blue>' # using PlaceholderAPI placeholder %player_name% from Player PAPI expansion
+      - '<red>And you are alive for <blue>%player_seconds_lived%</blue> seconds'
+      enchantments:
+        minecraft:fortune: 1 # using a useless enchantment
+      cmd: 1 # custom model data texture
+      item-flags:
+      - HIDE_ENCHANTS # hiding the enchantment lore, so the glow only will be visible at the item
