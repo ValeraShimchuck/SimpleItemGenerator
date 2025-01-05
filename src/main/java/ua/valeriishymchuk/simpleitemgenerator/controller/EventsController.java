@@ -1,9 +1,11 @@
 package ua.valeriishymchuk.simpleitemgenerator.controller;
 
+import io.vavr.control.Option;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.bukkit.Bukkit;
+import org.bukkit.GameMode;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
@@ -12,9 +14,13 @@ import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
+import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.inventory.ItemStack;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
+import ua.valeriishymchuk.simpleitemgenerator.common.scheduler.BukkitTaskScheduler;
 import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickerTime;
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageResultDTO;
+import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 
 import java.util.Arrays;
@@ -27,9 +33,23 @@ import java.util.WeakHashMap;
 public class EventsController implements Listener {
 
     IItemService itemService;
+    IInfoService infoService;
     TickerTime tickerTime;
     Map<Player, Long> lastDropTick = new WeakHashMap<>();
     Map<Player, Long> lastPlayerClickTick = new WeakHashMap<>();
+
+    @EventHandler
+    private void onJoin(PlayerJoinEvent event) {
+        infoService.getMessage(event.getPlayer()).peek(msg -> KyoriHelper.sendMessage(event.getPlayer(), msg));
+        infoService.getNewUpdateMessage(event.getPlayer())
+                .thenAccept(msgOpt -> {
+                            msgOpt.peek(msg -> KyoriHelper.sendMessage(event.getPlayer(), msg));
+                        }
+                ).exceptionally(e -> {
+                    e.printStackTrace();
+                    return null;
+                });
+    }
 
     @EventHandler(priority = EventPriority.HIGH)
     private void onUsage(PlayerInteractEvent event) {

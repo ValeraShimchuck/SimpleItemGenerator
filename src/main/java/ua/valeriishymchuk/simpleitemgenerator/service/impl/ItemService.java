@@ -5,6 +5,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import net.kyori.adventure.text.Component;
+import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
@@ -125,7 +126,12 @@ public class ItemService implements IItemService {
                 clickAt = UsageEntity.ClickAt.ENTITY;
             }
         } else clickAt = UsageEntity.ClickAt.AIR;
-        return useItem0(player, item, new UsageEntity.ClickType(UsageEntity.ClickButton.DROP, clickAt), placeholders);
+        ItemUsageResultDTO usageResult = useItem0(player, item, new UsageEntity.ClickType(UsageEntity.ClickButton.DROP, clickAt), placeholders);
+        String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
+        if (usageResult.isShouldCancel() && player.getGameMode() == GameMode.CREATIVE && customItemId != null) {
+            usageResult = usageResult.withMessage(lang().getCreativeDrop().replaceText("%key%", customItemId).bake());
+        }
+        return usageResult;
     }
 
     private ItemUsageResultDTO useItem0(Player player, ItemStack item, UsageEntity.ClickType clickType, Map<String, String> placeholders) {

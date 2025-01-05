@@ -13,22 +13,22 @@ import java.util.regex.Pattern;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
 @Getter
-public class MinecraftVersion implements Comparable<MinecraftVersion> {
+public class SemanticVersion implements Comparable<SemanticVersion> {
 
     private static final Pattern VERSION_PATTERN = Pattern.compile("(\\d+)\\.(\\d+)(\\.(\\d+))?.*");
 
-    public static final MinecraftVersion CURRENT = parse(Bukkit.getBukkitVersion());
+    public static final SemanticVersion CURRENT = parse(Bukkit.getBukkitVersion());
 
     int major;
     int minor;
     int patch;
 
-    public MinecraftVersion(int major, int minor) {
+    public SemanticVersion(int major, int minor) {
         this(major, minor, 0);
     }
 
     @Override
-    public int compareTo(@NotNull MinecraftVersion o) {
+    public int compareTo(@NotNull SemanticVersion o) {
        if (major > o.major) return 1;
        if (major < o.major) return -1;
        if (minor > o.minor) return 1;
@@ -42,12 +42,16 @@ public class MinecraftVersion implements Comparable<MinecraftVersion> {
         return major + "." + minor + lastPart;
     }
 
-    public boolean isAtLeast(MinecraftVersion other) {
+    public String toFullString() {
+        return major + "." + minor + "." + patch;
+    }
+
+    public boolean isAtLeast(SemanticVersion other) {
         return this.compareTo(other) >= 0;
     }
 
     public boolean isAtLeast(int major, int minor, int patch) {
-        return isAtLeast(new MinecraftVersion(major, minor, patch));
+        return isAtLeast(new SemanticVersion(major, minor, patch));
     }
 
     public boolean isAtLeast(int major, int minor) {
@@ -55,23 +59,23 @@ public class MinecraftVersion implements Comparable<MinecraftVersion> {
     }
 
     public void assertAtLeast(int major, int minor, int patch) {
-        assertAtLeast(new MinecraftVersion(major, minor, patch));
+        assertAtLeast(new SemanticVersion(major, minor, patch));
     }
 
     public void assertAtLeast(int major, int minor) {
         assertAtLeast(major, minor, 0);
     }
 
-    public void assertAtLeast(MinecraftVersion other) {
+    public void assertAtLeast(SemanticVersion other) {
         if (!isAtLeast(other))
             throw new IllegalStateException("Feature is supported from " + other + ". Current version " + this);
     }
 
 
-    public static MinecraftVersion parse(String version) {
+    public static SemanticVersion parse(String version) {
         Matcher matcher = VERSION_PATTERN.matcher(version);
         if (!matcher.find()) throw new IllegalArgumentException("Invalid version: " + version);
-        return new MinecraftVersion(
+        return new SemanticVersion(
                 Integer.parseInt(matcher.group(1)),
                 Integer.parseInt(matcher.group(2)),
                 matcher.groupCount() >= 4 ? Integer.parseInt(matcher.group(4)) : 0

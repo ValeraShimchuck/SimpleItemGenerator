@@ -1,20 +1,16 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.reflection;
 
 import io.vavr.CheckedFunction1;
-import io.vavr.collection.HashMap;
 import io.vavr.control.Option;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.md_5.bungee.api.chat.BaseComponent;
-import org.bukkit.World;
-import org.bukkit.entity.Entity;
-import org.bukkit.inventory.meta.ItemMeta;
 import ua.valeriishymchuk.simpleitemgenerator.common.boundingbox.BoundingBox;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
-import ua.valeriishymchuk.simpleitemgenerator.common.version.MinecraftVersion;
+import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
@@ -126,12 +122,12 @@ public class ReflectedRepresentations {
 
         private static void validate() {
             if (CLASS == null)
-                MinecraftVersion.CURRENT.assertAtLeast(1,13);
+                SemanticVersion.CURRENT.assertAtLeast(1,13);
         }
 
         static {
             try {
-                if (MinecraftVersion.CURRENT.isAtLeast(1, 13)) {
+                if (SemanticVersion.CURRENT.isAtLeast(1, 13)) {
                     CLASS = Class.forName("org.bukkit.NamespacedKey");
                 } else CLASS = null;
             } catch (Throwable e) {
@@ -251,7 +247,7 @@ public class ReflectedRepresentations {
 
         private static void ensureCmdSupport() {
             if (!FeatureSupport.CMD_SUPPORT)
-                throw new IllegalStateException("Custom model data is supported from >=1.14. Current version " + MinecraftVersion.CURRENT);
+                throw new IllegalStateException("Custom model data is supported from >=1.14. Current version " + SemanticVersion.CURRENT);
         }
 
     }
@@ -297,7 +293,7 @@ public class ReflectedRepresentations {
 
         private static void ensureNamespacedEnchantmentsSupport() {
             if (!FeatureSupport.NAMESPACED_ENCHANTMENTS_SUPPORT)
-                throw new IllegalStateException("Namespaced enchantments is supported from >=1.13. Current version " + MinecraftVersion.CURRENT);
+                throw new IllegalStateException("Namespaced enchantments is supported from >=1.13. Current version " + SemanticVersion.CURRENT);
 
         }
 

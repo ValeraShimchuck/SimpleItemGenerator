@@ -1,5 +1,6 @@
 package ua.valeriishymchuk.simpleitemgenerator.service;
 
+import io.vavr.control.Option;
 import net.kyori.adventure.text.Component;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;

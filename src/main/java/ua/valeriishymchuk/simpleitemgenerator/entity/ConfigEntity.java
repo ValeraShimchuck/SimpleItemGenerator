@@ -4,6 +4,7 @@ import io.vavr.Function0;
 import io.vavr.Lazy;
 import io.vavr.control.Option;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
@@ -108,6 +109,10 @@ public class ConfigEntity {
     }).get();
 
     String placeholderUpdatePeriod = "10t";
+    @Getter
+    boolean checkForUpdates = true;
+    @Getter
+    boolean sendWelcomeMessage = true;
 
     private static String serializeEnchantment(Enchantment enchantment) {
         if (!FeatureSupport.NAMESPACED_ENCHANTMENTS_SUPPORT) return enchantment.getName();

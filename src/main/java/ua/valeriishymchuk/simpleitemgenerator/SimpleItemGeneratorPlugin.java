@@ -6,6 +6,7 @@ import cloud.commandframework.execution.CommandExecutionCoordinator;
 import cloud.commandframework.minecraft.extras.MinecraftExceptionHandler;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.PacketEventsAPI;
+import com.github.retrooper.packetevents.event.PacketListenerPriority;
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
 import lombok.SneakyThrows;
 import net.kyori.adventure.audience.Audience;
@@ -21,12 +22,18 @@ import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.metrics.MetricsHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.scheduler.BukkitTaskScheduler;
 import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickerTime;
+import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 import ua.valeriishymchuk.simpleitemgenerator.controller.CommandsController;
 import ua.valeriishymchuk.simpleitemgenerator.controller.EventsController;
+import ua.valeriishymchuk.simpleitemgenerator.controller.PacketsController;
 import ua.valeriishymchuk.simpleitemgenerator.controller.TickController;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IConfigRepository;
+import ua.valeriishymchuk.simpleitemgenerator.repository.IUpdateRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ConfigRepository;
+import ua.valeriishymchuk.simpleitemgenerator.repository.impl.UpdateRepository;
+import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
+import ua.valeriishymchuk.simpleitemgenerator.service.impl.InfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
 
 import java.util.function.Function;
@@ -42,7 +49,7 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
-        //PacketEvents.getAPI().init(); // we don't actually need any packet-related stuff, only some utilities
+        PacketEvents.getAPI().init();
         ConfigLoader configLoader = yamlLoader();
         CommandManager<CommandSender> commandManager = setupCommandManager();
         BukkitTaskScheduler taskScheduler = new BukkitTaskScheduler(this);
@@ -52,12 +59,16 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
+        IUpdateRepository updateRepository = new UpdateRepository();
+        SemanticVersion currentVersion = SemanticVersion.parse(getDescription().getVersion());
+        IInfoService infoService = new InfoService(updateRepository, configRepository, currentVersion);
         IItemService itemService = new ItemService(configRepository);
         new CommandsController(itemService).setupCommands(commandManager);
         TickerTime tickerTime = new TickerTime(taskScheduler);
         tickerTime.start();
-        Bukkit.getPluginManager().registerEvents(new EventsController(itemService, tickerTime), this);
+        Bukkit.getPluginManager().registerEvents(new EventsController(itemService, infoService,tickerTime), this);
         new TickController(itemService, taskScheduler).start();
+        //PacketEvents.getAPI().getEventManager().registerListener(new PacketsController(), PacketListenerPriority.MONITOR);
         MetricsHelper.init(this);
     }
 

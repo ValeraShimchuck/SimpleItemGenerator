@@ -37,7 +37,7 @@ public class RawComponent {
         Component message = Component.empty();
         for (int i = 0; i < raw.size(); i++) {
             String line = raw.get(i);
-            message = message.append(Component.text(line));
+            message = message.append(MiniMessage.miniMessage().deserialize(line));
             if (i + 1 < raw.size()) {
                 message = message.append(Component.newline());
             }

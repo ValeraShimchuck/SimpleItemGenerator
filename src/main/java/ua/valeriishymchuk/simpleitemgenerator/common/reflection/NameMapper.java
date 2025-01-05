@@ -4,7 +4,7 @@ import io.vavr.control.Option;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import ua.valeriishymchuk.simpleitemgenerator.common.version.MinecraftVersion;
+import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 
 import java.util.Map;
 
@@ -12,9 +12,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class NameMapper {
 
-    Map<MinecraftVersion, String> namePerVersion;
+    Map<SemanticVersion, String> namePerVersion;
 
-    public Option<String> get(MinecraftVersion version) {
+    public Option<String> get(SemanticVersion version) {
         return Option.ofOptional(namePerVersion.entrySet().stream()
                 .filter(entry -> version.isAtLeast(entry.getKey()))
                 .max(Map.Entry.comparingByKey())
@@ -22,7 +22,7 @@ public class NameMapper {
     }
 
     public Option<String> get() {
-        return get(MinecraftVersion.CURRENT);
+        return get(SemanticVersion.CURRENT);
     }
 
 }

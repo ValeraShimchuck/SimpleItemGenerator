@@ -7,18 +7,61 @@ import lombok.experimental.FieldDefaults;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import ua.valeriishymchuk.simpleitemgenerator.common.component.RawComponent;
 
+import java.util.Arrays;
+
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
 @Getter
 @ConfigSerializable
 public class LangEntity {
 
-    RawComponent giveItemSuccessfully = new RawComponent("Custom item %key% was successfully given to %player%.");
-    RawComponent itemDoesntExist = new RawComponent("Custom item %key% doesn't exist.");
-    RawComponent reloadSuccessfully = new RawComponent("Configs was successfully reloaded.");
-    RawComponent reloadUnsuccessfully = new RawComponent("Configs wasn't reloaded. Check console.");
-    RawComponent invalidItem = new RawComponent("This custom item is invalid. Report this case to the server admins. Item key %key%");
-    RawComponent senderNotPlayer = new RawComponent("Use argument player to use this command. Or try execute it as a player");
+    private static final String SIG_PREPENDER = "<b><gold>SIG</gold></b><dark_gray>>></dark_gray> ";
+
+    private static RawComponent component(String... text) {
+        return new RawComponent(Arrays.stream(text).map(s -> SIG_PREPENDER + "<aqua>" + s + "</aqua>").toArray(String[]::new));
+    }
+
+    private static RawComponent error(String... text) {
+        return new RawComponent(Arrays.stream(text).map(s -> SIG_PREPENDER + "<red>" + s + "</red>").toArray(String[]::new));
+    }
+
+    RawComponent giveItemSuccessfully = component("Custom item <dark_green>%key%</dark_green> was successfully given to <dark_green>%player%</dark_green>.");
+    RawComponent itemDoesntExist = error("Custom item <white>%key%</white> doesn't exist.");
+    RawComponent reloadSuccessfully = component("Configs were successfully reloaded.");
+    RawComponent reloadUnsuccessfully = error("Configs weren't reloaded. Check console.");
+    RawComponent invalidItem = error("This custom item is invalid. Report this case to the server admins. Item key <white>%key%</white>.");
+    RawComponent senderNotPlayer = error("Use argument player to use this command. Or try execute it as a player");
+    RawComponent creativeDrop = error(
+            "You may experience weird behavior when dropping a",
+            "custom item in creative mode.",
+            "If you want to test a plain experience, please switch off",
+            "from creative mode.",
+            "Or disable event cancellation of the item in config.yml",
+            "like this:",
+            "items:",
+            "  %key%:",
+            "    item: ... # your item appearance",
+            "    usage:",
+            "    - predicate: [button] drop",
+            "      cancel: false"
+    );
+    RawComponent adminWelcome = component(
+            "You are running <gold><b>SimpleItemGenerator</b></gold> version <white>%version%</white>.",
+            "If you have any issues or questions",
+            "you can join our discord server:",
+            "<white><u><click:open_url:'https://discord.gg/ksXEuxCqdC'>https://discord.gg/ksXEuxCqdC</click></u><white/>"
+    );
+
+    RawComponent newUpdateVersion = component(
+            "There is a new version available out there: <white>%new_version%</white>.",
+            "Your current version is <white>%current_version%</white>.",
+            "Download options(they are clickable):",
+            "<yellow><click:open_url:'https://www.spigotmc.org/resources/simpleitemgenerator-1-8-1-21-4-free.121339/'>Spigot</click></yellow>",
+            "<green><click:open_url:'https://modrinth.com/plugin/simpleitemgenerator'>Modrith</click></green>",
+            "<gold><click:open_url:'https://www.curseforge.com/minecraft/bukkit-plugins/simpleitemgenerator'>Curse forge(the latest update can be delayed)</click></gold>",
+            "<aqua><click:open_url:'https://hangar.papermc.io/ValeraShimchuck/SimpleItemGenerator'>Hangar</click></aqua>",
+            "<blue><click:open_url:'https://builtbybit.com/resources/simpleitemgenerator.57158/'>BuiltByBit</click></blue>"
+    );
 
 
 }

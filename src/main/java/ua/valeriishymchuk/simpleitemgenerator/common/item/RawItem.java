@@ -1,7 +1,6 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.item;
 
 import com.google.common.primitives.Floats;
-import de.tr7zw.changeme.nbtapi.NBT;
 import io.vavr.control.Option;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +20,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
-import ua.valeriishymchuk.simpleitemgenerator.common.version.MinecraftVersion;
+import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 
 import java.util.*;
 import java.util.stream.Collectors;
@@ -72,13 +71,13 @@ public class RawItem implements Cloneable {
 
     private static void ensureModernCmdSupport() {
         if (!FeatureSupport.MODERN_CMD_SUPPORT) throw new UnsupportedOperationException(
-                "Modern custom model data is supported from >=1.21.4. Current version " + MinecraftVersion.CURRENT
+                "Modern custom model data is supported from >=1.21.4. Current version " + SemanticVersion.CURRENT
         );
     }
 
     private static void ensureCmdSupport() {
         if (!FeatureSupport.CMD_SUPPORT) throw new UnsupportedOperationException(
-                "Custom model data is supported from >=1.14. Current version " + MinecraftVersion.CURRENT
+                "Custom model data is supported from >=1.14. Current version " + SemanticVersion.CURRENT
         );
     }
 
