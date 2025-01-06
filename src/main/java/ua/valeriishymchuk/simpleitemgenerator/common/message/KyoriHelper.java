@@ -25,6 +25,10 @@ public class KyoriHelper {
         } else sender.sendMessage(KyoriHelper.toLegacy(message));
     }
 
+    public static void sendMessage(CommandSender sender, String minimessageText) {
+        sendMessage(sender, parseMiniMessage(minimessageText));
+    }
+
     public static BaseComponent[] convert(Component component) {
         return ComponentSerializer.parse(GsonComponentSerializer.gson().serialize(component));
     }

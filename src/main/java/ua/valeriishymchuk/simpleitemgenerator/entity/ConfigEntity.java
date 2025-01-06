@@ -1,13 +1,16 @@
 package ua.valeriishymchuk.simpleitemgenerator.entity;
 
+import io.vavr.API;
 import io.vavr.Function0;
 import io.vavr.Lazy;
 import io.vavr.control.Option;
+import io.vavr.control.Try;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -15,9 +18,12 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.spongepowered.configurate.ConfigurateException;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
+import org.spongepowered.configurate.serialize.SerializationException;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;
+import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.RawItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
@@ -25,6 +31,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedReprese
 import ua.valeriishymchuk.simpleitemgenerator.common.regex.RegexUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.ItemsAdderSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.PapiSupport;
+import ua.valeriishymchuk.simpleitemgenerator.common.text.StringSimilarityUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.time.TimeTokenParser;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity.ClickAt;
@@ -51,7 +58,7 @@ public class ConfigEntity {
                 Arrays.asList("<green>First lore", "<red>Second lore"),
                 null,
                 null,
-                Arrays.asList(ItemFlag.HIDE_ATTRIBUTES, ItemFlag.HIDE_ENCHANTS),
+                Arrays.asList(ItemFlag.HIDE_ATTRIBUTES.name(), ItemFlag.HIDE_ENCHANTS.name()),
                 io.vavr.collection.HashMap.of(serializeEnchantment(Enchantment.LUCK), 1).toJavaMap(),
                 Collections.emptyList()
         );
@@ -119,7 +126,7 @@ public class ConfigEntity {
         return ReflectedRepresentations.Enchantment.getKyoriKey(enchantment).asString();
     }
 
-    private static UsageEntity.Command deserializeCommand(String rawCommand) {
+    private static UsageEntity.Command deserializeCommand(String rawCommand) throws IllegalArgumentException {
         return prepareCommand(rawCommand).replace(command -> RegexUtils.replaceAll(
                 CustomItem.MINIMESSAGE_COMMAND_PLACEHOLDER.matcher(command),
                 commandMatcher -> {
@@ -129,9 +136,9 @@ public class ConfigEntity {
         ));
     }
 
-    private static UsageEntity.Command prepareCommand(String rawCommand) {
+    private static UsageEntity.Command prepareCommand(String rawCommand) throws InvalidConfigurationException {
         Matcher matcher = CustomItem.COMMAND_EXECUTION_PATTERN.matcher(rawCommand);
-        if (!matcher.find()) throw new IllegalArgumentException("Invalid command: " + rawCommand);
+        if (!matcher.find()) throw InvalidConfigurationException.format("Invalid command: <white>%s</white>. Example command: <white>[console] msg %%player%% hello</white>", rawCommand);
         String command = matcher.group("command");
         boolean isConsoleSender = matcher.group("sender").equals("console");
         return new UsageEntity.Command(isConsoleSender, command);
@@ -166,6 +173,7 @@ public class ConfigEntity {
         return TimeTokenParser.parse(placeholderUpdatePeriod);
     }
 
+    @SneakyThrows
     public Option<ItemStack> bakeItem(String key, Player player) {
         CustomItem customItem = getItem(key).getOrNull();
         if (customItem == null) return Option.none();
@@ -173,6 +181,22 @@ public class ConfigEntity {
         NBTCustomItem.setCustomItemId(itemStack, key);
         updateItem(itemStack, player);
         return Option.some(itemStack);
+    }
+
+    // initializing lazies
+    public void init() throws InvalidConfigurationException {
+        try {
+            items.entrySet().forEach(item -> {
+                try {
+                    item.getValue().getUsages();
+                    item.getValue().getItemStack();
+                } catch (Exception e) {
+                    throw InvalidConfigurationException.path(item.getKey(), e);
+                }
+            });
+        } catch (Exception e) {
+            throw InvalidConfigurationException.path("items", e);
+        }
     }
 
     public List<String> getItemKeys() {
@@ -183,6 +207,7 @@ public class ConfigEntity {
         return Option.of(items.get(key));
     }
 
+    @SneakyThrows
     public void updateItem(ItemStack itemStack, Player player) {
         String customItemId = NBTCustomItem.getCustomItemId(itemStack).getOrNull();
         if (customItemId == null) return;
@@ -224,9 +249,12 @@ public class ConfigEntity {
         ConfigurationNode usage;
         Boolean isIngredient;
 
-        transient Lazy<List<UsageEntity>> usages = Lazy.of(this::parseUsages);
-        transient Lazy<ItemStack> itemStack = Lazy.of(this::parseItem);
-        transient Lazy<Boolean> hasPlaceholders = Lazy.of(this::hasPlaceholders0);
+        @NonFinal
+        transient List<UsageEntity> usages;
+        @NonFinal
+        transient ItemStack itemStack;
+        @NonFinal
+        transient Boolean hasPlaceholders;
 
         private CustomItem() {
             this(createNode(), createNode(), false);
@@ -238,7 +266,7 @@ public class ConfigEntity {
         }
 
         public boolean isIngredient() {
-            if (isIngredient == null)  return false;
+            if (isIngredient == null) return false;
             return isIngredient;
         }
 
@@ -262,7 +290,7 @@ public class ConfigEntity {
                     meta.getLore().stream().map(KyoriHelper::jsonToMiniMessage).collect(Collectors.toList()),
                     null,
                     ReflectedRepresentations.ItemMeta.isUnbreakable(meta),
-                    new ArrayList<>(meta.getItemFlags()),
+                    new ArrayList<>(meta.getItemFlags().stream().map(ItemFlag::name).collect(Collectors.toList())),
                     io.vavr.collection.HashMap.ofAll(meta.getEnchants())
                             .mapKeys(ConfigEntity::serializeEnchantment)
                             .toJavaMap(),
@@ -359,11 +387,12 @@ public class ConfigEntity {
             return node;
         }
 
-        public boolean hasPlaceHolders() {
-            return hasPlaceholders.get();
+        public boolean hasPlaceHolders() throws InvalidConfigurationException {
+            if (hasPlaceholders == null) hasPlaceholders = hasPlaceholders0();
+            return hasPlaceholders;
         }
 
-        private boolean hasPlaceholders0() {
+        private boolean hasPlaceholders0() throws InvalidConfigurationException {
             ItemStack item = getItemStack();
             Option<Component> displayOpt = ReflectedRepresentations.ItemMeta.getDisplayName(item.getItemMeta());
             List<Component> lore = ReflectedRepresentations.ItemMeta.getLore(item.getItemMeta());
@@ -375,33 +404,40 @@ public class ConfigEntity {
                     .anyMatch(Matcher::find);
         }
 
-        public List<UsageEntity> getUsages() {
-            return usages.get();
+
+        public List<UsageEntity> getUsages() throws InvalidConfigurationException {
+            if (usages == null) usages = parseUsages();
+            return usages;
         }
 
-        public ItemStack getItemStack() {
-            return itemStack.get().clone();
+        public ItemStack getItemStack() throws InvalidConfigurationException {
+            if (itemStack == null) itemStack = parseItem();
+            return itemStack.clone();
         }
 
-        @SneakyThrows
-        private ItemStack parseItem() {
-            if (item.isMap()) return item.get(RawItem.class).bake();
-            String rawItem = item.getString();
-            Matcher matcher = ITEM_LINK_PATTERN.matcher(rawItem);
-            if (!matcher.find()) throw new IllegalArgumentException("Invalid item: " + rawItem);
-            String linkType = matcher.group("linktype");
-            String link = matcher.group("link");
-            ItemStack item;
-            if (linkType.equals("itemsadder")) {
-                item = ItemsAdderSupport.getItem(link);
-            } else {
-                throw new IllegalArgumentException("Invalid link type: " + linkType);
+        private ItemStack parseItem() throws InvalidConfigurationException {
+            try {
+                if (item == null || item.isNull()) throw new InvalidConfigurationException("Property is not defined");
+                if (item.isMap()) return item.get(RawItem.class).bake();
+                String rawItem = item.getString();
+                Matcher matcher = ITEM_LINK_PATTERN.matcher(rawItem);
+                if (!matcher.find()) throw InvalidConfigurationException.format("Invalid item: <white>%s</white>", rawItem);
+                String linkType = matcher.group("linktype");
+                String link = matcher.group("link");
+                ItemStack item;
+                if (linkType.equals("itemsadder")) {
+                    item = ItemsAdderSupport.getItem(link);
+                } else {
+                    throw InvalidConfigurationException.format("Invalid link type: <white>[%s]</white>[", linkType);
+                }
+                return item;
+            } catch (Exception e) {
+                throw InvalidConfigurationException.path("item", e);
             }
-            return item;
         }
 
-        @SneakyThrows
-        private List<UsageEntity> parseUsages() {
+
+        private List<UsageEntity> parseUsages() throws InvalidConfigurationException {
             if (usage.isNull())
                 return Collections.singletonList(
                         new UsageEntity(
@@ -413,71 +449,162 @@ public class ConfigEntity {
                                 Collections.emptyList()
                         )
                 );
-            if (usage.isList()) return usage.getList(ConfigurationNode.class).stream()
-                    .map(this::parseUsage).collect(Collectors.toList());
-            return Collections.singletonList(parseUsage(usage));
+            AtomicInteger increment = new AtomicInteger();
+            try {
+                if (usage.isList()) {
+                    List<ConfigurationNode> usages = usage.getList(ConfigurationNode.class);
+                    List<UsageEntity> result = new ArrayList<>(usages.size());
+                    for (ConfigurationNode node : usages) {
+                        UsageEntity usage = parseUsage(node);
+                        increment.incrementAndGet();
+                        result.add(usage);
+                    }
+                    return result;
+                }
+            } catch (Exception e) {
+                throw InvalidConfigurationException.path("usage, " + increment.get(), e);
+            }
+
+            try {
+                return Collections.singletonList(parseUsage(usage));
+            } catch (Exception e) {
+                throw InvalidConfigurationException.path("usage", e);
+            }
+
         }
 
-        @SneakyThrows
-        private UsageEntity parseUsage(ConfigurationNode node) {
+        private static long parseTime(ConfigurationNode node) throws InvalidConfigurationException {
+            if (node.isNull()) return 0;
+            return Try.ofSupplier(node::getString)
+                    .mapTry(TimeTokenParser::parse)
+                    .getOrElseThrow(ex -> InvalidConfigurationException.path(node.key().toString(), ex));
+        }
+
+        private UsageEntity parseUsage(ConfigurationNode node) throws InvalidConfigurationException, SerializationException {
             if (!node.isMap()) return new UsageEntity(
                     Collections.emptyList(),
                     0,
                     0,
                     true,
                     Collections.emptyList(),
-                    parseCommands(node)
+                    parseCommands(node, true)
             );
-            long cooldown = TimeTokenParser.parse(node.node("cooldown").getString(""));
-            long freezeTime = TimeTokenParser.parse(node.node("freezetime").getString(""));
+            long cooldown = parseTime(node.node("cooldown"));
+            long freezeTime = parseTime(node.node("freezetime"));
             boolean shouldCancelEvent = node.node("cancel").getBoolean(true);
             List<ClickType> predicate;
             ConfigurationNode predicateNode = node.node("predicate");
             if (predicateNode.isNull()) predicate = Collections.emptyList();
             else if (predicateNode.isList()) {
-                predicate = predicateNode.getList(ConfigurationNode.class).stream()
-                        .map(this::parsePredicate)
-                        .collect(Collectors.toList());
-            } else predicate = Collections.singletonList(parsePredicate(predicateNode));
-            List<UsageEntity.Command> onCooldown = parseCommands(node.node("on-cooldown"));
-            List<UsageEntity.Command> commands = parseCommands(node.node("commands"));
+                AtomicInteger increment = new AtomicInteger();
+                try {
+                    predicate = predicateNode.getList(ConfigurationNode.class).stream()
+                            .map(prediacteNode -> {
+                                ClickType predicateResult = parsePredicate(prediacteNode);
+                                increment.incrementAndGet();
+                                return predicateResult;
+                            })
+                            .collect(Collectors.toList());
+                } catch (Exception e) {
+                    throw InvalidConfigurationException.path("predicate, " + increment.get(), e);
+                }
+            } else {
+                try {
+                    predicate = Collections.singletonList(parsePredicate(predicateNode));
+                } catch (Exception e) {
+                    throw InvalidConfigurationException.path("predicate", e);
+                }
+
+            }
+            List<UsageEntity.Command> onCooldown;
+            List<UsageEntity.Command> commands;
+            onCooldown = parseCommands(node.node("on-cooldown"));
+            commands = parseCommands(node.node("commands"));
             return new UsageEntity(predicate, cooldown, freezeTime, shouldCancelEvent, onCooldown, commands);
         }
 
-        @SneakyThrows
-        private List<UsageEntity.Command> parseCommands(ConfigurationNode node) {
-            if (node.isNull()) return Collections.emptyList();
-            if (node.isList()) {
-                return node.getList(ConfigurationNode.class).stream()
-                        .map(this::parseCommand)
-                        .collect(Collectors.toList());
+        private List<UsageEntity.Command> parseCommands(ConfigurationNode node) throws InvalidConfigurationException {
+            try {
+                return parseCommands(node, false);
+            } catch (SerializationException e) {
+                throw new RuntimeException(e); // no point, but it exists to peace the compiler
             }
-            return Collections.singletonList(parseCommand(node));
+        }
+
+        private List<UsageEntity.Command> parseCommands(ConfigurationNode node, boolean ignoreKey) throws InvalidConfigurationException, SerializationException {
+            if (node.isNull()) return Collections.emptyList();
+            AtomicInteger increment = new AtomicInteger();
+            try {
+                if (node.isList()) {
+                    return node.getList(ConfigurationNode.class).stream()
+                            .map(commandNode -> {
+                                UsageEntity.Command command = parseCommand(commandNode);
+                                increment.incrementAndGet();
+                                return command;
+                            })
+                            .collect(Collectors.toList());
+                }
+            } catch (Error | RuntimeException | SerializationException e) {
+                if (ignoreKey) throw e;
+                throw InvalidConfigurationException.path(node.key().toString() + ", " + increment.get(), e);
+            }
+            try {
+                return Collections.singletonList(parseCommand(node));
+            } catch (Error | RuntimeException  e) {
+                if (ignoreKey) throw e;
+                throw InvalidConfigurationException.path(node.key().toString(), e);
+            }
         }
 
 
-        private UsageEntity.Command parseCommand(ConfigurationNode node) {
+        private UsageEntity.Command parseCommand(ConfigurationNode node) throws InvalidConfigurationException {
             return deserializeCommand(node.getString());
         }
 
-        private ClickType parsePredicate(ConfigurationNode node) {
+        private static ClickAt parseClickAt(String raw) throws InvalidConfigurationException {
+            String upper = raw.toUpperCase();
+            return Try.ofSupplier(() -> ClickAt.valueOf(upper))
+                    .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
+                        List<String> suggestions = StringSimilarityUtils.getSuggestions(
+                                upper,
+                                Arrays.stream(ClickAt.values())
+                                        .map(ClickAt::name)
+                        );
+                        return InvalidConfigurationException.unknownOption("at", raw, suggestions);
+                    })).getOrElseThrow(x -> InvalidConfigurationException.path("at", x));
+        }
+
+        private static ClickButton parseClickButton(String raw) throws InvalidConfigurationException {
+            String upper = raw.toUpperCase();
+            return Try.ofSupplier(() -> ClickButton.valueOf(upper))
+                    .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
+                        List<String> suggestions = StringSimilarityUtils.getSuggestions(
+                                upper,
+                                Arrays.stream(ClickButton.values())
+                                        .map(ClickButton::name)
+                        );
+                        return InvalidConfigurationException.unknownOption("button", raw, suggestions);
+                    })).getOrElseThrow(x -> InvalidConfigurationException.path("button", x));
+        }
+
+        private ClickType parsePredicate(ConfigurationNode node) throws InvalidConfigurationException {
             if (node.isMap()) {
                 ClickAt clickAt = Option.of(node.node("at").getString())
-                        .map(String::toUpperCase)
-                        .map(ClickAt::valueOf).getOrNull();
+                        .map(CustomItem::parseClickAt)
+                        .getOrNull();
                 ClickButton clickButton = Option.of(node.node("button").getString())
-                        .map(String::toUpperCase)
-                        .map(ClickButton::valueOf).getOrNull();
+                        .map(CustomItem::parseClickButton)
+                        .getOrNull();
                 return new ClickType(clickButton, clickAt);
             }
             Matcher matcher = SINGLE_PREDICATE_PATTERN.matcher(node.getString());
-            if (!matcher.find()) throw new IllegalArgumentException("Invalid predicate: " + node.getString());
+            if (!matcher.find()) throw InvalidConfigurationException.format("Invalid predicate: <white>%s</white>", node.getString());
             String type = matcher.group("type");
             boolean isAt = matcher.group("enum").equals("at");
             ClickAt clickAt = null;
             ClickButton clickButton = null;
-            if (isAt) clickAt = ClickAt.valueOf(type.toUpperCase());
-            else clickButton = ClickButton.valueOf(type.toUpperCase());
+            if (isAt) clickAt = parseClickAt(type);
+            else clickButton = parseClickButton(type);
             return new ClickType(clickButton, clickAt);
         }
 

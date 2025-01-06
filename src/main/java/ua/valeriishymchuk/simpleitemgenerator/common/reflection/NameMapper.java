@@ -22,7 +22,7 @@ public class NameMapper {
     }
 
     public Option<String> get() {
-        return get(SemanticVersion.CURRENT);
+        return get(SemanticVersion.CURRENT_MINECRAFT);
     }
 
 }

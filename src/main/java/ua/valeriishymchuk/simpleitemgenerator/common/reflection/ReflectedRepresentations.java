@@ -122,12 +122,12 @@ public class ReflectedRepresentations {
 
         private static void validate() {
             if (CLASS == null)
-                SemanticVersion.CURRENT.assertAtLeast(1,13);
+                SemanticVersion.CURRENT_MINECRAFT.assertAtLeast(1,13);
         }
 
         static {
             try {
-                if (SemanticVersion.CURRENT.isAtLeast(1, 13)) {
+                if (SemanticVersion.CURRENT_MINECRAFT.isAtLeast(1, 13)) {
                     CLASS = Class.forName("org.bukkit.NamespacedKey");
                 } else CLASS = null;
             } catch (Throwable e) {
@@ -247,7 +247,7 @@ public class ReflectedRepresentations {
 
         private static void ensureCmdSupport() {
             if (!FeatureSupport.CMD_SUPPORT)
-                throw new IllegalStateException("Custom model data is supported from >=1.14. Current version " + SemanticVersion.CURRENT);
+                throw new IllegalStateException("Custom model data is supported from >=1.14. Current version " + SemanticVersion.CURRENT_MINECRAFT);
         }
 
     }
@@ -285,6 +285,11 @@ public class ReflectedRepresentations {
                     .get();
         }
 
+        public static Option<Key> tryGetKey(org.bukkit.enchantments.Enchantment enchantment) {
+            if (!FeatureSupport.NAMESPACED_ENCHANTMENTS_SUPPORT) return Option.none();
+            return Option.of(getKyoriKey(enchantment));
+        }
+
         public static Key getKyoriKey(org.bukkit.enchantments.Enchantment enchantment) {
             ensureNamespacedEnchantmentsSupport();
             return ReflectedRepresentations.NamespacedKey.getKyoriKey(getNamespacedKey(enchantment));
@@ -293,7 +298,7 @@ public class ReflectedRepresentations {
 
         private static void ensureNamespacedEnchantmentsSupport() {
             if (!FeatureSupport.NAMESPACED_ENCHANTMENTS_SUPPORT)
-                throw new IllegalStateException("Namespaced enchantments is supported from >=1.13. Current version " + SemanticVersion.CURRENT);
+                throw new IllegalStateException("Namespaced enchantments is supported from >=1.13. Current version " + SemanticVersion.CURRENT_MINECRAFT);
 
         }
 

@@ -17,7 +17,7 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
 
     private static final Pattern VERSION_PATTERN = Pattern.compile("(\\d+)\\.(\\d+)(\\.(\\d+))?.*");
 
-    public static final SemanticVersion CURRENT = parse(Bukkit.getBukkitVersion());
+    public static final SemanticVersion CURRENT_MINECRAFT = parse(Bukkit.getBukkitVersion());
 
     int major;
     int minor;

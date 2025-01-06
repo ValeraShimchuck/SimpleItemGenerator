@@ -7,6 +7,7 @@ import cloud.commandframework.minecraft.extras.MinecraftExceptionHandler;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.PacketEventsAPI;
 import com.github.retrooper.packetevents.event.PacketListenerPriority;
+import com.github.retrooper.packetevents.settings.PacketEventsSettings;
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
 import lombok.SneakyThrows;
 import net.kyori.adventure.audience.Audience;
@@ -42,23 +43,25 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
 
     @Override
     public void onLoad() {
-        PacketEvents.setAPI(SpigotPacketEventsBuilder.build(this));
+        PacketEvents.setAPI(SpigotPacketEventsBuilder
+                .build(this, new PacketEventsSettings()
+                        .checkForUpdates(false)));
         PacketEvents.getAPI().load();
 
     }
 
     @Override
     public void onEnable() {
-        PacketEvents.getAPI().init();
         ConfigLoader configLoader = yamlLoader();
         CommandManager<CommandSender> commandManager = setupCommandManager();
         BukkitTaskScheduler taskScheduler = new BukkitTaskScheduler(this);
-        IConfigRepository configRepository = new ConfigRepository(configLoader);
+        IConfigRepository configRepository = new ConfigRepository(configLoader, getLogger());
         if (!configRepository.reload()) {
             getLogger().severe("Failed to load config. Shutting down...");
             Bukkit.getPluginManager().disablePlugin(this);
             return;
         }
+        PacketEvents.getAPI().init();
         IUpdateRepository updateRepository = new UpdateRepository();
         SemanticVersion currentVersion = SemanticVersion.parse(getDescription().getVersion());
         IInfoService infoService = new InfoService(updateRepository, configRepository, currentVersion);

@@ -1,6 +1,7 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.time;
 
 import io.vavr.control.Option;
+import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
 
 import java.time.Duration;
 import java.util.regex.Matcher;
@@ -12,7 +13,7 @@ public class TimeTokenParser {
             "((?<value>\\d+)(?<timeunit>[a-z]+)?)( +)?"
     );
 
-    public static long parse(String time) {
+    public static long parse(String time) throws InvalidConfigurationException {
         Matcher matcher = TIME_TOKEN_PATTERN.matcher(time);
         long timeMillis = 0L;
         while (matcher.find()) {
@@ -28,7 +29,7 @@ public class TimeTokenParser {
                     case "t":
                         return 50L;
                     default:
-                        throw new IllegalStateException("Unknown time unit: " + unit);
+                        throw InvalidConfigurationException.format("Error in <white>%s</white>. Unknown time unit: <white>%s</white>.", time, unit);
                 }
             }).getOrElse(1L);
             timeMillis += value * timeUnitMillis;
