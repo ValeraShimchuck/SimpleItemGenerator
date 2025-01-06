@@ -1,6 +1,7 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.item;
 
 import de.tr7zw.changeme.nbtapi.NBT;
+import de.tr7zw.changeme.nbtapi.NBTType;
 import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
 import de.tr7zw.changeme.nbtapi.iface.ReadableNBT;
 import io.vavr.control.Option;
@@ -17,12 +18,14 @@ public class NBTCustomItem {
     private static final Key CUSTOM_ITEM_ID_KEY = Key.key("simpleitemgenerator:custom_item_id");
     private static final Key CUSTOM_ITEM_COOLDOWN_KEY = Key.key("simpleitemgenerator:custom_item_cooldown");
     private static final Key CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY = Key.key("simpleitemgenerator:custom_item_freezetime");
+    private static final Key CUSTOM_ITEM_SIGNATURE = Key.key("simpleitemgenerator:custom_item_signature");
     private static final String PUBLIC_BUKKIT_VALUES = "PublicBukkitValues";
 
     public static Option<String> getCustomItemId(ItemStack item) {
         if (item == null || item.getType().name().endsWith("AIR")) return Option.none();
         return NBT.get(item, nbt -> {
             return getBukkitValues(nbt)
+                    .filter(bukkitValues -> bukkitValues.hasTag(CUSTOM_ITEM_ID_KEY.asString(), NBTType.NBTTagString))
                     .map(bukkitValues -> bukkitValues.getString(CUSTOM_ITEM_ID_KEY.asString()))
                     .flatMap(Option::of);
         });
@@ -35,6 +38,21 @@ public class NBTCustomItem {
     public static void setCustomItemId(ItemStack item, String customItemId) {
         NBT.modify(item, nbt -> {
             nbt.getOrCreateCompound(PUBLIC_BUKKIT_VALUES).setString(CUSTOM_ITEM_ID_KEY.asString(), customItemId);
+        });
+    }
+
+    public static void setSignature(ItemStack item, int signature) {
+        NBT.modify(item, nbt -> {
+            nbt.getOrCreateCompound(PUBLIC_BUKKIT_VALUES).setInteger(CUSTOM_ITEM_SIGNATURE.asString(), signature);
+        });
+    }
+
+    public static Option<Integer> getSignature(ItemStack item) {
+        if (item == null || item.getType().name().endsWith("AIR")) return Option.none();
+        return NBT.get(item, nbt -> {
+            return getBukkitValues(nbt)
+                    .map(bukkitValues -> bukkitValues.getInteger(CUSTOM_ITEM_SIGNATURE.asString()))
+                    .flatMap(Option::of);
         });
     }
 

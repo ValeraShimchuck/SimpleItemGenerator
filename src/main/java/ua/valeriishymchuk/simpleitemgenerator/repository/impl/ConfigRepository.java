@@ -42,6 +42,8 @@ public class ConfigRepository implements IConfigRepository {
     @Override
     public boolean reload() {
         String currentConfig = "config";
+        ConfigEntity oldConfig = config;
+        LangEntity oldLang = lang;
         try {
             config = configLoader.loadOrSave(ConfigEntity.class, "config");
             config.init();
@@ -52,6 +54,8 @@ public class ConfigRepository implements IConfigRepository {
             currentConfig = currentConfig + ".yml";
             KyoriHelper.sendMessage(Bukkit.getConsoleSender(), String.format("<red>[SimpleItemGenerator] Error in configuration <white>%s</white></red>", currentConfig));
             visitError(e);
+            config = oldConfig;
+            lang = oldLang;
         }
         return false;
     }

@@ -213,23 +213,30 @@ public class ConfigEntity {
         if (customItemId == null) return;
         CustomItem customItem = items.get(customItemId);
         if (customItem == null) return;
-        if (!customItem.hasPlaceHolders()) return;
-        ItemMeta configItemMeta = customItem.getItemStack().getItemMeta();
-        ItemMeta meta = itemStack.getItemMeta();
+        int configItemSignature = customItem.getSignature();
+        Integer itemSignature = NBTCustomItem.getSignature(itemStack).getOrNull();
+        boolean isSameSignature = itemSignature != null && itemSignature == configItemSignature;
+        if (!customItem.hasPlaceHolders() && isSameSignature) return;
+        ItemStack configItemStack = customItem.getItemStack();
+        ItemMeta configItemMeta = configItemStack.getItemMeta();
+        itemStack.setType(configItemStack.getType());
+        //ItemMeta meta = itemStack.getItemMeta();
         ReflectedRepresentations.ItemMeta.getDisplayName(configItemMeta)
                 .map(KyoriHelper::toJson)
                 .map(line -> PapiSupport.tryParse(player, line))
                 .map(KyoriHelper::fromJson)
-                .peek(line -> ReflectedRepresentations.ItemMeta.setDisplayName(meta, line));
+                .peek(line -> ReflectedRepresentations.ItemMeta.setDisplayName(configItemMeta, line));
         ReflectedRepresentations.ItemMeta.setLore(
-                meta,
+                configItemMeta,
                 ReflectedRepresentations.ItemMeta.getLore(configItemMeta).stream()
                         .map(KyoriHelper::toJson)
                         .map(line -> PapiSupport.tryParse(player, line))
                         .map(KyoriHelper::fromJson)
                         .collect(Collectors.toList())
         );
-        itemStack.setItemMeta(meta);
+        itemStack.setItemMeta(configItemMeta);
+        NBTCustomItem.setCustomItemId(itemStack, customItemId);
+        //NBTCustomItem.setSignature(itemStack, configItemSignature);
     }
 
     @ConfigSerializable
@@ -411,8 +418,17 @@ public class ConfigEntity {
         }
 
         public ItemStack getItemStack() throws InvalidConfigurationException {
-            if (itemStack == null) itemStack = parseItem();
+            if (itemStack == null) {
+                itemStack = parseItem();
+                int signature = itemStack.serialize().hashCode();
+                NBTCustomItem.setSignature(itemStack, signature);
+            }
             return itemStack.clone();
+        }
+
+        public int getSignature() {
+            if (itemStack == null) getItemStack();
+            return NBTCustomItem.getSignature(itemStack).get();
         }
 
         private ItemStack parseItem() throws InvalidConfigurationException {
