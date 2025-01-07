@@ -241,6 +241,16 @@ public class ItemService implements IItemService {
     }
 
     @Override
+    public boolean canBePutInInventory(ItemStack item) {
+        if (item == null || !NBTCustomItem.hasCustomItemId(item)) return true;
+        String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
+        if (customItemId == null) return true;
+        ConfigEntity.CustomItem customItem = config().getItem(customItemId).getOrNull();
+        if (customItem == null) return true;
+        return customItem.canBePutInInventory();
+    }
+
+    @Override
     public void updateItem(ItemStack itemStack, Player player) {
         if (!PapiSupport.isPluginEnabled()) return;
         config().updateItem(itemStack, player);
@@ -286,5 +296,10 @@ public class ItemService implements IItemService {
     public Component reload() {
         boolean result = configRepository.reload();
         return result ? lang().getReloadSuccessfully().bake() : lang().getReloadUnsuccessfully().bake();
+    }
+
+    @Override
+    public Component playerNotFound(String input) {
+        return lang().getInvalidPlayer().replaceText("%player%", input).bake();
     }
 }

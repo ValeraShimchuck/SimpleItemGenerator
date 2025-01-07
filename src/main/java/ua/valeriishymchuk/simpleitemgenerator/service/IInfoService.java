@@ -10,5 +10,6 @@ public interface IInfoService {
 
     Option<Component> getMessage(Player player);
     CompletableFuture<Option<Component>> getNewUpdateMessage(Player player);
+    Component getUsage();
 
 }

@@ -26,6 +26,23 @@ public class LangEntity {
     }
 
     RawComponent giveItemSuccessfully = component("Custom item <dark_green>%key%</dark_green> was successfully given to <dark_green>%player%</dark_green>.");
+    RawComponent invalidCommandSyntax = error("Invalid command syntax. Command usage: <white>%usage%</white>.");
+    RawComponent noPermission = error("You don't have %permission% permission to use this command.");
+    RawComponent invalidPlayer = error("Player <white>%player%</white> wasn't found.");
+    RawComponent unknownArgumentError = error(
+            "Unknown argument error: <white>%error%</white>!",
+            "Please report this error there:",
+            "<white><click:open_url:'https://github.com/ValeraShimchuck/SimpleItemGenerator/issues'>https://github.com/ValeraShimchuck/SimpleItemGenerator/issues</click></white>"
+
+    );
+    RawComponent sigUsage = component(
+            "<gold>SimpleItemGenerator</gold> info:",
+            "Plugin's version <white>%version%</white>.",
+            "To reload the configs use <white><click:suggest_command:'/sig reload'>/sig reload</click></white>.",
+            "To give an item use <white><click:suggest_command:'/sig give'>/sig give <key> [player]</click></white>.",
+            "If you've encountered an error, or have a question",
+            "then <white><click:open_url:'https://discord.gg/ksXEuxCqdC'><hover:show_text:'<green>Click to join our discord server</green>'><b>join</b></hover></click></white> our discord server!"
+    );
     RawComponent itemDoesntExist = error("Custom item <white>%key%</white> doesn't exist.");
     RawComponent reloadSuccessfully = component("Configs were successfully reloaded.");
     RawComponent reloadUnsuccessfully = error("Configs weren't reloaded. Check console.");

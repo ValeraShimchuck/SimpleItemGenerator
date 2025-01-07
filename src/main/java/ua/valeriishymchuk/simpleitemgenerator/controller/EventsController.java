@@ -10,12 +10,17 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.inventory.InventoryAction;
+import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
 import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.PlayerInventory;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.scheduler.BukkitTaskScheduler;
 import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickerTime;
@@ -23,10 +28,7 @@ import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageResultDTO;
 import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 
-import java.util.Arrays;
-import java.util.Map;
-import java.util.Objects;
-import java.util.WeakHashMap;
+import java.util.*;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
@@ -119,6 +121,54 @@ public class EventsController implements Listener {
             Bukkit.dispatchCommand(sender, commands.getCommand());
         });
         result.getMessage().peek(message -> KyoriHelper.sendMessage(player, message));
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
+    private void onInventoryDrag(InventoryDragEvent event) {
+        boolean canBePutInvInventory = event.getNewItems().values().stream()
+                .anyMatch(itemService::canBePutInInventory);
+        if (canBePutInvInventory) return;
+        boolean shouldCancel = event.getNewItems().keySet().stream()
+                .anyMatch(slot -> slot < event.getView().getTopInventory().getSize());
+        if (shouldCancel) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
+    private void onInventoryClick(InventoryClickEvent event) {
+        ItemStack carriedItem = event.getCursor();
+        ItemStack clickedItem = event.getCurrentItem();
+        ItemStack clickedWithItem;
+        Player player = (Player) event.getWhoClicked();
+        boolean isSwap = Arrays.asList(
+                InventoryAction.HOTBAR_SWAP,
+                InventoryAction.HOTBAR_MOVE_AND_READD
+        ).contains(event.getAction());
+        if (isSwap) {
+            int button = event.getHotbarButton();
+            if (button >= 0) {
+                clickedWithItem = player.getInventory().getItem(button);
+            } else {
+                clickedWithItem = player.getInventory().getItem(40);
+            }
+        } else clickedWithItem = null;
+        Set<ItemStack> forbiddenForInventorySwap = new HashSet<>();
+        if (!itemService.canBePutInInventory(clickedWithItem)) forbiddenForInventorySwap.add(clickedWithItem);
+        if (!itemService.canBePutInInventory(carriedItem)) forbiddenForInventorySwap.add(carriedItem);
+        if (!itemService.canBePutInInventory(clickedItem)) forbiddenForInventorySwap.add(clickedItem);
+        if (event.getView().getTopInventory() instanceof PlayerInventory) return;
+        boolean isPlayerInventory = event.getClickedInventory() instanceof PlayerInventory;
+        if (forbiddenForInventorySwap.isEmpty()) return;
+        if (forbiddenForInventorySwap.contains(clickedItem)) {
+            if (event.getClick().isShiftClick() && isPlayerInventory) {
+                event.setCancelled(true);
+                return;
+            }
+        }
+        if (forbiddenForInventorySwap.contains(clickedWithItem) || forbiddenForInventorySwap.contains(carriedItem)) {
+            if (!isPlayerInventory) {
+                event.setCancelled(true);
+            }
+        }
     }
 
 }

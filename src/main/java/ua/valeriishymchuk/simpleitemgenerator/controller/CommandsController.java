@@ -11,8 +11,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import ua.valeriishymchuk.simpleitemgenerator.common.commands.ArgumentParserWrapper;
+import ua.valeriishymchuk.simpleitemgenerator.common.commands.argument.CustomPlayerArgument;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.dto.GiveItemDTO;
+import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 
 import java.util.stream.Collectors;
@@ -21,20 +24,39 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class CommandsController {
 
-    private static final String COMMAND_PERMISSION_PREPEND = "simpleitemgenerator.commands.";
+    private static final String COMMAND_PERMISSION = "simpleitemgenerator.commands";
+    private static final String COMMAND_PERMISSION_PREPEND = COMMAND_PERMISSION + ".";
+
 
     IItemService itemService;
+    IInfoService infoService;
 
     public void setupCommands(CommandManager<CommandSender> commandManager) {
         Command.Builder<CommandSender> builder = commandManager.commandBuilder("simpleitemgenerator", "sig")
                 .permission(COMMAND_PERMISSION_PREPEND + "general");
+        commandManager.command(builder
+                .handler(ctx -> KyoriHelper.sendMessage(ctx.getSender(), infoService.getUsage()))
+        );
         commandManager.command(builder.literal("give")
                 .permission(COMMAND_PERMISSION_PREPEND + "give")
                 .argument(StringArgument.<CommandSender>builder("key")
                         .withSuggestionsProvider((ctx, s) -> itemService.getItemKeys()
                                 .stream()
-                                .filter(line -> line.contains(s)).collect(Collectors.toList())))
-                .argument(PlayerArgument.optional("player"))
+                                .filter(line -> line.contains(s)).collect(Collectors.toList()))
+                )
+                .argument(CustomPlayerArgument.<CommandSender>builder("player")
+                        .asOptional()
+                        .withParser(new ArgumentParserWrapper<>(
+                                new  PlayerArgument.PlayerParser<>(),
+                                e -> {
+                                    if (e instanceof PlayerArgument.PlayerParseException) {
+                                        PlayerArgument.PlayerParseException ex = (PlayerArgument.PlayerParseException) e;
+                                        return itemService.playerNotFound(ex.getInput());
+                                    }
+                                    return itemService.playerNotFound("[blank]");
+                                }
+                        ))
+                )
                 .handler(ctx -> {
                     String key = ctx.get("key");
                     Option<Player> playerOpt = Option.ofOptional(ctx.<Player>getOptional("player"))

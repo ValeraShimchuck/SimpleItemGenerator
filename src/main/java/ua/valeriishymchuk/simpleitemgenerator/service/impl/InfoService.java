@@ -49,4 +49,11 @@ public class InfoService implements IInfoService {
                     .bake());
         });
     }
+
+    @Override
+    public Component getUsage() {
+        return getLang().getSigUsage()
+                .replaceText("%version%", currentVersion.toFullString())
+                .bake();
+    }
 }

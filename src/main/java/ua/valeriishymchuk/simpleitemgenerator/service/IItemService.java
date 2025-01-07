@@ -1,6 +1,5 @@
 package ua.valeriishymchuk.simpleitemgenerator.service;
 
-import io.vavr.control.Option;
 import net.kyori.adventure.text.Component;
 import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
@@ -18,6 +17,7 @@ public interface IItemService {
     ItemUsageResultDTO useItem(Player player, Action action, ItemStack item, @Nullable Block clickedBlock);
     ItemUsageResultDTO dropItem(Player player, ItemStack item);
     ItemUsageResultDTO useItemAt(Player player, boolean isRightClicked, Entity clicked, ItemStack item);
+    boolean canBePutInInventory(ItemStack item);
 
     void updateItem(ItemStack itemStack, Player player);
     boolean canBeUsedInCraft(ItemStack item);
@@ -26,4 +26,5 @@ public interface IItemService {
     List<String> getItemKeys();
     long getUpdatePeriodTicks();
     Component reload();
+    Component playerNotFound(String input);
 }
