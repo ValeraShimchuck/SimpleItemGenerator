@@ -10,6 +10,7 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
@@ -131,6 +132,11 @@ public class EventsController implements Listener {
         boolean shouldCancel = event.getNewItems().keySet().stream()
                 .anyMatch(slot -> slot < event.getView().getTopInventory().getSize());
         if (shouldCancel) event.setCancelled(true);
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
+    private void onDeath(PlayerDeathEvent event) {
+        event.getDrops().removeIf(itemService::shouldRemoveOnDeath);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)

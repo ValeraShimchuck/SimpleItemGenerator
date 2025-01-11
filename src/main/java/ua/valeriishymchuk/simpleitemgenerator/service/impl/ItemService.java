@@ -251,6 +251,16 @@ public class ItemService implements IItemService {
     }
 
     @Override
+    public boolean shouldRemoveOnDeath(ItemStack item) {
+        if (item == null || item.getType().name().endsWith("AIR")) return false;
+        String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
+        if (customItemId == null) return false;
+        ConfigEntity.CustomItem customItem = config().getItem(customItemId).getOrNull();
+        if (customItem == null) return false;
+        return customItem.removeOnDeath();
+    }
+
+    @Override
     public void updateItem(ItemStack itemStack, Player player) {
         if (!PapiSupport.isPluginEnabled()) return;
         config().updateItem(itemStack, player);

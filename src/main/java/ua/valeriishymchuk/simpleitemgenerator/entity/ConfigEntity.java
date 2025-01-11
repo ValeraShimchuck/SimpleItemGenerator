@@ -256,6 +256,7 @@ public class ConfigEntity {
         ConfigurationNode usage;
         Boolean isIngredient;
         Boolean canBePutInInventory;
+        Boolean removeOnDeath;
 
         @NonFinal
         transient List<UsageEntity> usages;
@@ -265,7 +266,13 @@ public class ConfigEntity {
         transient Boolean hasPlaceholders;
 
         private CustomItem() {
-            this(createNode(), createNode(), null, null);
+            this(
+                    createNode(),
+                    createNode(),
+                    null,
+                    null,
+                    null
+            );
         }
 
         private static ConfigurationNode createNode() {
@@ -283,13 +290,18 @@ public class ConfigEntity {
             return canBePutInInventory;
         }
 
+        public boolean removeOnDeath() {
+            if (removeOnDeath == null) return false;
+            return removeOnDeath;
+        }
+
         public static CustomItem of(ItemStack item, List<UsageEntity> usages) {
-            return new CustomItem(serializeItemStack(item), serializeUsages(usages), null, null);
+            return new CustomItem(serializeItemStack(item), serializeUsages(usages), null, null, null);
         }
 
         @SneakyThrows
         public static CustomItem of(RawItem item, List<UsageEntity> usages) {
-            return new CustomItem(createNode().set(item), serializeUsages(usages), null, null);
+            return new CustomItem(createNode().set(item), serializeUsages(usages), null, null, null);
         }
 
         @SneakyThrows
