@@ -1,6 +1,7 @@
 package ua.valeriishymchuk.simpleitemgenerator;
 
 import cloud.commandframework.CommandManager;
+import cloud.commandframework.arguments.standard.IntegerArgument;
 import cloud.commandframework.bukkit.BukkitCommandManager;
 import cloud.commandframework.exceptions.ArgumentParseException;
 import cloud.commandframework.exceptions.InvalidSyntaxException;
@@ -125,6 +126,14 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
                     ArgumentParseException argumentParseException = (ArgumentParseException) exception;
                     if (argumentParseException.getCause() instanceof CommandException) {
                         return ((CommandException) argumentParseException.getCause()).getErrorMessage();
+                    }
+                    if (argumentParseException.getCause() instanceof IntegerArgument.IntegerParseException) {
+                        IntegerArgument.IntegerParseException integerParseException = (IntegerArgument.IntegerParseException) argumentParseException.getCause();
+                        return configRepository.getLang().getInvalidIntegerError()
+                                .replaceText("%number%", integerParseException.getInput())
+                                .replaceText("%min%", integerParseException.getMin())
+                                .replaceText("%max%", integerParseException.getMax())
+                                .bake();
                     }
                     getLogger().log(Level.SEVERE, "An unknown argument error occurred", argumentParseException.getCause());
                     return configRepository.getLang().getUnknownArgumentError().replaceText("%error%", argumentParseException.getCause()).bake();

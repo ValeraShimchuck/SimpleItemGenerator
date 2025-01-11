@@ -24,7 +24,12 @@ public interface IItemService {
     void updateItem(ItemStack itemStack, Player player);
     boolean canBeUsedInCraft(ItemStack item);
 
-    GiveItemDTO giveItem(String key, @Nullable Player player);
+    GiveItemDTO giveItem(String key, @Nullable Player player, Integer slot);
+
+    default GiveItemDTO giveItem(String key, @Nullable Player player) {
+        return giveItem(key, player, null);
+    }
+
     List<String> getItemKeys();
     long getUpdatePeriodTicks();
     Component reload();

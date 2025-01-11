@@ -35,6 +35,8 @@ public class LangEntity {
             "<white><click:open_url:'https://github.com/ValeraShimchuck/SimpleItemGenerator/issues'>https://github.com/ValeraShimchuck/SimpleItemGenerator/issues</click></white>"
 
     );
+    RawComponent invalidIntegerError = error("Invalid integer <white>%number%</white>! The number should be in between <white>%min%</white> and <white>%max%</white>.");
+    RawComponent slotNotExist = error("Slot <white>%slot%</white> doesn't exist.");
     RawComponent sigUsage = component(
             "<gold>SimpleItemGenerator</gold> info:",
             "Plugin's version <white>%version%</white>.",

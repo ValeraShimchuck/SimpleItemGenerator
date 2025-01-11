@@ -297,9 +297,13 @@ public class ItemService implements IItemService {
     }
 
     @Override
-    public GiveItemDTO giveItem(String key, @Nullable Player player) {
+    public GiveItemDTO giveItem(String key, @Nullable Player player, Integer slot) {
         if (player == null) return new GiveItemDTO(
                 lang().getSenderNotPlayer().bake(),
+                null
+        );
+        if (slot != null && player.getInventory().getSize() <= slot) return new GiveItemDTO(
+                lang().getSlotNotExist().replaceText("%slot%", slot + "").bake(),
                 null
         );
         ItemStack itemStack = config().bakeItem(key, player).getOrNull();
