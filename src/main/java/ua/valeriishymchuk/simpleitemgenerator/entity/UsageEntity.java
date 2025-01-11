@@ -21,6 +21,7 @@ public class UsageEntity {
             0,
             0,
             false,
+            false,
             Collections.emptyList(),
             Collections.emptyList()
     );
@@ -31,6 +32,7 @@ public class UsageEntity {
     long cooldownMillis;
     long cooldownFreezeTimeMillis;
     boolean cancel;
+    boolean consume;
     List<Command> onCooldown;
     List<Command> commands;
 

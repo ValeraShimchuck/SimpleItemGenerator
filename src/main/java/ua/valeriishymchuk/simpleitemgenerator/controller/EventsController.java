@@ -68,7 +68,7 @@ public class EventsController implements Listener {
                 event.getItem(),
                 event.getClickedBlock()
         );
-        handleResult(result, event.getPlayer(), event);
+        handleResult(result, event.getItem(), event.getPlayer(), event);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -85,7 +85,7 @@ public class EventsController implements Listener {
     private void onDrop(PlayerDropItemEvent event) {
         Player player = event.getPlayer();
         lastDropTick.put(player, tickerTime.getTick());
-        handleResult(itemService.dropItem(player, event.getItemDrop().getItemStack()), player, event);
+        handleResult(itemService.dropItem(player, event.getItemDrop().getItemStack()), event.getItemDrop().getItemStack(), player, event);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
@@ -100,7 +100,7 @@ public class EventsController implements Listener {
                 event.getRightClicked(),
                 event.getPlayer().getItemInHand()
         );
-        handleResult(result, event.getPlayer(), event);
+        handleResult(result, event.getPlayer().getItemInHand(), event.getPlayer(), event);
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -109,19 +109,20 @@ public class EventsController implements Listener {
         Player player = (Player) event.getDamager();
         boolean isCancelled = event.isCancelled();
         ItemUsageResultDTO result = itemService.useItemAt(player, false, event.getEntity(), player.getItemInHand());
-        handleResult(result, player, event);
+        handleResult(result, player.getItemInHand(), player, event);
         if (isCancelled) {
             event.setCancelled(true);
         }
     }
 
-    private void handleResult(ItemUsageResultDTO result, Player player, Cancellable event) {
+    private void handleResult(ItemUsageResultDTO result, ItemStack item, Player player, Cancellable event) {
         event.setCancelled(result.isShouldCancel());
         result.getCommands().forEach(commands -> {
             CommandSender sender = commands.isExecuteAsConsole() ? Bukkit.getConsoleSender() : player;
             Bukkit.dispatchCommand(sender, commands.getCommand());
         });
         result.getMessage().peek(message -> KyoriHelper.sendMessage(player, message));
+        if (result.isShouldConsume() && item != null) item.setAmount(item.getAmount() -1);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)

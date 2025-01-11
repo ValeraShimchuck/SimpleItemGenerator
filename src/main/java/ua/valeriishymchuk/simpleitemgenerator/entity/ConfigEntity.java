@@ -487,6 +487,7 @@ public class ConfigEntity {
                                 0,
                                 0,
                                 true,
+                                false,
                                 Collections.emptyList(),
                                 Collections.emptyList()
                         )
@@ -528,12 +529,14 @@ public class ConfigEntity {
                     0,
                     0,
                     true,
+                    false,
                     Collections.emptyList(),
                     parseCommands(node, true)
             );
             long cooldown = parseTime(node.node("cooldown"));
             long freezeTime = parseTime(node.node("freezetime"));
             boolean shouldCancelEvent = node.node("cancel").getBoolean(true);
+            boolean shouldConsume = node.node("consume").getBoolean(false);
             List<ClickType> predicate;
             ConfigurationNode predicateNode = node.node("predicate");
             if (predicateNode.isNull()) predicate = Collections.emptyList();
@@ -562,7 +565,7 @@ public class ConfigEntity {
             List<UsageEntity.Command> commands;
             onCooldown = parseCommands(node.node("on-cooldown"));
             commands = parseCommands(node.node("commands"));
-            return new UsageEntity(predicate, cooldown, freezeTime, shouldCancelEvent, onCooldown, commands);
+            return new UsageEntity(predicate, cooldown, freezeTime, shouldCancelEvent, shouldConsume,onCooldown, commands);
         }
 
         private List<UsageEntity.Command> parseCommands(ConfigurationNode node) throws InvalidConfigurationException {

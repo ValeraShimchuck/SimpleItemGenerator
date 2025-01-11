@@ -20,6 +20,8 @@ public class ItemUsageResultDTO {
     List<CommandExecutionDTO> commands;
     @Getter
     boolean shouldCancel;
+    @Getter
+    boolean shouldConsume;
 
     public Option<Component> getMessage() {
         return Option.of(message);

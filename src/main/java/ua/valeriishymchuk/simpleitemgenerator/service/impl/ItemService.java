@@ -64,6 +64,7 @@ public class ItemService implements IItemService {
         ItemUsageResultDTO nop = new ItemUsageResultDTO(
                 null,
                 Collections.emptyList(),
+                false,
                 false
         );
         if (action == Action.PHYSICAL) return nop;
@@ -137,6 +138,7 @@ public class ItemService implements IItemService {
         ItemUsageResultDTO nop = new ItemUsageResultDTO(
                 null,
                 Collections.emptyList(),
+                false,
                 false
         );
         if (item == null || !NBTCustomItem.hasCustomItemId(item)) return nop;
@@ -146,9 +148,9 @@ public class ItemService implements IItemService {
         if (customItem == null) return new ItemUsageResultDTO(
                 lang().getInvalidItem().replaceText("%key%", customItemId).bake(),
                 Collections.emptyList(),
-                true
+                true,
+                false
         );
-        System.out.println(customItem.isPlainItem() + " pass1");
         List<UsageEntity> usages = customItem.getUsages().stream()
                 .filter(usageFilter -> usageFilter.accepts(clickType))
                 .collect(Collectors.toList());
@@ -158,38 +160,39 @@ public class ItemService implements IItemService {
             if (cooldown.isFrozen()) return new ItemUsageResultDTO(
                     null,
                     Collections.emptyList(),
-                    true
+                    true,
+                    false
             );
             if (cooldown.isDefault()) return new ItemUsageResultDTO(
                     null,
                     usage.getOnCooldown().stream().map(it -> prepareCooldown(cooldown.getRemainingMillis(), player, it, placeholders))
                             .collect(Collectors.toList()),
-                    true
+                    true,
+                    false
             );
             return new ItemUsageResultDTO(
                     null,
                     usage.getCommands().stream()
                             .map(command -> prepare(command, player, placeholders))
                             .collect(Collectors.toList()),
-                    usage.isCancel()  && !customItem.isPlainItem()
+                    usage.isCancel()  && !customItem.isPlainItem(),
+                    usage.isConsume()
             );
         }).reduce((acc, e) -> {
             boolean shouldCancel =       (acc.isShouldCancel() || e.isShouldCancel()) && !customItem.isPlainItem();
-            System.out.println(shouldCancel + " " + acc.isShouldCancel() + " " + e.isShouldCancel() + " " + customItem.isPlainItem());
             return new ItemUsageResultDTO(
                     null,
                     Stream.of(acc, e).map(ItemUsageResultDTO::getCommands)
                             .flatMap(List::stream).collect(Collectors.toList()),
-                    (acc.isShouldCancel() || e.isShouldCancel()) && !customItem.isPlainItem()
+                    (acc.isShouldCancel() || e.isShouldCancel()) && !customItem.isPlainItem(),
+                    acc.isShouldConsume() || e.isShouldConsume()
             );
-        }).orElseGet(() -> {
-            System.out.println(!customItem.isPlainItem() + " sc");
-            return new ItemUsageResultDTO(
-                    null,
-                    Collections.emptyList(),
-                    !customItem.isPlainItem()
-            );
-        });
+        }).orElse(new ItemUsageResultDTO(
+                null,
+                Collections.emptyList(),
+                !customItem.isPlainItem(),
+                false
+        ));
     }
 
     private CommandExecutionDTO prepare(UsageEntity.Command command, Player player, Map<String, String> placeholders) {
