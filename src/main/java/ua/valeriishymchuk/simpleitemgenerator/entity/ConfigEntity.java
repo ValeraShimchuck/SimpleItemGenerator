@@ -2,7 +2,6 @@ package ua.valeriishymchuk.simpleitemgenerator.entity;
 
 import io.vavr.API;
 import io.vavr.Function0;
-import io.vavr.Lazy;
 import io.vavr.control.Option;
 import io.vavr.control.Try;
 import lombok.AccessLevel;
@@ -18,7 +17,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
-import org.spongepowered.configurate.ConfigurateException;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import org.spongepowered.configurate.serialize.SerializationException;
@@ -257,6 +255,7 @@ public class ConfigEntity {
         Boolean isIngredient;
         Boolean canBePutInInventory;
         Boolean removeOnDeath;
+        Boolean isPlain;
 
         @NonFinal
         transient List<UsageEntity> usages;
@@ -271,6 +270,7 @@ public class ConfigEntity {
                     createNode(),
                     null,
                     null,
+                    null,
                     null
             );
         }
@@ -281,27 +281,35 @@ public class ConfigEntity {
         }
 
         public boolean isIngredient() {
+            if (isPlainItem()) return true;
             if (isIngredient == null) return false;
             return isIngredient;
         }
 
         public boolean canBePutInInventory() {
+            if (isPlainItem()) return true;
             if (canBePutInInventory == null) return false;
             return canBePutInInventory;
         }
 
         public boolean removeOnDeath() {
+            if (isPlainItem()) return false;
             if (removeOnDeath == null) return false;
             return removeOnDeath;
         }
 
+        public boolean isPlainItem() {
+            if (isPlain == null) return false;
+            return isPlain;
+        }
+
         public static CustomItem of(ItemStack item, List<UsageEntity> usages) {
-            return new CustomItem(serializeItemStack(item), serializeUsages(usages), null, null, null);
+            return new CustomItem(serializeItemStack(item), serializeUsages(usages), null, null, null, null);
         }
 
         @SneakyThrows
         public static CustomItem of(RawItem item, List<UsageEntity> usages) {
-            return new CustomItem(createNode().set(item), serializeUsages(usages), null, null, null);
+            return new CustomItem(createNode().set(item), serializeUsages(usages), null, null, null, null);
         }
 
         @SneakyThrows

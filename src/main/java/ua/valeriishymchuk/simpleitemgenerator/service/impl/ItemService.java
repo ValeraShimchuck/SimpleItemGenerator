@@ -120,8 +120,7 @@ public class ItemService implements IItemService {
             if (castesResult.getEntity() instanceof Player) {
                 placeholders.putAll(placeholdersFor((Player) castesResult.getEntity()));
                 clickAt = UsageEntity.ClickAt.PLAYER;
-            }
-            else {
+            } else {
                 placeholders.putAll(placeholdersFor(castesResult.getEntity()));
                 clickAt = UsageEntity.ClickAt.ENTITY;
             }
@@ -149,6 +148,7 @@ public class ItemService implements IItemService {
                 Collections.emptyList(),
                 true
         );
+        System.out.println(customItem.isPlainItem() + " pass1");
         List<UsageEntity> usages = customItem.getUsages().stream()
                 .filter(usageFilter -> usageFilter.accepts(clickType))
                 .collect(Collectors.toList());
@@ -171,28 +171,35 @@ public class ItemService implements IItemService {
                     usage.getCommands().stream()
                             .map(command -> prepare(command, player, placeholders))
                             .collect(Collectors.toList()),
-                    usage.isCancel()
+                    usage.isCancel()  && !customItem.isPlainItem()
             );
-        }).reduce((acc, e) -> new ItemUsageResultDTO(
-                null,
-                Stream.of(acc, e).map(ItemUsageResultDTO::getCommands)
-                        .flatMap(List::stream).collect(Collectors.toList()),
-                acc.isShouldCancel() || e.isShouldCancel()
-        )).orElse(new ItemUsageResultDTO(
-                null,
-                Collections.emptyList(),
-                true
-        ));
+        }).reduce((acc, e) -> {
+            boolean shouldCancel =       (acc.isShouldCancel() || e.isShouldCancel()) && !customItem.isPlainItem();
+            System.out.println(shouldCancel + " " + acc.isShouldCancel() + " " + e.isShouldCancel() + " " + customItem.isPlainItem());
+            return new ItemUsageResultDTO(
+                    null,
+                    Stream.of(acc, e).map(ItemUsageResultDTO::getCommands)
+                            .flatMap(List::stream).collect(Collectors.toList()),
+                    (acc.isShouldCancel() || e.isShouldCancel()) && !customItem.isPlainItem()
+            );
+        }).orElseGet(() -> {
+            System.out.println(!customItem.isPlainItem() + " sc");
+            return new ItemUsageResultDTO(
+                    null,
+                    Collections.emptyList(),
+                    !customItem.isPlainItem()
+            );
+        });
     }
 
-    private CommandExecutionDTO prepare(UsageEntity.Command command, Player player, Map< String, String> placeholders) {
+    private CommandExecutionDTO prepare(UsageEntity.Command command, Player player, Map<String, String> placeholders) {
         String rawCommand = replacePlayer(command.getCommand(), player);
         AtomicReference<String> strAtomic = new AtomicReference<>(rawCommand);
         placeholders.forEach((placeholder, value) -> strAtomic.set(strAtomic.get().replace(placeholder, value)));
         return new CommandExecutionDTO(command.isExecuteAsConsole(), strAtomic.get());
     }
 
-    private CommandExecutionDTO prepareCooldown(long milliseconds, Player player, UsageEntity.Command command, Map< String, String> placeholders) {
+    private CommandExecutionDTO prepareCooldown(long milliseconds, Player player, UsageEntity.Command command, Map<String, String> placeholders) {
         CommandExecutionDTO halfPreparedDto = prepare(command, player, placeholders);
         String rawCommand = halfPreparedDto.getCommand();
         String finalCommand = RegexUtils.replaceAll(TIME_PATTERN.matcher(rawCommand), matcher -> {
