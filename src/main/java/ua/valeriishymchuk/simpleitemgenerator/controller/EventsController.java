@@ -144,6 +144,10 @@ public class EventsController implements Listener {
     private void onInventoryClick(InventoryClickEvent event) {
         ItemStack carriedItem = event.getCursor();
         ItemStack clickedItem = event.getCurrentItem();
+        if (!itemService.canBeMoved(clickedItem)) {
+            event.setCancelled(true);
+            return;
+        }
         ItemStack clickedWithItem;
         Player player = (Player) event.getWhoClicked();
         boolean isSwap = Arrays.asList(

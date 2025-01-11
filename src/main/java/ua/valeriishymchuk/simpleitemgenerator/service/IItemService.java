@@ -18,6 +18,7 @@ public interface IItemService {
     ItemUsageResultDTO dropItem(Player player, ItemStack item);
     ItemUsageResultDTO useItemAt(Player player, boolean isRightClicked, Entity clicked, ItemStack item);
     boolean canBePutInInventory(ItemStack item);
+    boolean canBeMoved(ItemStack itemStack);
     boolean shouldRemoveOnDeath(ItemStack item);
 
     void updateItem(ItemStack itemStack, Player player);

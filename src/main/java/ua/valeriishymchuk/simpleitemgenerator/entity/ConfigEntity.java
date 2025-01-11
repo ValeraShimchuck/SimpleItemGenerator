@@ -256,6 +256,7 @@ public class ConfigEntity {
         Boolean canBePutInInventory;
         Boolean removeOnDeath;
         Boolean isPlain;
+        Boolean canMove;
 
         @NonFinal
         transient List<UsageEntity> usages;
@@ -268,6 +269,7 @@ public class ConfigEntity {
             this(
                     createNode(),
                     createNode(),
+                    null,
                     null,
                     null,
                     null,
@@ -303,13 +305,19 @@ public class ConfigEntity {
             return isPlain;
         }
 
+        public boolean canMove() {
+            if (isPlainItem()) return true;
+            if (canMove == null) return true;
+            return canMove;
+        }
+
         public static CustomItem of(ItemStack item, List<UsageEntity> usages) {
-            return new CustomItem(serializeItemStack(item), serializeUsages(usages), null, null, null, null);
+            return new CustomItem(serializeItemStack(item), serializeUsages(usages), null, null, null, null, null);
         }
 
         @SneakyThrows
         public static CustomItem of(RawItem item, List<UsageEntity> usages) {
-            return new CustomItem(createNode().set(item), serializeUsages(usages), null, null, null, null);
+            return new CustomItem(createNode().set(item), serializeUsages(usages), null, null, null, null, null);
         }
 
         @SneakyThrows

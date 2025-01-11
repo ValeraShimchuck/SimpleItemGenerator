@@ -261,6 +261,16 @@ public class ItemService implements IItemService {
     }
 
     @Override
+    public boolean canBeMoved(ItemStack itemStack) {
+        if (itemStack == null || itemStack.getType().name().endsWith("AIR")) return true;
+        String customItemId = NBTCustomItem.getCustomItemId(itemStack).getOrNull();
+        if (customItemId == null) return true;
+        ConfigEntity.CustomItem customItem = config().getItem(customItemId).getOrNull();
+        if (customItem == null) return true;
+        return customItem.canMove();
+    }
+
+    @Override
     public boolean shouldRemoveOnDeath(ItemStack item) {
         if (item == null || item.getType().name().endsWith("AIR")) return false;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
