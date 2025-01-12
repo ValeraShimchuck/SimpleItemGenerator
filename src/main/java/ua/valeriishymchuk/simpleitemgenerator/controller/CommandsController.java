@@ -10,9 +10,12 @@ import io.vavr.control.Option;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryType;
+import org.bukkit.inventory.ItemStack;
 import ua.valeriishymchuk.simpleitemgenerator.common.commands.ArgumentParserWrapper;
 import ua.valeriishymchuk.simpleitemgenerator.common.commands.argument.CustomPlayerArgument;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
@@ -20,6 +23,8 @@ import ua.valeriishymchuk.simpleitemgenerator.dto.GiveItemDTO;
 import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 
+import java.util.Map;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -71,8 +76,10 @@ public class CommandsController {
                     KyoriHelper.sendMessage(ctx.getSender(), result.getMessage());
                     playerOpt.flatMap(player ->  result.getItemStack().map(item -> Tuple.of(player, item)))
                             .peek(t -> t._2.setAmount(amount))
-                            .peek(tuple -> tuple._1.getInventory().addItem(tuple._2));
+                            .map(tuple -> tuple._1.getInventory().addItem(tuple._2))
+                            .peek(items -> dropItems(items, playerOpt.get().getLocation()));
                 }));
+
 
         commandManager.command(builder.literal("set_slot")
                 .permission(COMMAND_PERMISSION_PREPEND + "set_slot")
@@ -116,6 +123,20 @@ public class CommandsController {
                         .literal("reload")
                 .permission(COMMAND_PERMISSION_PREPEND + "reload")
                 .handler(ctx -> KyoriHelper.sendMessage(ctx.getSender(), itemService.reload())));
+    }
+
+    private void dropItems(Map<Integer, ItemStack> items, Location location) {
+        items.forEach((idx, item) -> {
+            AtomicInteger totalAmount = new AtomicInteger(item.getAmount());
+            int stack = item.getMaxStackSize();
+            while (totalAmount.get() > 0) {
+                int toRemove = Math.min(totalAmount.get(), stack);
+                totalAmount.set(totalAmount.get() - toRemove);
+                ItemStack clone = item.clone();
+                clone.setAmount(toRemove);
+                location.getWorld().dropItemNaturally(location, clone);
+            }
+        });
     }
 
 }
