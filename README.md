@@ -36,6 +36,6 @@ Other examples and information can be found in [wiki](https://github.com/ValeraS
 
 
 ## Contacts
-You have encountered a bag, or you have an idea of a feature you can create an issue in GitHub.
+You have encountered a bug, or you have an idea of a feature you can create an issue in GitHub.
 
 If you need help, or have any issues when dealing with the plugin you can always reach out me on my Discord Server: https://discord.gg/ksXEuxCqdC.
