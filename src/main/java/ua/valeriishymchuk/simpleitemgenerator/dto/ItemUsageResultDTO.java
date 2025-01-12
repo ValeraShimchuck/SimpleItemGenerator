@@ -5,6 +5,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.Nullable;
+import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 
 import java.util.List;
 
@@ -21,7 +22,7 @@ public class ItemUsageResultDTO {
     @Getter
     boolean shouldCancel;
     @Getter
-    boolean shouldConsume;
+    UsageEntity.Consume consume;
 
     public Option<Component> getMessage() {
         return Option.of(message);

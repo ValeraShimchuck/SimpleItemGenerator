@@ -65,7 +65,7 @@ public class ItemService implements IItemService {
                 null,
                 Collections.emptyList(),
                 false,
-                false
+                UsageEntity.Consume.NONE
         );
         if (action == Action.PHYSICAL) return nop;
         Map<String, String> placeholders = new HashMap<>();
@@ -139,7 +139,7 @@ public class ItemService implements IItemService {
                 null,
                 Collections.emptyList(),
                 false,
-                false
+                UsageEntity.Consume.NONE
         );
         if (item == null || !NBTCustomItem.hasCustomItemId(item)) return nop;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
@@ -149,7 +149,7 @@ public class ItemService implements IItemService {
                 lang().getInvalidItem().replaceText("%key%", customItemId).bake(),
                 Collections.emptyList(),
                 true,
-                false
+                UsageEntity.Consume.NONE
         );
         List<UsageEntity> usages = customItem.getUsages().stream()
                 .filter(usageFilter -> usageFilter.accepts(clickType))
@@ -161,14 +161,14 @@ public class ItemService implements IItemService {
                     null,
                     Collections.emptyList(),
                     true,
-                    false
+                    UsageEntity.Consume.NONE
             );
             if (cooldown.isDefault()) return new ItemUsageResultDTO(
                     null,
                     usage.getOnCooldown().stream().map(it -> prepareCooldown(cooldown.getRemainingMillis(), player, it, placeholders))
                             .collect(Collectors.toList()),
                     true,
-                    false
+                    UsageEntity.Consume.NONE
             );
             return new ItemUsageResultDTO(
                     null,
@@ -176,22 +176,50 @@ public class ItemService implements IItemService {
                             .map(command -> prepare(command, player, placeholders))
                             .collect(Collectors.toList()),
                     usage.isCancel()  && !customItem.isPlainItem(),
-                    usage.isConsume()
+                    usage.getConsume()
             );
         }).reduce((acc, e) -> {
-            boolean shouldCancel =       (acc.isShouldCancel() || e.isShouldCancel()) && !customItem.isPlainItem();
+
+            UsageEntity.Consume consume;
+            boolean isAccNone = acc.getConsume().isNone();
+            boolean anyNone = acc.getConsume().isNone() || e.getConsume().isNone();
+            if (anyNone) {
+                consume = isAccNone ? e.getConsume() : acc.getConsume();
+            } else {
+                boolean isBothAmount = acc.getConsume().isAmount() && e.getConsume().isAmount();
+                if (isBothAmount) {
+                    consume = new UsageEntity.Consume(
+                            UsageEntity.ConsumeType.AMOUNT,
+                            acc.getConsume().getAmount() + e.getConsume().getAmount()
+                    );
+                } else {
+                    if (acc.getConsume().getConsumeType() == e.getConsume().getConsumeType()) {
+                        consume = acc.getConsume();
+                    } else {
+                        List<UsageEntity.ConsumeType> typesHierarchy = Arrays.asList(
+                                UsageEntity.ConsumeType.STACK,
+                                UsageEntity.ConsumeType.ALL
+                        );
+                        int accIndex = typesHierarchy.indexOf(acc.getConsume().getConsumeType());
+                        int eIndex = typesHierarchy.indexOf(e.getConsume().getConsumeType());
+                        if (accIndex > eIndex) {
+                            consume = acc.getConsume();
+                        } else consume = e.getConsume();
+                    }
+                }
+            }
             return new ItemUsageResultDTO(
                     null,
                     Stream.of(acc, e).map(ItemUsageResultDTO::getCommands)
                             .flatMap(List::stream).collect(Collectors.toList()),
                     (acc.isShouldCancel() || e.isShouldCancel()) && !customItem.isPlainItem(),
-                    acc.isShouldConsume() || e.isShouldConsume()
+                    consume
             );
         }).orElse(new ItemUsageResultDTO(
                 null,
                 Collections.emptyList(),
                 !customItem.isPlainItem(),
-                false
+                UsageEntity.Consume.NONE
         ));
     }
 
@@ -278,6 +306,15 @@ public class ItemService implements IItemService {
         ConfigEntity.CustomItem customItem = config().getItem(customItemId).getOrNull();
         if (customItem == null) return false;
         return customItem.removeOnDeath();
+    }
+
+    @Override
+    public boolean areEqual(ItemStack item, ItemStack item2) {
+        if (item == null || item2 == null) return false;
+        String customItemId1 = NBTCustomItem.getCustomItemId(item).getOrNull();
+        String customItemId2 = NBTCustomItem.getCustomItemId(item2).getOrNull();
+        if (customItemId1 == null || customItemId2 == null) return false;
+        return Objects.equals(customItemId1, customItemId2);
     }
 
     @Override

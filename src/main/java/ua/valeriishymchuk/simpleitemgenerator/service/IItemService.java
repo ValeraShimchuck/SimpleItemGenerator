@@ -20,6 +20,7 @@ public interface IItemService {
     boolean canBePutInInventory(ItemStack item);
     boolean canBeMoved(ItemStack itemStack);
     boolean shouldRemoveOnDeath(ItemStack item);
+    boolean areEqual(ItemStack item, ItemStack item2);
 
     void updateItem(ItemStack itemStack, Player player);
     boolean canBeUsedInCraft(ItemStack item);

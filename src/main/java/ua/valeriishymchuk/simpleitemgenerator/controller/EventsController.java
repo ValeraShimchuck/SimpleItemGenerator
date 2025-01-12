@@ -26,10 +26,12 @@ import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.scheduler.BukkitTaskScheduler;
 import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickerTime;
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageResultDTO;
+import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
@@ -122,7 +124,33 @@ public class EventsController implements Listener {
             Bukkit.dispatchCommand(sender, commands.getCommand());
         });
         result.getMessage().peek(message -> KyoriHelper.sendMessage(player, message));
-        if (result.isShouldConsume() && item != null) item.setAmount(item.getAmount() -1);
+        if (!result.getConsume().isNone() && item != null) {
+            ItemStack clonedItem = item.clone();
+
+            if (result.getConsume().isAmount()) {
+                AtomicInteger totalAmount = new AtomicInteger(result.getConsume().getAmount());
+                player.getInventory().forEach(itemCons -> {
+                    if (itemCons == null || itemCons.getType().name().endsWith("AIR")) return;
+                    if (!itemService.areEqual(itemCons, clonedItem)) return;
+                    if (totalAmount.get() <= 0) return;
+                    int toRemove = Math.min(totalAmount.get(), itemCons.getAmount());
+                    itemCons.setAmount(itemCons.getAmount() - toRemove);
+                    totalAmount.set(totalAmount.get() - toRemove);
+                });
+            } else {
+                boolean onlyStack = result.getConsume().getConsumeType() == UsageEntity.ConsumeType.STACK;
+                if (onlyStack) {
+                    item.setAmount(0);
+                } else {
+                    player.getInventory().forEach(itemCons -> {
+                        if (itemCons == null || itemCons.getType().name().endsWith("AIR")) return;
+                        if (!itemService.areEqual(itemCons, clonedItem)) return;
+                        itemCons.setAmount(0);
+                    });
+                }
+            }
+
+        }
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)

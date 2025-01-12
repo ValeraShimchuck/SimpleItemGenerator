@@ -136,7 +136,8 @@ public class ConfigEntity {
 
     private static UsageEntity.Command prepareCommand(String rawCommand) throws InvalidConfigurationException {
         Matcher matcher = CustomItem.COMMAND_EXECUTION_PATTERN.matcher(rawCommand);
-        if (!matcher.find()) throw InvalidConfigurationException.format("Invalid command: <white>%s</white>. Example command: <white>[console] msg %%player%% hello</white>", rawCommand);
+        if (!matcher.find())
+            throw InvalidConfigurationException.format("Invalid command: <white>%s</white>. Example command: <white>[console] msg %%player%% hello</white>", rawCommand);
         String command = matcher.group("command");
         boolean isConsoleSender = matcher.group("sender").equals("console");
         return new UsageEntity.Command(isConsoleSender, command);
@@ -471,7 +472,8 @@ public class ConfigEntity {
                 if (item.isMap()) return item.get(RawItem.class).bake();
                 String rawItem = item.getString();
                 Matcher matcher = ITEM_LINK_PATTERN.matcher(rawItem);
-                if (!matcher.find()) throw InvalidConfigurationException.format("Invalid item: <white>%s</white>", rawItem);
+                if (!matcher.find())
+                    throw InvalidConfigurationException.format("Invalid item: <white>%s</white>", rawItem);
                 String linkType = matcher.group("linktype");
                 String link = matcher.group("link");
                 ItemStack item;
@@ -495,7 +497,7 @@ public class ConfigEntity {
                                 0,
                                 0,
                                 true,
-                                false,
+                                UsageEntity.Consume.NONE,
                                 Collections.emptyList(),
                                 Collections.emptyList()
                         )
@@ -537,14 +539,57 @@ public class ConfigEntity {
                     0,
                     0,
                     true,
-                    false,
+                    UsageEntity.Consume.NONE,
                     Collections.emptyList(),
                     parseCommands(node, true)
             );
             long cooldown = parseTime(node.node("cooldown"));
             long freezeTime = parseTime(node.node("freezetime"));
             boolean shouldCancelEvent = node.node("cancel").getBoolean(true);
-            boolean shouldConsume = node.node("consume").getBoolean(false);
+            ConfigurationNode consumeNode = node.node("consume");
+            UsageEntity.Consume consume;
+            if (consumeNode.isNull()) consume = UsageEntity.Consume.NONE;
+            else if (consumeNode.isMap() || consumeNode.isList()) throw InvalidConfigurationException.path(
+                    "consume",
+                    new InvalidConfigurationException("Property can't be a list or map")
+            );
+            else {
+                String rawConsume = consumeNode.getString();
+                Integer number;
+                try {
+                    number = Integer.parseInt(rawConsume);
+                } catch (NumberFormatException ignored) {
+                    number = null;
+                }
+                boolean isNumber = number != null;
+                if (isNumber) {
+                    consume = new UsageEntity.Consume(UsageEntity.ConsumeType.AMOUNT, number);
+                } else {
+                    String upper = rawConsume.toUpperCase();
+                    Set<UsageEntity.ConsumeType> allowed = io.vavr.collection.HashSet
+                            .of(UsageEntity.ConsumeType.values())
+                            .reject(type -> io.vavr.collection.List.of(
+                                    UsageEntity.ConsumeType.AMOUNT,
+                                    UsageEntity.ConsumeType.NONE
+                            ).contains(type))
+                            .toJavaSet();
+                    UsageEntity.ConsumeType type = Try.ofSupplier(() -> UsageEntity.ConsumeType.valueOf(upper))
+                            .filter(allowed::contains)
+                            .mapFailure(API.Case(API.$(),
+                                    e -> {
+                                        List<String> suggestions = StringSimilarityUtils.getSuggestions(
+                                                upper,
+                                                allowed.stream()
+                                                        .map(UsageEntity.ConsumeType::name)
+                                        );
+                                        return InvalidConfigurationException.unknownOption("consume type", rawConsume, suggestions);
+                                    }
+                            )).getOrElseThrow(e -> InvalidConfigurationException.path("consume", e));
+                    consume = new UsageEntity.Consume(type, 0);
+
+                }
+            }
+            //boolean shouldConsume = node.node("consume").getBoolean(false);
             List<ClickType> predicate;
             ConfigurationNode predicateNode = node.node("predicate");
             if (predicateNode.isNull()) predicate = Collections.emptyList();
@@ -573,7 +618,7 @@ public class ConfigEntity {
             List<UsageEntity.Command> commands;
             onCooldown = parseCommands(node.node("on-cooldown"));
             commands = parseCommands(node.node("commands"));
-            return new UsageEntity(predicate, cooldown, freezeTime, shouldCancelEvent, shouldConsume,onCooldown, commands);
+            return new UsageEntity(predicate, cooldown, freezeTime, shouldCancelEvent, consume, onCooldown, commands);
         }
 
         private List<UsageEntity.Command> parseCommands(ConfigurationNode node) throws InvalidConfigurationException {
@@ -603,7 +648,7 @@ public class ConfigEntity {
             }
             try {
                 return Collections.singletonList(parseCommand(node));
-            } catch (Error | RuntimeException  e) {
+            } catch (Error | RuntimeException e) {
                 if (ignoreKey) throw e;
                 throw InvalidConfigurationException.path(node.key().toString(), e);
             }
@@ -651,7 +696,8 @@ public class ConfigEntity {
                 return new ClickType(clickButton, clickAt);
             }
             Matcher matcher = SINGLE_PREDICATE_PATTERN.matcher(node.getString());
-            if (!matcher.find()) throw InvalidConfigurationException.format("Invalid predicate: <white>%s</white>", node.getString());
+            if (!matcher.find())
+                throw InvalidConfigurationException.format("Invalid predicate: <white>%s</white>", node.getString());
             String type = matcher.group("type");
             boolean isAt = matcher.group("enum").equals("at");
             ClickAt clickAt = null;

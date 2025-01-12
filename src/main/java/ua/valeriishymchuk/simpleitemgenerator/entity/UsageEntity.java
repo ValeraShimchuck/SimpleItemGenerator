@@ -1,5 +1,6 @@
 package ua.valeriishymchuk.simpleitemgenerator.entity;
 
+import io.vavr.control.Either;
 import io.vavr.control.Option;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
@@ -21,7 +22,7 @@ public class UsageEntity {
             0,
             0,
             false,
-            false,
+            Consume.NONE,
             Collections.emptyList(),
             Collections.emptyList()
     );
@@ -32,13 +33,41 @@ public class UsageEntity {
     long cooldownMillis;
     long cooldownFreezeTimeMillis;
     boolean cancel;
-    boolean consume;
+    Consume consume;
     List<Command> onCooldown;
     List<Command> commands;
 
     public boolean accepts(ClickType clickType) {
         if (predicates.isEmpty()) return true;
         return predicates.stream().anyMatch(t -> t.predicate(clickType));
+    }
+
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    @RequiredArgsConstructor
+    @Getter
+    @With
+    public static class Consume {
+
+        public static Consume NONE = new Consume(ConsumeType.NONE, 0);
+
+        ConsumeType consumeType;
+        int amount;
+
+        public boolean isNone() {
+            return consumeType == ConsumeType.NONE;
+        }
+
+        public boolean isAmount() {
+            return consumeType == ConsumeType.AMOUNT;
+        }
+
+    }
+
+    public enum ConsumeType {
+        AMOUNT,
+        NONE,
+        STACK,
+        ALL
     }
 
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
