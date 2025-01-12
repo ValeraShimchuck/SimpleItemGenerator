@@ -8,7 +8,10 @@ To be able to see `/simpleitemgenerator` command, you need to have the permissio
 
 `/simpleitemgenerator reload` - reloads the plugin. Requires `simpleitemgenerator.commands.reload` permission
 
-`/simpleitemgenerator give <item> <player>` - item is your key of the item that you configured earlier, player is optional. Requires `simpleitemgenerator.commands.give` permission
+`/simpleitemgenerator give <item> [player] [amount]` - item is your key of the item that you configured earlier, player and amount are optional.  Requires `simpleitemgenerator.commands.give` permission
+
+`/simpleitemgenerator set_slot <item> <slot> [player] [amount]` - sets the custom item to a specific slot. Player and amount are optional
+Requires `simpleitemgenerator.commands.set_slot` permission
 
 ## Example
 There are some examples of configuring the plugin
