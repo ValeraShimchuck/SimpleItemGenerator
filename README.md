@@ -1,14 +1,14 @@
 # SimpleItemGenerator
 
 ## Information
-SimpleItemGenerator is a lightweight item generator with simple, but functional configurations. Those configurations support PlaceholderAPI, ItemsAdder and MiniMessage. Another feature of the plugin is big variety of versions starting from 1.8 and ending up to the latest version of the game. 
+SimpleItemGenerator is a lightweight item generator with simple, but functional configurations. Those configurations support PlaceholderAPI, ItemsAdder and MiniMessage. Another feature of the plugin is a big variety of supported versions, starting from 1.8 and ending up to the latest version of the game. 
 
 ## Commands
-To be able to see simpleitemgenerator command you should have permission `simpleitemgenerator.commands.general`
+To be able to see `/simpleitemgenerator` command, you need to have the permission `simpleitemgenerator.commands.general`
 
 `/simpleitemgenerator reload` - reloads the plugin. Requires `simpleitemgenerator.commands.reload` permission
 
-`/simpleitemgenerator give <item> <player>` - item is your key of the item that you configured earlier, player is optional.  Requires `simpleitemgenerator.commands.give` permission
+`/simpleitemgenerator give <item> <player>` - item is your key of the item that you configured earlier, player is optional. Requires `simpleitemgenerator.commands.give` permission
 
 ## Example
 There are some examples of configuring the plugin
@@ -36,6 +36,6 @@ Other examples and information can be found in [wiki](https://github.com/ValeraS
 
 
 ## Contacts
-You have encountered a bug, or you have an idea of a feature you can create an issue in GitHub.
+If you have encountered a bug, or you have an idea of a feature, you can create an issue on GitHub.
 
-If you need help, or have any issues when dealing with the plugin you can always reach out me on my Discord Server: https://discord.gg/ksXEuxCqdC.
+If you need help or have any issues when dealing with the plugin, you can always reach out me on my Discord Server: https://discord.gg/ksXEuxCqdC.
