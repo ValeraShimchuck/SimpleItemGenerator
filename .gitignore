@@ -5,6 +5,11 @@
 *.ipr
 *.iws
 
+test/
+!test/server-settings/
+!test/settings/
+!test/test.sh
+
 # IntelliJ
 out/
 # mpeltonen/sbt-idea plugin

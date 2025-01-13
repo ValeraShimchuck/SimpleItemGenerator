@@ -1,0 +1,7 @@
+items:
+  test-item2:
+    item:
+      material: DIAMOND
+placeholder-update-period: 10t
+check-for-updates: true
+send-welcome-message: true

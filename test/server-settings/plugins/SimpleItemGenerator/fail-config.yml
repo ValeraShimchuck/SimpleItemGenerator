@@ -1,0 +1,7 @@
+items:
+  test-item3:
+    item:
+      material: IRONE_INGOT
+placeholder-update-period: 10t
+check-for-updates: true
+send-welcome-message: true

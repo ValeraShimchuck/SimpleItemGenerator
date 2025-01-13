@@ -117,6 +117,7 @@ CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
 # Determine the Java command to use to start the JVM.
 if [ -n "$JAVA_HOME" ] ; then
+    echo "Found java"
     if [ -x "$JAVA_HOME/jre/sh/java" ] ; then
         # IBM's JDK on AIX uses strange locations for the executables
         JAVACMD=$JAVA_HOME/jre/sh/java
@@ -130,6 +131,7 @@ Please set the JAVA_HOME variable in your environment to match the
 location of your Java installation."
     fi
 else
+    echo "Can't find JAVA_HOME"
     JAVACMD=java
     if ! command -v java >/dev/null 2>&1
     then

@@ -1,0 +1,6 @@
+name: SimpleItemGeneratorTester
+version: '${version}'
+main: ua.valeriishymchuk.simpleitemgenerator.tester.SIGTesterPlugin
+depend:
+  - SimpleItemGenerator
+api-version: 1.13

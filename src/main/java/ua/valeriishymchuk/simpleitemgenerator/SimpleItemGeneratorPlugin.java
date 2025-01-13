@@ -59,7 +59,7 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
         PacketEvents.getAPI().load();
     }
 
-    private IConfigRepository configRepository;
+    public IConfigRepository configRepository;
 
     @Override
     public void onEnable() {
