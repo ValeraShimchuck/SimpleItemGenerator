@@ -40,20 +40,23 @@ public class EventsController implements Listener {
     IItemService itemService;
     IInfoService infoService;
     TickerTime tickerTime;
+    BukkitTaskScheduler scheduler;
     Map<Player, Long> lastDropTick = new WeakHashMap<>();
     Map<Player, Long> lastPlayerClickTick = new WeakHashMap<>();
 
     @EventHandler
     private void onJoin(PlayerJoinEvent event) {
-        infoService.getMessage(event.getPlayer()).peek(msg -> KyoriHelper.sendMessage(event.getPlayer(), msg));
-        infoService.getNewUpdateMessage(event.getPlayer())
-                .thenAccept(msgOpt -> {
-                            msgOpt.peek(msg -> KyoriHelper.sendMessage(event.getPlayer(), msg));
-                        }
-                ).exceptionally(e -> {
-                    e.printStackTrace();
-                    return null;
-                });
+        scheduler.runTaskLater(() -> {
+            infoService.getMessage(event.getPlayer()).peek(msg -> KyoriHelper.sendMessage(event.getPlayer(), msg));
+            infoService.getNewUpdateMessage(event.getPlayer())
+                    .thenAccept(msgOpt -> {
+                                msgOpt.peek(msg -> KyoriHelper.sendMessage(event.getPlayer(), msg));
+                            }
+                    ).exceptionally(e -> {
+                        e.printStackTrace();
+                        return null;
+                    });
+        }, 40L);
     }
 
     @EventHandler(priority = EventPriority.HIGH)
