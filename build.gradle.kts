@@ -111,6 +111,9 @@ tasks.named<ProcessResources>("processResources") {
     }
 }
 
+val debugMode: Boolean = (System.getenv("DEBUG_MODE") as String?)?.toBoolean() ?: false
+
+
 tasks.named("shadowJar", com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar::class) {
     val mainPackage = project.group.toString() + "." + project.name.lowercase()
     relocate("cloud.commandframework", "$mainPackage.commandframework")
@@ -121,7 +124,9 @@ tasks.named("shadowJar", com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
     relocate("org.bstats", "$mainPackage.bstats")
     relocate("org.joml", "$mainPackage.joml")
     relocate("com.github.retrooper.packetevents", "$mainPackage.packetevents")
-    minimize()
+    if (!debugMode) {
+        minimize()
+    }
 }
 
 

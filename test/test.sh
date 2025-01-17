@@ -12,6 +12,7 @@ fi
 
 if [ -z "$clear_mode" ] && [ "$1" != "nobuild" ] && [ "$1" != "norun" ]; then
   export JAVA_HOME="/mnt/fastssd/java/jdk-17.0.2/"
+  export DEBUG_MODE="true"
   cd ..
   ./gradlew --no-watch-fs  --stacktrace --info shadowJar || exit 1
   ./gradlew --no-watch-fs  --stacktrace  --info :test-plugin:build || exit 1
@@ -23,7 +24,7 @@ fi
 plugin_jar=$(ls -tp "../build/libs" | grep -v '/$' | head -1)
 plugin_jar=$(realpath "../build/libs/$plugin_jar")
 
-tester_jar=$(realpath "../test-plugin/build/libs/test-plugin.jar")
+tester_jar=$(realpath "../test-plugin/build/libs/test-plugin-all.jar")
 
 VERSIONS_SETTINGS="settings"
 for file in "$VERSIONS_SETTINGS"/*; do

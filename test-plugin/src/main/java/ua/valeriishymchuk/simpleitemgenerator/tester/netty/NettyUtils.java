@@ -23,6 +23,7 @@ public class NettyUtils {
     public static ByteBuf readRetainedSlice(ByteBuf byteBuf, int length) {
         ByteBuf slice = byteBuf.slice(byteBuf.readerIndex(), length);
         byteBuf.readerIndex(byteBuf.readerIndex() + length);
+        slice.retain();
         return slice;
     }
 
@@ -128,6 +129,14 @@ public class NettyUtils {
         ByteBuf newBuf = alloc.directBuffer(buf.readableBytes());
         newBuf.writeBytes(buf);
         return newBuf;
+    }
+
+    public static void dumpBuf(ByteBuf buf) {
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < buf.readableBytes(); i++) {
+            sb.append(String.format("%02x ", buf.getUnsignedByte(i)));
+        }
+        System.out.println(sb);
     }
 
     static {

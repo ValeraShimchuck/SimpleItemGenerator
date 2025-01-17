@@ -1,11 +1,24 @@
 package ua.valeriishymchuk.simpleitemgenerator.tester;
 
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.event.PacketListener;
+import com.github.retrooper.packetevents.event.PacketListenerPriority;
+import com.github.retrooper.packetevents.event.PacketReceiveEvent;
+import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.player.UserProfile;
+import com.github.retrooper.packetevents.util.Vector3d;
+import com.github.retrooper.packetevents.wrapper.login.server.WrapperLoginServerSetCompression;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerFlying;
+import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerPosition;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerPositionAndLook;
 import com.google.common.base.Preconditions;
 import lombok.SneakyThrows;
 import org.bukkit.Bukkit;
+import org.bukkit.Location;
 import org.bukkit.plugin.java.JavaPlugin;
 import ua.valeriishymchuk.simpleitemgenerator.SimpleItemGeneratorPlugin;
 import ua.valeriishymchuk.simpleitemgenerator.tester.annotation.Test;
+import ua.valeriishymchuk.simpleitemgenerator.tester.client.MinecraftTestClient;
 import ua.valeriishymchuk.simpleitemgenerator.tester.stream.WrappedPrintStream;
 
 import java.io.File;
@@ -14,6 +27,7 @@ import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
+import java.util.UUID;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -60,15 +74,52 @@ public class SIGTesterPlugin extends JavaPlugin {
     @SneakyThrows
     @Override
     public void onEnable() {
-
+        if (isFinished) return;
         try {
             runTests();
+            testClient();
         } catch (Throwable e) {
             e.printStackTrace();
             fail();
             return;
         }
-        Bukkit.getScheduler().runTask(this, SIGTesterPlugin::success);
+        //Bukkit.getScheduler().runTask(this, SIGTesterPlugin::success);
+        //Bukkit.getScheduler().runTaskLater(this, SIGTesterPlugin::success, 20 * 20);
+    }
+
+    private void testClient() {
+        PacketEvents.getAPI().getEventManager().registerListener(new PacketListener() {
+            @Override
+            public void onPacketReceive(PacketReceiveEvent event) {
+                System.out.println("Got a packet from client: " + event.getPacketType() + " " + event.getPacketId());
+            }
+        }, PacketListenerPriority.MONITOR);
+        Location playerPos = new Location(Bukkit.getWorld("world"), 0, 0, 0);
+        MinecraftTestClient testClient = new MinecraftTestClient(
+                new UserProfile(UUID.randomUUID(), "test1"),
+                event -> {
+                    if (event.getPacketType() == PacketType.Play.Server.PLAYER_POSITION_AND_LOOK) {
+                        WrapperPlayServerPlayerPositionAndLook packet = new WrapperPlayServerPlayerPositionAndLook(event);
+                        playerPos.setX(packet.getPosition().getX());
+                        playerPos.setY(packet.getPosition().getY());
+                        playerPos.setZ(packet.getPosition().getZ());
+                        playerPos.setYaw(packet.getYaw());
+                        playerPos.setPitch(packet.getPitch());
+                    }
+                }
+        );
+        Bukkit.getScheduler().runTaskTimer(this, () -> {
+            if (testClient.getChannel() == null || !testClient.getChannel().isActive()) return;
+            if (testClient.getConnectionState() != 3) return;
+            testClient.write(new WrapperPlayClientPlayerPosition(
+                    new Vector3d(
+                            playerPos.getX(),
+                            playerPos.getY(),
+                            playerPos.getZ()
+                    ),
+                    false
+            ));
+        }, 0, 20);
     }
 
     private void runTests() {

@@ -6,6 +6,7 @@ import io.netty.buffer.ByteBuf;
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.handler.codec.ByteToMessageDecoder;
 import ua.valeriishymchuk.simpleitemgenerator.tester.netty.NettyUtils;
+import ua.valeriishymchuk.simpleitemgenerator.tester.netty.WrappedByteBuf;
 
 import java.util.List;
 
@@ -51,7 +52,7 @@ public class MinecraftVarintFrameDecoder extends ByteToMessageDecoder {
             if (in.readableBytes() < length) {
                 in.resetReaderIndex();
             } else {
-                out.add(NettyUtils.readRetainedSlice(in, length)    );
+                out.add(NettyUtils.readRetainedSlice(in, length));
             }
         }
     }

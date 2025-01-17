@@ -11,9 +11,21 @@ dependencies {
     annotationProcessor("org.projectlombok:lombok:1.18.36")
     compileOnly(project(":"))
     //compileOnly("io.netty:netty-all:4.1.116.Final")
-
-
 }
+
+tasks.named("shadowJar", com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar::class) {
+    val mainPackage = rootProject.group.toString() + "." + rootProject.name.lowercase()
+    relocate("cloud.commandframework", "$mainPackage.commandframework")
+    relocate("net.kyori", "$mainPackage.kyori")
+    relocate("de.tr7zw.changeme.nbtapi", "$mainPackage.nbtapi")
+    relocate("org.spongepowered", "$mainPackage.spongepowered")
+    relocate("org.yaml.snakeyaml", "$mainPackage.snakeyaml")
+    relocate("org.bstats", "$mainPackage.bstats")
+    relocate("org.joml", "$mainPackage.joml")
+    relocate("com.github.retrooper.packetevents", "$mainPackage.packetevents")
+    //minimize()
+}
+
 
 val targetJavaVersion = 8
 java {
@@ -33,6 +45,7 @@ java {
 //        options.release.set(targetJavaVersion)
 //    }
 //}
+
 
 tasks.named<ProcessResources>("processResources") {
     val props = mapOf(

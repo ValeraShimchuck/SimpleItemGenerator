@@ -80,7 +80,7 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
         new CommandsController(itemService, infoService).setupCommands(commandManager);
         TickerTime tickerTime = new TickerTime(taskScheduler);
         tickerTime.start();
-        Bukkit.getPluginManager().registerEvents(new EventsController(itemService, infoService,tickerTime), this);
+        Bukkit.getPluginManager().registerEvents(new EventsController(itemService, infoService,tickerTime, taskScheduler), this);
         new TickController(itemService, taskScheduler).start();
         //PacketEvents.getAPI().getEventManager().registerListener(new PacketsController(), PacketListenerPriority.MONITOR);
         MetricsHelper.init(this);
