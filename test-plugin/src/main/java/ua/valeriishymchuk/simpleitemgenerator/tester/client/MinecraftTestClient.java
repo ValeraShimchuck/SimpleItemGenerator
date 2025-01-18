@@ -1,6 +1,8 @@
 package ua.valeriishymchuk.simpleitemgenerator.tester.client;
 
 import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.event.PacketListener;
+import com.github.retrooper.packetevents.event.PacketListenerPriority;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.event.simple.PacketConfigSendEvent;
@@ -19,12 +21,18 @@ import com.github.retrooper.packetevents.wrapper.login.client.WrapperLoginClient
 import com.github.retrooper.packetevents.wrapper.login.client.WrapperLoginClientLoginSuccessAck;
 import com.github.retrooper.packetevents.wrapper.login.server.WrapperLoginServerLoginSuccess;
 import com.github.retrooper.packetevents.wrapper.login.server.WrapperLoginServerSetCompression;
+import com.google.common.collect.ArrayListMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.MultimapBuilder;
+import com.google.common.collect.Multimaps;
 import io.netty.bootstrap.Bootstrap;
 import io.netty.buffer.ByteBuf;
 import io.netty.channel.*;
 import io.netty.channel.nio.NioEventLoopGroup;
 import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioSocketChannel;
+import io.vavr.Tuple;
+import io.vavr.Tuple2;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.FieldDefaults;
@@ -33,6 +41,10 @@ import ua.valeriishymchuk.simpleitemgenerator.tester.client.compressor.JavaCompr
 import ua.valeriishymchuk.simpleitemgenerator.tester.netty.NettyUtils;
 
 import java.net.InetSocketAddress;
+import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -56,6 +68,11 @@ public class MinecraftTestClient extends ChannelDuplexHandler {
     int connectionState = 0;
     Consumer<PacketSendEvent> handler;
     NioEventLoopGroup group;
+    @NonFinal int writeId = 0;
+    Map<Integer, CompletableFuture<Void>> writesFuture = new ConcurrentHashMap<>();
+    Multimap<PacketTypeCommon, CompletableFuture<PacketSendEvent>> nextReadFutures = Multimaps.synchronizedMultimap(
+            ArrayListMultimap.create()
+    );
 
     public MinecraftTestClient(UserProfile user, Consumer<PacketSendEvent> handler) {
         this.handler = handler;
@@ -76,9 +93,25 @@ public class MinecraftTestClient extends ChannelDuplexHandler {
             bootstrap.connect("localhost", 25565).sync();
         } catch (Exception e) {
             throw new RuntimeException(e);
-        } finally {
         }
+        PacketEvents.getAPI().getEventManager().registerListener(new PacketListener() {
+
+            private int innerReadId = 0;
+
+            @Override
+            public void onPacketReceive(PacketReceiveEvent event) {
+                innerReadId++;
+                writesFuture.remove(innerReadId).complete(null);
+            }
+        }, PacketListenerPriority.MONITOR);
     }
+
+    public void handleNext(PacketTypeCommon type, Consumer<PacketSendEvent> consumer) {
+        CompletableFuture<PacketSendEvent> future = new CompletableFuture<>();
+        future.thenAccept(consumer);
+        nextReadFutures.put(type , future);
+    }
+
 
     @Override
     public void channelActive(ChannelHandlerContext ctx) throws Exception {
@@ -146,6 +179,8 @@ public class MinecraftTestClient extends ChannelDuplexHandler {
                 throw new RuntimeException("Unknown state: " + state);
         }
         //System.out.println("got message: " + msg);
+        nextReadFutures.removeAll(event.getPacketType())
+                .forEach(future -> future.complete(event));
         if (!internalHandler(event)) handler.accept(event);
         buf.release();
         //channel.close().sync();
@@ -178,7 +213,7 @@ public class MinecraftTestClient extends ChannelDuplexHandler {
         return false;
     }
 
-    public void write(Object msg) {
+    public CompletableFuture<Void> write(Object msg) {
         if (msg instanceof PacketWrapper<?>) {
             PacketWrapper<?> wrapper = (PacketWrapper<?>) msg;
             ByteBuf buffer = channel.alloc().directBuffer();
@@ -191,7 +226,11 @@ public class MinecraftTestClient extends ChannelDuplexHandler {
             buffer.release();
             msg = idBuffer;
         }
+        writeId++;
+        CompletableFuture<Void> writeFuture = new CompletableFuture<>();
+        writesFuture.put(writeId, writeFuture);
         channel.writeAndFlush(msg);
+        return writeFuture;
     }
 
 

@@ -1,5 +1,15 @@
 package ua.valeriishymchuk.simpleitemgenerator.tester;
 
+import cloud.commandframework.Command;
+import cloud.commandframework.CommandManager;
+import cloud.commandframework.arguments.standard.IntegerArgument;
+import cloud.commandframework.arguments.standard.StringArgument;
+import cloud.commandframework.bukkit.BukkitCommandManager;
+import cloud.commandframework.exceptions.ArgumentParseException;
+import cloud.commandframework.exceptions.InvalidSyntaxException;
+import cloud.commandframework.exceptions.NoPermissionException;
+import cloud.commandframework.execution.CommandExecutionCoordinator;
+import cloud.commandframework.minecraft.extras.MinecraftExceptionHandler;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketListener;
 import com.github.retrooper.packetevents.event.PacketListenerPriority;
@@ -12,11 +22,20 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPl
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerPosition;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerPositionAndLook;
 import com.google.common.base.Preconditions;
+import io.vavr.concurrent.Future;
 import lombok.SneakyThrows;
+import net.kyori.adventure.audience.Audience;
+import net.kyori.adventure.audience.MessageType;
+import net.kyori.adventure.identity.Identity;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.command.CommandSender;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.jetbrains.annotations.NotNull;
 import ua.valeriishymchuk.simpleitemgenerator.SimpleItemGeneratorPlugin;
+import ua.valeriishymchuk.simpleitemgenerator.common.commands.CommandException;
+import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.tester.annotation.Test;
 import ua.valeriishymchuk.simpleitemgenerator.tester.client.MinecraftTestClient;
 import ua.valeriishymchuk.simpleitemgenerator.tester.stream.WrappedPrintStream;
@@ -28,6 +47,10 @@ import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
@@ -44,6 +67,7 @@ public class SIGTesterPlugin extends JavaPlugin {
     //    }));
     //}
 
+    private CompletableFuture<String> proceedFuture = null;
 
     @Override
     public void onLoad() {
@@ -76,6 +100,7 @@ public class SIGTesterPlugin extends JavaPlugin {
     public void onEnable() {
         if (isFinished) return;
         try {
+            registerCommands();
             runTests();
             testClient();
         } catch (Throwable e) {
@@ -87,13 +112,59 @@ public class SIGTesterPlugin extends JavaPlugin {
         //Bukkit.getScheduler().runTaskLater(this, SIGTesterPlugin::success, 20 * 20);
     }
 
-    private void testClient() {
-        PacketEvents.getAPI().getEventManager().registerListener(new PacketListener() {
-            @Override
-            public void onPacketReceive(PacketReceiveEvent event) {
-                System.out.println("Got a packet from client: " + event.getPacketType() + " " + event.getPacketId());
-            }
-        }, PacketListenerPriority.MONITOR);
+    // TODO continue
+    // 1.8 configuration load fail/success
+    // 1.14+ configuration load fail/success
+    // 1.21.4+ configuration load fail/success
+
+    // Usage one command test
+    // Usage LMB/RMB command test
+    // Usage cooldown test
+    // Usage freezetime test
+    // Usage drop at entity test
+    // Usage drop at block test
+    // Usage cancel test
+
+    // commands for testing
+    /*
+    * /sigtest fail
+    * /sigtest proceed <name>
+    * */
+    private void registerCommands() {
+        CommandManager<CommandSender> manager = setupCommandManager();
+        Supplier<Command.Builder<CommandSender>> builder = () -> manager.commandBuilder("sigtest");
+        Consumer<Command.Builder<CommandSender>[]> register = commands -> Arrays.stream(commands).forEach(manager::command);
+        register.accept(Arrays.asList(
+                builder.get().literal("fail").handler(ctx -> fail()),
+                builder.get().literal("proceed").argument(StringArgument.builder("proceed"))
+                        .handler(ctx -> {
+                            String proceed = ctx.get("proceed");
+                            if (proceedFuture == null || proceedFuture.isDone()) {
+                                fail();
+                                return;
+                            }
+                            proceedFuture.complete(proceed);
+                        })
+        ).toArray(new Command.Builder[0]));
+    }
+
+    private CompletableFuture<Void> tryProceed(String key) {
+        CompletableFuture<String> future = new CompletableFuture<>();
+        if (proceedFuture != null && !proceedFuture.isDone()) {
+            throw new RuntimeException("Already awaiting");
+        }
+        proceedFuture = future;
+        Bukkit.getScheduler().runTaskLaterAsynchronously(this, () -> {
+            if (proceedFuture.isDone()) return;
+            proceedFuture.completeExceptionally(new RuntimeException("Command wasn't executed in time"));
+        }, 20);
+        return future.thenAccept(result -> {
+            if (!result.equals(key)) throw new RuntimeException("Got " + result + " instead of " + key);
+        });
+    }
+
+
+    private MinecraftTestClient testClient() {
         Location playerPos = new Location(Bukkit.getWorld("world"), 0, 0, 0);
         MinecraftTestClient testClient = new MinecraftTestClient(
                 new UserProfile(UUID.randomUUID(), "test1"),
@@ -120,7 +191,10 @@ public class SIGTesterPlugin extends JavaPlugin {
                     false
             ));
         }, 0, 20);
+        return testClient;
     }
+
+
 
     private void runTests() {
         Arrays.stream(getClass().getMethods())
@@ -189,4 +263,26 @@ public class SIGTesterPlugin extends JavaPlugin {
     public void onDisable() {
         Bukkit.shutdown();
     }
+
+
+    @SneakyThrows
+    private CommandManager<CommandSender> setupCommandManager() {
+        CommandManager<CommandSender> manager = new BukkitCommandManager<>(
+                this,
+                CommandExecutionCoordinator.simpleCoordinator(),
+                Function.identity(),
+                Function.identity()
+        );
+        new MinecraftExceptionHandler<CommandSender>()
+                .withDefaultHandlers()
+                .apply(manager, s -> new Audience() {
+
+                    @Override
+                    public void sendMessage(final @NotNull Identity source, final @NotNull Component message, final @NotNull MessageType type) {
+                        KyoriHelper.sendMessage(s, message);
+                    }
+                });
+        return manager;
+    }
+
 }
