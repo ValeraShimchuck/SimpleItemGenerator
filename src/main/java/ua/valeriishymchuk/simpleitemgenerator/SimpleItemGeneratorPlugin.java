@@ -63,6 +63,9 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
 
     @Override
     public void onEnable() {
+        if (!checkFor1132()) {
+            return;
+        }
         ConfigLoader configLoader = yamlLoader();
         CommandManager<CommandSender> commandManager = setupCommandManager();
         BukkitTaskScheduler taskScheduler = new BukkitTaskScheduler(this);
@@ -84,6 +87,15 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
         new TickController(itemService, taskScheduler).start();
         //PacketEvents.getAPI().getEventManager().registerListener(new PacketsController(), PacketListenerPriority.MONITOR);
         MetricsHelper.init(this);
+    }
+
+    private boolean checkFor1132() {
+        if (SemanticVersion.CURRENT_MINECRAFT.isAtLeast(1, 13) && !SemanticVersion.CURRENT_MINECRAFT.isAtLeast(1, 14)) {
+            getLogger().severe("SimpleItemGenerator is not supported for 1.13-1.13.2. Shutting down...");
+            Bukkit.getPluginManager().disablePlugin(this);
+            return false;
+        }
+        return true;
     }
 
     @Override

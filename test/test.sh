@@ -28,9 +28,15 @@ tester_jar=$(realpath "../test-plugin/build/libs/test-plugin-all.jar")
 
 VERSIONS_SETTINGS="settings"
 for file in "$VERSIONS_SETTINGS"/*; do
+  file_name=$(basename "$file")
+  folder="${file_name%.*}"
   echo "Processing $file"
   if [ -f "$file" ]; then
     source "$file"
+    if [ "$1" == "only" ] && [ "$2" != "$folder" ]; then
+      echo "$1 $2 is not equal to $folder"
+      continue
+    fi
     if [[ -z "$JAVA_RUN" ]]; then
       echo "No JAVA_RUN defined in $file"
       exit 1
@@ -40,8 +46,6 @@ for file in "$VERSIONS_SETTINGS"/*; do
       echo "No SOURCE defined in $file"
       exit 1
     fi
-    file_name=$(basename "$file")
-    folder="${file_name%.*}"
     if [ -n "$clear_mode" ]; then
       echo "Clearing $folder"
       rm -rf "$folder"

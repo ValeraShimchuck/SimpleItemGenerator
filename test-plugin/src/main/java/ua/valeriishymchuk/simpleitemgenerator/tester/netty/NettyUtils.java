@@ -1,11 +1,14 @@
 package ua.valeriishymchuk.simpleitemgenerator.tester.netty;
 
-import io.netty.buffer.ByteBuf;
-import io.netty.buffer.ByteBufAllocator;
-import io.netty.buffer.Unpooled;
-import io.netty.buffer.UnpooledDirectByteBuf;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
+import io.netty.buffer.*;
 import io.netty.handler.codec.CorruptedFrameException;
 import io.netty.handler.codec.DecoderException;
+import ua.valeriishymchuk.simpleitemgenerator.tester.version.VersionUtils;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 
 public class NettyUtils {
 
@@ -29,6 +32,21 @@ public class NettyUtils {
 
     private static DecoderException badVarint() {
         return new CorruptedFrameException("Bad VarInt decoded");
+    }
+
+    public static int getPacketStarts(ByteBuf in) {
+        return VersionUtils.applySince(ServerVersion.V_1_12, () -> {
+            try {
+                Class<?> byteProcessorClass = Class.forName("io.netty.util.ByteProcessor");
+                Field findNonNulField = byteProcessorClass.getField("FIND_NON_NUL");
+                Object findNonNul = findNonNulField.get(null);
+                Method forEachByteMethod = ByteBuf.class.getMethod("forEachByte", byteProcessorClass);
+                return (Integer) forEachByteMethod.invoke(in, findNonNul);
+            } catch (ClassNotFoundException | NoSuchMethodException | NoSuchFieldException | IllegalAccessException |
+                     InvocationTargetException e) {
+                throw new RuntimeException(e);
+            }
+        }).getOrElse(() -> in.forEachByte(ByteBufProcessor.FIND_NON_NUL));
     }
 
     public static int readVarInt(ByteBuf buf) {

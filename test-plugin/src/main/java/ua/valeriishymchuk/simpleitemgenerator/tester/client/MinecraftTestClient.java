@@ -8,6 +8,7 @@ import com.github.retrooper.packetevents.event.PacketSendEvent;
 import com.github.retrooper.packetevents.event.simple.PacketConfigSendEvent;
 import com.github.retrooper.packetevents.event.simple.PacketLoginSendEvent;
 import com.github.retrooper.packetevents.event.simple.PacketPlaySendEvent;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.ConnectionState;
 import com.github.retrooper.packetevents.protocol.PacketSide;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
@@ -16,6 +17,9 @@ import com.github.retrooper.packetevents.protocol.player.ClientVersion;
 import com.github.retrooper.packetevents.protocol.player.User;
 import com.github.retrooper.packetevents.protocol.player.UserProfile;
 import com.github.retrooper.packetevents.wrapper.PacketWrapper;
+import com.github.retrooper.packetevents.wrapper.configuration.client.WrapperConfigClientConfigurationEndAck;
+import com.github.retrooper.packetevents.wrapper.configuration.client.WrapperConfigClientSelectKnownPacks;
+import com.github.retrooper.packetevents.wrapper.configuration.server.WrapperConfigServerSelectKnownPacks;
 import com.github.retrooper.packetevents.wrapper.handshaking.client.WrapperHandshakingClientHandshake;
 import com.github.retrooper.packetevents.wrapper.login.client.WrapperLoginClientLoginStart;
 import com.github.retrooper.packetevents.wrapper.login.client.WrapperLoginClientLoginSuccessAck;
@@ -39,6 +43,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import ua.valeriishymchuk.simpleitemgenerator.tester.client.compressor.JavaCompressor;
 import ua.valeriishymchuk.simpleitemgenerator.tester.netty.NettyUtils;
+import ua.valeriishymchuk.simpleitemgenerator.tester.version.VersionUtils;
 
 import java.net.InetSocketAddress;
 import java.util.Map;
@@ -205,9 +210,32 @@ public class MinecraftTestClient extends ChannelDuplexHandler {
             return true;
         }
         if (event.getPacketType() == PacketType.Login.Server.LOGIN_SUCCESS) {
-            //WrapperLoginClientLoginSuccessAck loginSuccessAck = new WrapperLoginClientLoginSuccessAck();
-            //write(loginSuccessAck);
+            VersionUtils.runSince(ServerVersion.V_1_20_2, () -> {
+                WrapperLoginClientLoginSuccessAck loginSuccessAck = new WrapperLoginClientLoginSuccessAck();
+                write(loginSuccessAck);
+                connectionState += 1;
+            });
             connectionState += 1;
+            return true;
+        }
+        if (event.getPacketType() == PacketType.Configuration.Server.CONFIGURATION_END) {
+            WrapperConfigClientConfigurationEndAck configurationEndAck = new WrapperConfigClientConfigurationEndAck();
+            write(configurationEndAck);
+            connectionState -= 1;
+            return true;
+        }
+
+        if (event.getPacketType() == PacketType.Configuration.Server.SELECT_KNOWN_PACKS) {
+            WrapperConfigServerSelectKnownPacks serverPacks = new WrapperConfigServerSelectKnownPacks(event);
+            WrapperConfigClientSelectKnownPacks selectKnownPacks = new WrapperConfigClientSelectKnownPacks(
+                    serverPacks.getKnownPacks()
+            );
+            write(selectKnownPacks);
+            return true;
+        }
+
+        if (!(event instanceof PacketPlaySendEvent)) {
+            //System.out.println("Unhandled packet: " + event.getPacketType());
             return true;
         }
         return false;

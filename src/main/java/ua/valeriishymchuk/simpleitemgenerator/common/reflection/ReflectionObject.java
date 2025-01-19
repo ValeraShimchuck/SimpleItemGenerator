@@ -60,6 +60,15 @@ public class ReflectionObject {
         return invokePublic(methodName, ofArray(args));
     }
 
+    public boolean hasPublicMethod(String methodName, Class<?>... args) {
+        try {
+            clazz.getMethod(methodName, args);
+            return true;
+        } catch (NoSuchMethodException e) {
+            return false;
+        }
+    }
+
     @SneakyThrows
     public Option<ReflectionObject> invokePublic(String methodName, ReflectionObject... args) {
         //Method method = clazz.getMethod(methodName, toClassesArray(args));

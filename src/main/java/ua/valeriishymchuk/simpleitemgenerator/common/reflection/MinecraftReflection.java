@@ -19,11 +19,21 @@ public class MinecraftReflection {
     @SneakyThrows
     public static Class<?> getCraftBukkit(String className) {
         return Class.forName(craftBukkit + "." + className);
-    }    private static final Class<?> CRAFT_CHAT_MESSAGE = getCraftBukkit("util.CraftChatMessage");
+    }
 
+    private static final Class<?> CRAFT_CHAT_MESSAGE = getCraftBukkit("util.CraftChatMessage");
+
+    @SneakyThrows
     public static ReflectionObject toMinecraftComponent(Component component) {
         ReflectionObject craftChatMessage = ReflectionObject.ofStatic(CRAFT_CHAT_MESSAGE);
-        return craftChatMessage.invokePublic("fromJSON", KyoriHelper.toJson(component))
+        if (craftChatMessage.hasPublicMethod("fromJSON", String.class))
+            return craftChatMessage.invokePublic("fromJSON", KyoriHelper.toJson(component))
+                .get();
+
+        Class<?> nmsComponent = craftChatMessage.getClazz().getMethod("fromString", String.class).getReturnType();
+        Class<?> serializer = Class.forName(nmsComponent.getComponentType().getName()+ "$ChatSerializer");
+        return ReflectionObject.ofStatic(serializer)
+                .invokePublic("a", KyoriHelper.toJson(component))
                 .get();
     }
 

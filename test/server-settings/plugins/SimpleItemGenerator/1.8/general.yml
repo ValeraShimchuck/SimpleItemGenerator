@@ -1,0 +1,18 @@
+items:
+  test-item:
+    item:
+      material: DIAMOND
+      name: "<red><bold>test</red></bold>"
+      lore:
+        - "some lore1"
+        - "some lore2"
+      enchantments:
+        LUCK: 5
+        DIG_SPEED: 2
+      unbreakable: true
+      attributes:
+        - attribute: MAX_HEALTH
+          operation: ADD_VALUE
+          amount: 6
+      item-flags:
+        - HIDE_ENCHANTS

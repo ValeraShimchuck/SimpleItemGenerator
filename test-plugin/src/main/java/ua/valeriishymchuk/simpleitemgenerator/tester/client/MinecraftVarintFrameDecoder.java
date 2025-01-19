@@ -29,7 +29,8 @@ public class MinecraftVarintFrameDecoder extends ByteToMessageDecoder {
         }
 
         // skip any runs of 0x00 we might find
-        int packetStart = in.forEachByte(FIND_NON_NUL);
+        //int packetStart = in.forEachByte(FIND_NON_NUL);
+        int packetStart = NettyUtils.getPacketStarts(in);
         if (packetStart == -1) {
             in.clear();
             return;

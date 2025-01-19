@@ -14,6 +14,7 @@ import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.event.PacketListener;
 import com.github.retrooper.packetevents.event.PacketListenerPriority;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
+import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
 import com.github.retrooper.packetevents.protocol.player.UserProfile;
 import com.github.retrooper.packetevents.util.Vector3d;
@@ -31,11 +32,13 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import ua.valeriishymchuk.simpleitemgenerator.SimpleItemGeneratorPlugin;
 import ua.valeriishymchuk.simpleitemgenerator.common.commands.CommandException;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
+import ua.valeriishymchuk.simpleitemgenerator.entity.ConfigEntity;
 import ua.valeriishymchuk.simpleitemgenerator.tester.annotation.Test;
 import ua.valeriishymchuk.simpleitemgenerator.tester.client.MinecraftTestClient;
 import ua.valeriishymchuk.simpleitemgenerator.tester.stream.WrappedPrintStream;
@@ -56,6 +59,8 @@ import java.util.logging.Level;
 import java.util.logging.LogRecord;
 
 import static com.google.common.base.Preconditions.checkArgument;
+import static ua.valeriishymchuk.simpleitemgenerator.tester.version.VersionUtils.runSince;
+import static ua.valeriishymchuk.simpleitemgenerator.tester.version.VersionUtils.runUpTo;
 
 public class SIGTesterPlugin extends JavaPlugin {
 
@@ -101,8 +106,18 @@ public class SIGTesterPlugin extends JavaPlugin {
         if (isFinished) return;
         try {
             registerCommands();
-            runTests();
-            testClient();
+            MinecraftTestClient client = testClient();
+            runUpTo(ServerVersion.V_1_9, () -> {
+                client.handleNext(PacketType.Play.Server.MAP_CHUNK_BULK, event -> {
+                    Bukkit.getScheduler().runTaskLater(this, this::runTests, 1);
+                });
+            });
+            runSince(ServerVersion.V_1_9, () -> {
+                client.handleNext(PacketType.Play.Server.CHUNK_DATA, event -> {
+                    Bukkit.getScheduler().runTaskLater(this, this::runTests, 1);
+                });
+            });
+
         } catch (Throwable e) {
             e.printStackTrace();
             fail();
@@ -112,7 +127,9 @@ public class SIGTesterPlugin extends JavaPlugin {
         //Bukkit.getScheduler().runTaskLater(this, SIGTesterPlugin::success, 20 * 20);
     }
 
-    // TODO continue
+
+
+        // TODO continue
     // 1.8 configuration load fail/success
     // 1.14+ configuration load fail/success
     // 1.21.4+ configuration load fail/success
@@ -169,6 +186,8 @@ public class SIGTesterPlugin extends JavaPlugin {
         MinecraftTestClient testClient = new MinecraftTestClient(
                 new UserProfile(UUID.randomUUID(), "test1"),
                 event -> {
+                    if (isFinished) return;
+                    //getLogger().info("Got packet from server: " + event.getPacketType());
                     if (event.getPacketType() == PacketType.Play.Server.PLAYER_POSITION_AND_LOOK) {
                         WrapperPlayServerPlayerPositionAndLook packet = new WrapperPlayServerPlayerPositionAndLook(event);
                         playerPos.setX(packet.getPosition().getX());
@@ -207,6 +226,7 @@ public class SIGTesterPlugin extends JavaPlugin {
                         throw new RuntimeException(e);
                     }
                 });
+        success();
     }
 
     @Test
@@ -220,6 +240,15 @@ public class SIGTesterPlugin extends JavaPlugin {
     @Test
     public void testFail() {
         checkArgument(!setConfig("fail-config"), "fail-config was run successfully");
+    }
+
+    @Test
+    public void testGeneral() {
+        checkArgument(setConfig("1.8/general"), "Failed to set 1.8/general");
+        ConfigEntity.CustomItem item = getSIG().configRepository.getConfig().getItem("test-item").getOrNull();
+        checkArgument(item != null, "Can't access test-item");
+        ItemStack itemStack = getSIG().configRepository.getConfig().bakeItem("test-item", Bukkit.getOnlinePlayers().stream().findFirst()
+                .orElseThrow(NullPointerException::new)).getOrElseThrow(() -> new RuntimeException("Can't bake test-item"));
     }
 
     @SneakyThrows
@@ -261,6 +290,7 @@ public class SIGTesterPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (isFinished) return;
         Bukkit.shutdown();
     }
 

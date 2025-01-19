@@ -7,6 +7,7 @@ import lombok.SneakyThrows;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.md_5.bungee.api.chat.BaseComponent;
+import org.bukkit.Bukkit;
 import ua.valeriishymchuk.simpleitemgenerator.common.boundingbox.BoundingBox;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
