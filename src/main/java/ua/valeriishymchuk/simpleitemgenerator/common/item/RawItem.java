@@ -18,6 +18,7 @@ import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.configurate.ConfigurationNode;
@@ -279,7 +280,11 @@ public class RawItem implements Cloneable {
         }
         meta.addItemFlags(getFlags().toArray(new ItemFlag[0]));
         //if (!enchantments.isEmpty()) enchantments.forEach((k, v) -> meta.addEnchant(findEnchantment(k), v, true));
-        getEnchantments().forEach((ench, level) -> meta.addEnchant(ench, level, true));
+        getEnchantments().forEach((ench, level) -> {
+            if (meta instanceof EnchantmentStorageMeta) {
+                ((EnchantmentStorageMeta) meta).addStoredEnchant(ench, level, true);
+            } else meta.addEnchant(ench, level, true);
+        });
         if (unbreakable != null) ReflectedRepresentations.ItemMeta.setUnbreakable(meta, unbreakable);
         item.setItemMeta(meta);
         return item;
