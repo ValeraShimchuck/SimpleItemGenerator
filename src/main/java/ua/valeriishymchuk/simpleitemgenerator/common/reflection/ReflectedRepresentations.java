@@ -58,14 +58,19 @@ public class ReflectedRepresentations {
         public static BoundingBox getEntitiesBoundingBox(org.bukkit.entity.Entity entity) {
             Object nmsEntity = CRAFT_ENTITY.getMethod("getHandle").invoke(entity);
             Class<?> nmsEntityClass = getEntityClass(nmsEntity.getClass());
-            Object nmsBoundingBox = Arrays.stream(nmsEntityClass.getDeclaredFields())
-                    .filter(field -> field.getType().getName().endsWith("BB"))
-                    .filter(field -> (field.getModifiers() & Modifier.STATIC) == 0)
-                    .peek(f -> f.setAccessible(true))
-                    .findFirst().orElseThrow(() -> new IllegalArgumentException("Can't find AABB field in " + nmsEntityClass.getName())).get(nmsEntity);
             //Arrays.stream(nmsEntity.getClass().getMethods()).map(m -> m.getName() + " " + m.getReturnType())
             //        .forEach(System.out::println);
-            //Object nmsBoundingBox = nmsEntity.getClass().getMethod("getBoundingBox").invoke(nmsEntity);
+            boolean hasBoundingBoxMethod = Arrays.stream(nmsEntityClass.getMethods()).anyMatch(m -> m.getName().equals("getBoundingBox"));
+            Object nmsBoundingBox;
+            if (hasBoundingBoxMethod) {
+                nmsBoundingBox = nmsEntity.getClass().getMethod("getBoundingBox").invoke(nmsEntity);
+            }  else  {
+                nmsBoundingBox = Arrays.stream(nmsEntityClass.getDeclaredFields())
+                        .filter(field -> field.getType().getName().endsWith("BB"))
+                        .filter(field -> (field.getModifiers() & Modifier.STATIC) == 0)
+                        .peek(f -> f.setAccessible(true))
+                        .findFirst().orElseThrow(() -> new IllegalArgumentException("Can't find AABB field in " + nmsEntityClass.getName())).get(nmsEntity);
+            }
             double[] inputs = Arrays.stream(nmsBoundingBox.getClass().getFields())
                     .map(CheckedFunction1.<Field, Double>of(field -> (double) field.get(nmsBoundingBox)).unchecked())
                     .mapToDouble(i -> i).toArray();
