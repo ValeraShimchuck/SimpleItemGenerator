@@ -9,25 +9,26 @@ import cloud.commandframework.exceptions.NoPermissionException;
 import cloud.commandframework.execution.CommandExecutionCoordinator;
 import cloud.commandframework.minecraft.extras.MinecraftExceptionHandler;
 import com.github.retrooper.packetevents.PacketEvents;
-import com.github.retrooper.packetevents.PacketEventsAPI;
-import com.github.retrooper.packetevents.event.PacketListenerPriority;
 import com.github.retrooper.packetevents.settings.PacketEventsSettings;
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
 import lombok.SneakyThrows;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.audience.MessageType;
-import net.kyori.adventure.identity.Identified;
 import net.kyori.adventure.identity.Identity;
 import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.ComponentLike;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 import org.spongepowered.configurate.yaml.NodeStyle;
+import ua.valeriishymchuk.simpleitemgenerator.api.SimpleItemGenerator;
 import ua.valeriishymchuk.simpleitemgenerator.common.commands.CommandException;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.ConfigLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.builder.ConfigLoaderConfigurationBuilder;
+import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.metrics.MetricsHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.scheduler.BukkitTaskScheduler;
@@ -35,7 +36,6 @@ import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickerTime;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 import ua.valeriishymchuk.simpleitemgenerator.controller.CommandsController;
 import ua.valeriishymchuk.simpleitemgenerator.controller.EventsController;
-import ua.valeriishymchuk.simpleitemgenerator.controller.PacketsController;
 import ua.valeriishymchuk.simpleitemgenerator.controller.TickController;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IConfigRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IUpdateRepository;
@@ -46,6 +46,8 @@ import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 import ua.valeriishymchuk.simpleitemgenerator.service.impl.InfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
 
+import java.util.Objects;
+import java.util.Optional;
 import java.util.function.Function;
 import java.util.logging.Level;
 
@@ -86,6 +88,7 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
         Bukkit.getPluginManager().registerEvents(new EventsController(itemService, infoService,tickerTime, taskScheduler), this);
         new TickController(itemService, taskScheduler).start();
         //PacketEvents.getAPI().getEventManager().registerListener(new PacketsController(), PacketListenerPriority.MONITOR);
+        new API();
         MetricsHelper.init(this);
     }
 
@@ -158,6 +161,35 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
                     }
                 });
         return manager;
+    }
+
+    private class API extends SimpleItemGenerator {
+
+        @Override
+        public Optional<ItemStack> bakeItem(String key, @Nullable Player player) {
+            Objects.requireNonNull(key);
+            return configRepository.getConfig().bakeItem(key, player).toJavaOptional();
+        }
+
+        @Override
+        public boolean hasKey(String key) {
+            Objects.requireNonNull(key);
+            return configRepository.getConfig().getItemKeys().contains(key);
+        }
+
+        @Override
+        public Optional<String> getCustomItemKey(ItemStack item) {
+            Objects.requireNonNull(item);
+            return NBTCustomItem.getCustomItemId(item).toJavaOptional();
+        }
+
+        @Override
+        public boolean updateItem(ItemStack item, @Nullable Player player) {
+            Objects.requireNonNull(item);
+            if (!isCustomItem(item)) return false;
+            configRepository.getConfig().updateItem(item, player);
+            return true;
+        }
     }
 
 }

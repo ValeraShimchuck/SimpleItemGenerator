@@ -17,6 +17,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.jetbrains.annotations.Nullable;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import org.spongepowered.configurate.serialize.SerializationException;
@@ -173,7 +174,7 @@ public class ConfigEntity {
     }
 
     @SneakyThrows
-    public Option<ItemStack> bakeItem(String key, Player player) {
+    public Option<ItemStack> bakeItem(String key, @Nullable Player player) {
         CustomItem customItem = getItem(key).getOrNull();
         if (customItem == null) return Option.none();
         ItemStack itemStack = customItem.getItemStack();
@@ -185,12 +186,12 @@ public class ConfigEntity {
     // initializing lazies
     public void init() throws InvalidConfigurationException {
         try {
-            items.entrySet().forEach(item -> {
+            items.forEach((key, value) -> {
                 try {
-                    item.getValue().getUsages();
-                    item.getValue().getItemStack();
+                    value.getUsages();
+                    value.getItemStack();
                 } catch (Exception e) {
-                    throw InvalidConfigurationException.path(item.getKey(), e);
+                    throw InvalidConfigurationException.path(key, e);
                 }
             });
         } catch (Exception e) {
@@ -207,7 +208,7 @@ public class ConfigEntity {
     }
 
     @SneakyThrows
-    public void updateItem(ItemStack itemStack, Player player) {
+    public void updateItem(ItemStack itemStack, @Nullable Player player) {
         String customItemId = NBTCustomItem.getCustomItemId(itemStack).getOrNull();
         if (customItemId == null) return;
         CustomItem customItem = items.get(customItemId);

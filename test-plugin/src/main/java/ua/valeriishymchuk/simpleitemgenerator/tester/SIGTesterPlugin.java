@@ -36,6 +36,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
 import ua.valeriishymchuk.simpleitemgenerator.SimpleItemGeneratorPlugin;
+import ua.valeriishymchuk.simpleitemgenerator.api.SimpleItemGenerator;
 import ua.valeriishymchuk.simpleitemgenerator.common.commands.CommandException;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.entity.ConfigEntity;
@@ -227,6 +228,26 @@ public class SIGTesterPlugin extends JavaPlugin {
                     }
                 });
         success();
+    }
+
+    @Test
+    public void testAPI() {
+        forceSetConfig("config1");
+        String itemKey = "test-item1";
+        ensureDefined(itemKey);
+        checkArgument(SimpleItemGenerator.get().hasKey(itemKey), "Can't access " + itemKey + " through API");
+        ItemStack itemStack = SimpleItemGenerator.get().bakeItem(itemKey, null).orElse(null);
+        checkArgument(itemStack != null, "Can't bake " + itemKey + " through API");
+        checkArgument(SimpleItemGenerator.get().isCustomItem(itemStack), "Can't get custom item out of " + itemKey + " through API");
+        SimpleItemGenerator.get().updateItem(itemStack, null);
+    }
+
+    private void forceSetConfig(String key) {
+        checkArgument(setConfig(key), "Failed to set " + key);
+    }
+
+    private void ensureDefined(String itemKey) {
+        checkArgument(getSIG().configRepository.getConfig().getItem(itemKey).isDefined(), "Can't access " + itemKey);
     }
 
     @Test

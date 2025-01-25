@@ -1,2 +1,3 @@
 rootProject.name = 'SimpleItemGenerator'
 include(":test-plugin")
+include(":api")

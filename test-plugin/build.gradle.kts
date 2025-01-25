@@ -10,6 +10,7 @@ dependencies {
     compileOnly("org.projectlombok:lombok:1.18.36")
     annotationProcessor("org.projectlombok:lombok:1.18.36")
     compileOnly(project(":"))
+    compileOnly("io.github.valerashimchuck:simpleitemgenerator-api:1.5.0")
     //compileOnly("io.netty:netty-all:4.1.116.Final")
 }
 

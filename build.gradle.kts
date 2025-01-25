@@ -1,3 +1,10 @@
+buildscript {
+    configurations.all {
+        resolutionStrategy {
+            force("commons-io:commons-io:2.18.0")
+        }
+    }
+}
 plugins {
     id("java")
     `java-library`
@@ -56,6 +63,7 @@ dependencies {
     api("net.kyori:adventure-text-serializer-gson:$adventureVersion")
     api("net.kyori:adventure-text-serializer-legacy:$adventureVersion")
     api("org.joml:joml:1.10.8")
+    implementation(project(":api"))
 
 
     compileOnlyApi("com.github.LoneDev6:API-ItemsAdder:3.6.1")
