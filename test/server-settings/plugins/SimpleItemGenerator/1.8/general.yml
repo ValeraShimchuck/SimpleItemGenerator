@@ -11,6 +11,10 @@ items:
           - 6
       test-compound[compound]:
         test[int]: 3
+      test-array[int_array]:
+        - 1
+        - 2
+        - 3
     item:
       material: DIAMOND
       name: "<red><bold>test</red></bold>"

@@ -294,6 +294,9 @@ public class SIGTesterPlugin extends JavaPlugin {
                     .map(StringBinaryTag::value).collect(Collectors.toList());
             List<String> expected = Arrays.asList("1", "2", "3", "4", "5", "6");
             checkArgument(strings.equals(expected), "Got " + strings + " instead of " + expected);
+            int[] ints = kyoriNBT.getIntArray("test-array");
+            int[] expectedInts = new int[]{1, 2, 3};
+            checkArgument(Arrays.equals(ints, expectedInts), "Got " + Arrays.toString(ints) + " instead of " + Arrays.toString(expectedInts));
         });
     }
 
