@@ -1,6 +1,5 @@
-package ua.valeriishymchuk.simpleitemgenerator.common.nbt;
+package ua.valeriishymchuk.simpleitemgenerator.common.config.serializer.nbt.v1;
 
-import net.kyori.adventure.nbt.ByteArrayBinaryTag;
 import net.kyori.adventure.nbt.IntArrayBinaryTag;
 import net.kyori.adventure.nbt.IntBinaryTag;
 import org.apache.commons.lang.ArrayUtils;

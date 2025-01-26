@@ -1,7 +1,6 @@
-package ua.valeriishymchuk.simpleitemgenerator.common.nbt;
+package ua.valeriishymchuk.simpleitemgenerator.common.config.serializer.nbt.v1;
 
 import com.google.common.collect.BiMap;
-import com.google.common.collect.HashBiMap;
 import com.google.common.collect.ImmutableBiMap;
 import io.vavr.Tuple;
 import io.vavr.Tuple2;
@@ -15,8 +14,6 @@ import org.spongepowered.configurate.serialize.TypeSerializer;
 import org.spongepowered.configurate.serialize.TypeSerializerCollection;
 
 import java.lang.reflect.Type;
-import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 
 public class CompoundBinaryTagSerializer implements TypeSerializer<CompoundBinaryTag> {

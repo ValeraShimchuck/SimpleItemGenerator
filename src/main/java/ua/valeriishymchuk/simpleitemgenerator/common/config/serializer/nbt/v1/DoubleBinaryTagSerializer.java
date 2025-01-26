@@ -1,11 +1,9 @@
-package ua.valeriishymchuk.simpleitemgenerator.common.nbt;
+package ua.valeriishymchuk.simpleitemgenerator.common.config.serializer.nbt.v1;
 
 import net.kyori.adventure.nbt.DoubleBinaryTag;
 import org.checkerframework.checker.nullness.qual.Nullable;
-import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.ConfigurationOptions;
 import org.spongepowered.configurate.serialize.SerializationException;
-import org.spongepowered.configurate.serialize.TypeSerializer;
 
 import java.lang.reflect.Type;
 import java.util.regex.Matcher;

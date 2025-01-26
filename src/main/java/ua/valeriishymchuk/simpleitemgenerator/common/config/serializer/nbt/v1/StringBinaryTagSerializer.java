@@ -1,4 +1,4 @@
-package ua.valeriishymchuk.simpleitemgenerator.common.nbt;
+package ua.valeriishymchuk.simpleitemgenerator.common.config.serializer.nbt.v1;
 
 import net.kyori.adventure.nbt.StringBinaryTag;
 import org.checkerframework.checker.nullness.qual.Nullable;

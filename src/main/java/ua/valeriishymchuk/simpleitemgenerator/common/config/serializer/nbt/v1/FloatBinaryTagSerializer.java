@@ -1,6 +1,5 @@
-package ua.valeriishymchuk.simpleitemgenerator.common.nbt;
+package ua.valeriishymchuk.simpleitemgenerator.common.config.serializer.nbt.v1;
 
-import net.kyori.adventure.nbt.DoubleBinaryTag;
 import net.kyori.adventure.nbt.FloatBinaryTag;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.spongepowered.configurate.ConfigurationOptions;

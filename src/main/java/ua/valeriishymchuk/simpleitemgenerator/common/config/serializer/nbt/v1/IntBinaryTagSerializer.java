@@ -1,4 +1,4 @@
-package ua.valeriishymchuk.simpleitemgenerator.common.nbt;
+package ua.valeriishymchuk.simpleitemgenerator.common.config.serializer.nbt.v1;
 
 import net.kyori.adventure.nbt.IntBinaryTag;
 import org.spongepowered.configurate.serialize.SerializationException;
