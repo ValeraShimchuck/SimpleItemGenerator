@@ -2,6 +2,7 @@ package ua.valeriishymchuk.simpleitemgenerator.controller;
 
 import cloud.commandframework.Command;
 import cloud.commandframework.CommandManager;
+import cloud.commandframework.arguments.standard.EnumArgument;
 import cloud.commandframework.arguments.standard.IntegerArgument;
 import cloud.commandframework.arguments.standard.StringArgument;
 import cloud.commandframework.bukkit.parsers.PlayerArgument;
@@ -37,6 +38,18 @@ public class CommandsController {
 
     IItemService itemService;
     IInfoService infoService;
+
+    private enum OccupiedSlotHandling {
+        REPLACE,
+        ADD
+    }
+
+    private void addItemToInventory(Option<ItemStack> itemOpt, int amount, Player player) {
+        itemOpt.map(item -> Tuple.of(player, item))
+                            .peek(t -> t._2.setAmount(amount))
+                .map(tuple -> tuple._1.getInventory().addItem(tuple._2))
+                .peek(items -> dropItems(items, player.getLocation()));
+    }
 
     public void setupCommands(CommandManager<CommandSender> commandManager) {
         Command.Builder<CommandSender> builder = commandManager.commandBuilder("simpleitemgenerator", "sig")
@@ -74,10 +87,11 @@ public class CommandsController {
                             .orElse(() -> Option.when(ctx.getSender() instanceof Player, () -> ((Player) ctx.getSender())));
                     GiveItemDTO result = itemService.giveItem(key, playerOpt.getOrNull() );
                     KyoriHelper.sendMessage(ctx.getSender(), result.getMessage());
-                    playerOpt.flatMap(player ->  result.getItemStack().map(item -> Tuple.of(player, item)))
-                            .peek(t -> t._2.setAmount(amount))
-                            .map(tuple -> tuple._1.getInventory().addItem(tuple._2))
-                            .peek(items -> dropItems(items, playerOpt.get().getLocation()));
+                    //playerOpt.flatMap(player ->  result.getItemStack().map(item -> Tuple.of(player, item)))
+                    //        .peek(t -> t._2.setAmount(amount))
+                    //        .map(tuple -> tuple._1.getInventory().addItem(tuple._2))
+                    //        .peek(items -> dropItems(items, playerOpt.get().getLocation()));
+                    playerOpt.peek(p -> addItemToInventory(result.getItemStack(), amount, p));
                 }));
 
 
@@ -108,6 +122,10 @@ public class CommandsController {
                 .argument(IntegerArgument.<CommandSender>builder("amount")
                         .withMin(1)
                         .asOptional())
+                .argument(EnumArgument.<CommandSender, OccupiedSlotHandling>builder(OccupiedSlotHandling.class, "occupied_slot_handling")
+                        .asOptionalWithDefault(OccupiedSlotHandling.REPLACE.name())
+                        .build()
+                )
                 .handler(ctx -> {
                     String key = ctx.get("key");
                     int slot = ctx.get("slot");
@@ -117,7 +135,16 @@ public class CommandsController {
                     KyoriHelper.sendMessage(ctx.getSender(), result.getMessage());
                     playerOpt.flatMap(player ->  result.getItemStack().map(item -> Tuple.of(player, item)))
                             .peek(t -> t._2.setAmount(ctx.getOrDefault("amount", 1)))
-                            .peek(tuple -> tuple._1.getInventory().setItem(slot, tuple._2));
+                            .peek(tuple -> {
+                                OccupiedSlotHandling occupiedSlotHandling = ctx.get("occupied_slot_handling");
+                                ItemStack slotItem = tuple._1.getInventory().getItem(slot);
+                                boolean isSlotOccupied = slotItem != null && !slotItem.getType().name().endsWith("AIR");
+                                if (!isSlotOccupied || occupiedSlotHandling == OccupiedSlotHandling.REPLACE)
+                                    tuple._1.getInventory().setItem(slot, tuple._2);
+                                else {
+                                    addItemToInventory(Option.of(tuple._2), tuple._2.getAmount(), playerOpt.get());
+                                }
+                            });
                 }));
         commandManager.command(builder
                         .literal("reload")
