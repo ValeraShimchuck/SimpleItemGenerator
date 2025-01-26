@@ -23,11 +23,16 @@ import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPl
 import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerPosition;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerPositionAndLook;
 import com.google.common.base.Preconditions;
+import de.tr7zw.changeme.nbtapi.NBT;
 import io.vavr.concurrent.Future;
 import lombok.SneakyThrows;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.audience.MessageType;
 import net.kyori.adventure.identity.Identity;
+import net.kyori.adventure.nbt.CompoundBinaryTag;
+import net.kyori.adventure.nbt.ListBinaryTag;
+import net.kyori.adventure.nbt.StringBinaryTag;
+import net.kyori.adventure.nbt.TagStringIO;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
@@ -39,6 +44,7 @@ import ua.valeriishymchuk.simpleitemgenerator.SimpleItemGeneratorPlugin;
 import ua.valeriishymchuk.simpleitemgenerator.api.SimpleItemGenerator;
 import ua.valeriishymchuk.simpleitemgenerator.common.commands.CommandException;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
+import ua.valeriishymchuk.simpleitemgenerator.common.nbt.NBTConverter;
 import ua.valeriishymchuk.simpleitemgenerator.entity.ConfigEntity;
 import ua.valeriishymchuk.simpleitemgenerator.tester.annotation.Test;
 import ua.valeriishymchuk.simpleitemgenerator.tester.client.MinecraftTestClient;
@@ -46,10 +52,12 @@ import ua.valeriishymchuk.simpleitemgenerator.tester.stream.WrappedPrintStream;
 
 import java.io.File;
 import java.io.FileWriter;
+import java.io.IOException;
 import java.lang.reflect.InvocationTargetException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
 import java.util.Arrays;
+import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
@@ -58,6 +66,7 @@ import java.util.function.Supplier;
 import java.util.logging.Handler;
 import java.util.logging.Level;
 import java.util.logging.LogRecord;
+import java.util.stream.Collectors;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static ua.valeriishymchuk.simpleitemgenerator.tester.version.VersionUtils.runSince;
@@ -214,20 +223,32 @@ public class SIGTesterPlugin extends JavaPlugin {
         return testClient;
     }
 
-
-
     private void runTests() {
-        Arrays.stream(getClass().getMethods())
-                .filter(m -> m.getAnnotation(Test.class) != null)
-                .forEach(m -> {
-                    try {
-                        getLogger().info("Running test: " + m.getName());
-                        m.invoke(this);
-                    } catch (IllegalAccessException | InvocationTargetException e) {
-                        throw new RuntimeException(e);
-                    }
-                });
+        try {
+            Arrays.stream(getClass().getMethods())
+                    .filter(m -> m.getAnnotation(Test.class) != null)
+                    .forEach(m -> {
+                        try {
+                            getLogger().info("Running test: " + m.getName());
+                            m.invoke(this);
+                        } catch (IllegalAccessException | InvocationTargetException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+        } catch (Throwable e) {
+            e.printStackTrace();
+            fail();
+        }
+
         success();
+    }
+
+    private void forceSetConfig(String key) {
+        checkArgument(setConfig(key), "Failed to set " + key);
+    }
+
+    private void ensureDefined(String itemKey) {
+        checkArgument(getSIG().configRepository.getConfig().getItem(itemKey).isDefined(), "Can't access " + itemKey);
     }
 
     @Test
@@ -240,14 +261,6 @@ public class SIGTesterPlugin extends JavaPlugin {
         checkArgument(itemStack != null, "Can't bake " + itemKey + " through API");
         checkArgument(SimpleItemGenerator.get().isCustomItem(itemStack), "Can't get custom item out of " + itemKey + " through API");
         SimpleItemGenerator.get().updateItem(itemStack, null);
-    }
-
-    private void forceSetConfig(String key) {
-        checkArgument(setConfig(key), "Failed to set " + key);
-    }
-
-    private void ensureDefined(String itemKey) {
-        checkArgument(getSIG().configRepository.getConfig().getItem(itemKey).isDefined(), "Can't access " + itemKey);
     }
 
     @Test
@@ -270,6 +283,18 @@ public class SIGTesterPlugin extends JavaPlugin {
         checkArgument(item != null, "Can't access test-item");
         ItemStack itemStack = getSIG().configRepository.getConfig().bakeItem("test-item", Bukkit.getOnlinePlayers().stream().findFirst()
                 .orElseThrow(NullPointerException::new)).getOrElseThrow(() -> new RuntimeException("Can't bake test-item"));
+        NBT.get(itemStack, nbt -> {
+            Integer value = nbt.getInteger("test");
+            checkArgument(value != null && value == 3, "Got " + value + " instead of 3");
+            CompoundBinaryTag kyoriNBT = NBTConverter.fromNBTApi(nbt);
+            List<String> strings = kyoriNBT.getList("test2").stream()
+                    .map(b -> (ListBinaryTag) b)
+                    .flatMap(ListBinaryTag::stream)
+                    .map(b -> (StringBinaryTag) b)
+                    .map(StringBinaryTag::value).collect(Collectors.toList());
+            List<String> expected = Arrays.asList("1", "2", "3", "4", "5", "6");
+            checkArgument(strings.equals(expected), "Got " + strings + " instead of " + expected);
+        });
     }
 
     @SneakyThrows

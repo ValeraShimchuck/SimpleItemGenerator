@@ -15,6 +15,7 @@ import lombok.SneakyThrows;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.audience.MessageType;
 import net.kyori.adventure.identity.Identity;
+import net.kyori.adventure.nbt.CompoundBinaryTag;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
@@ -28,6 +29,7 @@ import ua.valeriishymchuk.simpleitemgenerator.api.SimpleItemGenerator;
 import ua.valeriishymchuk.simpleitemgenerator.common.commands.CommandException;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.ConfigLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.builder.ConfigLoaderConfigurationBuilder;
+import ua.valeriishymchuk.simpleitemgenerator.common.config.serializer.nbt.v2.CompoundBinaryTagTypeSerializer;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.metrics.MetricsHelper;
@@ -113,6 +115,9 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
                 ".yml",
                 ConfigLoaderConfigurationBuilder.yaml()
                         .peekBuilder(b -> b.indent(2).nodeStyle(NodeStyle.BLOCK))
+                        .defaultOptions(opts -> opts.serializers(b ->
+                                b.register(CompoundBinaryTag.class, new CompoundBinaryTagTypeSerializer()))
+                        )
                         .build()
         );
     }

@@ -1,5 +1,7 @@
 package ua.valeriishymchuk.simpleitemgenerator.entity;
 
+import de.tr7zw.changeme.nbtapi.NBT;
+import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
 import io.vavr.API;
 import io.vavr.Function0;
 import io.vavr.control.Option;
@@ -10,6 +12,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
+import net.kyori.adventure.nbt.CompoundBinaryTag;
+import net.kyori.adventure.nbt.TagStringIO;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -26,6 +30,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidCon
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.RawItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
+import ua.valeriishymchuk.simpleitemgenerator.common.nbt.NBTConverter;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.regex.RegexUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.ItemsAdderSupport;
@@ -37,6 +42,7 @@ import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity.ClickAt;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity.ClickButton;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity.ClickType;
 
+import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
@@ -254,6 +260,7 @@ public class ConfigEntity {
 
         ConfigurationNode item;
         ConfigurationNode usage;
+        CompoundBinaryTag nbt;
         Boolean isIngredient;
         Boolean canBePutInInventory;
         Boolean removeOnDeath;
@@ -271,6 +278,7 @@ public class ConfigEntity {
             this(
                     createNode(),
                     createNode(),
+                    null,
                     null,
                     null,
                     null,
@@ -314,12 +322,12 @@ public class ConfigEntity {
         }
 
         public static CustomItem of(ItemStack item, List<UsageEntity> usages) {
-            return new CustomItem(serializeItemStack(item), serializeUsages(usages), null, null, null, null, null);
+            return new CustomItem(serializeItemStack(item), serializeUsages(usages), null,null, null, null, null, null);
         }
 
         @SneakyThrows
         public static CustomItem of(RawItem item, List<UsageEntity> usages) {
-            return new CustomItem(createNode().set(item), serializeUsages(usages), null, null, null, null, null);
+            return new CustomItem(createNode().set(item), serializeUsages(usages), null, null, null, null, null, null);
         }
 
         @SneakyThrows
@@ -456,6 +464,10 @@ public class ConfigEntity {
         public ItemStack getItemStack() throws InvalidConfigurationException {
             if (itemStack == null) {
                 itemStack = parseItem();
+                NBT.modify(itemStack, itemNbt -> {
+                    ReadWriteNBT nbt2 = NBTConverter.toNBTApi(nbt);
+                    itemNbt.mergeCompound(nbt2);
+                });
                 int signature = itemStack.serialize().hashCode();
                 NBTCustomItem.setSignature(itemStack, signature);
             }

@@ -1,5 +1,16 @@
 items:
   test-item:
+    nbt:
+      test[int]: 3
+      test2[list:list:string]:
+        - - 1
+          - 2
+          - 3
+        - - 4
+          - 5
+          - 6
+      test-compound[compound]:
+        test[int]: 3
     item:
       material: DIAMOND
       name: "<red><bold>test</red></bold>"

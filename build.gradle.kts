@@ -77,6 +77,7 @@ dependencies {
     api("org.spongepowered:configurate-core:$configVersion")
     api("org.spongepowered:configurate-yaml:$configVersion")
     api("io.vavr:vavr:0.10.4")
+    api("com.github.florianingerl.util:regex:1.1.11")
 
     val cloudVersion = "1.8.4"
     //implementation("cloud.commandframework:cloud-paper:$cloudVersion")
