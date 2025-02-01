@@ -53,6 +53,8 @@ for file in "$VERSIONS_SETTINGS"/*; do
       mkdir -p "$folder"
       for server_file in "server-settings"/*; do
         echo "$server_file"
+        rm "$folder/plugins/SimpleItemGenerator/config.yml"
+        rm "$folder/plugins/SimpleItemGenerator/lang.yml"
         cp -rf "$server_file" "$folder"
       done
 

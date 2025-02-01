@@ -464,10 +464,12 @@ public class ConfigEntity {
         public ItemStack getItemStack() throws InvalidConfigurationException {
             if (itemStack == null) {
                 itemStack = parseItem();
-                NBT.modify(itemStack, itemNbt -> {
-                    ReadWriteNBT nbt2 = NBTConverter.toNBTApi(nbt);
-                    itemNbt.mergeCompound(nbt2);
-                });
+                if (nbt != null) {
+                    NBT.modify(itemStack, itemNbt -> {
+                        ReadWriteNBT nbt2 = NBTConverter.toNBTApi(nbt);
+                        itemNbt.mergeCompound(nbt2);
+                    });
+                }
                 int signature = itemStack.serialize().hashCode();
                 NBTCustomItem.setSignature(itemStack, signature);
             }

@@ -9,6 +9,7 @@ import net.kyori.adventure.nbt.CompoundBinaryTag;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
+import java.util.Objects;
 
 public class NBTConverter {
 
@@ -23,6 +24,7 @@ public class NBTConverter {
 
     @SneakyThrows
     public static ReadWriteNBT toNBTApi(CompoundBinaryTag nbt) {
+        Objects.requireNonNull(nbt);
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         BinaryTagIO.writer().write(nbt, baos, BinaryTagIO.Compression.GZIP);
         ByteArrayInputStream bais = new ByteArrayInputStream(baos.toByteArray());
