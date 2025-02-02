@@ -14,12 +14,14 @@ import lombok.SneakyThrows;
 import lombok.With;
 import lombok.experimental.FieldDefaults;
 import net.kyori.adventure.key.Key;
+import org.bukkit.DyeColor;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
@@ -35,6 +37,8 @@ import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @ConfigSerializable
@@ -44,6 +48,7 @@ import java.util.stream.Collectors;
 public class RawItem implements Cloneable {
 
     public static final RawItem EMPTY = new RawItem();
+    private static final Pattern COLOR_PATTERN = Pattern.compile("^ *\\[(?<type>dye|hex|decimal)] *(?<value>#?\\w+) *$");
 
     String material;
     @Nullable
@@ -55,7 +60,71 @@ public class RawItem implements Cloneable {
     List<String> itemFlags;
     Map<String, Integer> enchantments;
     List<ConfigurationNode> attributes;
+    @Nullable ConfigurationNode color;
 
+
+    private Option<org.bukkit.Color> getColor() {
+        try {
+            if (color == null) return Option.none();
+            if (color.isNull()) return Option.none();
+            if (color.isList()) throw new InvalidConfigurationException("Color node should be a value or a map");
+            if (!color.isMap()) {
+                String rawValue = color.getString();
+                Matcher matcher = COLOR_PATTERN.matcher(rawValue);
+                if (!matcher.matches()) throw new InvalidConfigurationException("Invalid color value: " + rawValue + ". Expected: [dye|hex|decimal] <value>");
+                String type = matcher.group("type");
+                String value = matcher.group("value").toUpperCase();
+                if (type.equals("dye")) {
+                    Try<DyeColor> colorTry = Try.of(() -> DyeColor.valueOf(value))
+                            .mapFailure(API.Case(API.$(), e -> {
+                                List<String> list = StringSimilarityUtils.getSuggestions(value, Arrays.stream(DyeColor.values())
+                                        .map(DyeColor::name));
+                                return InvalidConfigurationException.unknownOption("dye color", value, list);
+                            }));
+                    DyeColor dyeColor = colorTry.get();
+                    return Option.some(dyeColor.getColor());
+                }
+                int colorInt;
+                boolean isHex = type.equals("hex");
+                try {
+                    if (isHex) {
+                        String hex;
+                        if (value.startsWith("0X")) hex = value.substring(2);
+                        else if (value.startsWith("#")) hex = value.substring(1);
+                        else hex = value;
+                        if (hex.isEmpty()) throw new InvalidConfigurationException("Invalid hexadecimal value: " + value + ". Should be like ffff00 or 0xffff00");
+                        colorInt = Integer.parseInt(hex, 16);
+                    } else colorInt = Integer.parseInt(value);
+                } catch (NumberFormatException e) {
+                    if (isHex) throw new InvalidConfigurationException("Invalid hexadecimal value: " + value + ". Should be like ffff00 or 0xffff00");
+                    else throw new InvalidConfigurationException("Invalid int value: " + value + ". Should be an integer value");
+                }
+                return Option.some(org.bukkit.Color.fromRGB(colorInt));
+            }
+            if (!color.hasChild("red")) throw new InvalidConfigurationException("'red' property is missing");
+            if (!color.hasChild("green")) throw new InvalidConfigurationException("'green' property is missing");
+            if (!color.hasChild("blue")) throw new InvalidConfigurationException("'blue' property is missing");
+            long nonColorProperties = color.childrenMap().keySet().stream().map(Object::toString)
+                    .filter(s -> !s.equals("red") && !s.equals("green") && !s.equals("blue")).count();
+            if (nonColorProperties > 0) throw new InvalidConfigurationException("Only 'red', 'green' and 'blue' properties are allowed");
+            int red = Try.of(() ->  color.node("red").get(Integer.class))
+                    .filter(Objects::nonNull)
+                    .filter(i -> i >= 0 && i <= 255)
+                    .getOrElseThrow(() -> new InvalidConfigurationException("red property should be an integer from 0 to 255"));
+            int blue = Try.of(() ->  color.node("blue").get(Integer.class))
+                    .filter(Objects::nonNull)
+                    .filter(i -> i >= 0 && i <= 255)
+                    .getOrElseThrow(() -> new InvalidConfigurationException("blue property should be an integer from 0 to 255"));
+            int green = Try.of(() ->  color.node("green").get(Integer.class))
+                    .filter(Objects::nonNull)
+                    .filter(i -> i >= 0 && i <= 255)
+                    .getOrElseThrow(() -> new InvalidConfigurationException("green property should be an integer from 0 to 255"));
+            return Option.some(org.bukkit.Color.fromRGB(red, green, blue));
+
+        } catch (Exception e) {
+            throw InvalidConfigurationException.path("color", e);
+        }
+    }
 
     @Override
     public RawItem clone() {
@@ -178,7 +247,8 @@ public class RawItem implements Cloneable {
                 null,
                 Collections.emptyList(),
                 Collections.emptyMap(),
-                Collections.emptyList()
+                Collections.emptyList(),
+                null
         );
     }
 
@@ -275,6 +345,12 @@ public class RawItem implements Cloneable {
                 .map(KyoriHelper::parseMiniMessage)
                 .collect(Collectors.toList())
         );
+        Option<org.bukkit.Color> colorOpt = getColor();
+        if (meta instanceof LeatherArmorMeta && colorOpt.isDefined()) {
+            ((LeatherArmorMeta) meta).setColor(colorOpt.get());
+        } else if (colorOpt.isDefined()) {
+            throw new InvalidConfigurationException("'color' node is not supported for this material.");
+        }
         if (FeatureSupport.CMD_SUPPORT && !FeatureSupport.MODERN_CMD_SUPPORT) {
             if (cmd != null) setLegacyCustomModelData(meta, cmd.getLegacyId());
         }

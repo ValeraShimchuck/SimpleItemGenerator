@@ -65,7 +65,8 @@ public class ConfigEntity {
                 null,
                 Arrays.asList(ItemFlag.HIDE_ATTRIBUTES.name(), ItemFlag.HIDE_ENCHANTS.name()),
                 io.vavr.collection.HashMap.of(serializeEnchantment(Enchantment.LUCK), 1).toJavaMap(),
-                Collections.emptyList()
+                Collections.emptyList(),
+                null
         );
         if (FeatureSupport.CMD_SUPPORT) {
             preparedItem = preparedItem.withCmd(1);
@@ -345,7 +346,8 @@ public class ConfigEntity {
                     io.vavr.collection.HashMap.ofAll(meta.getEnchants())
                             .mapKeys(ConfigEntity::serializeEnchantment)
                             .toJavaMap(),
-                    Collections.emptyList() // TODO add later
+                    Collections.emptyList(),
+                    null// TODO add later
             );
             Integer cmd = ReflectedRepresentations.ItemMeta.tryGetCustomModelData(meta).getOrNull();
             if (cmd != null) {

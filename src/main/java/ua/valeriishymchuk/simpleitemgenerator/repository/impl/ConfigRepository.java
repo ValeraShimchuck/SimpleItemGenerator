@@ -6,6 +6,7 @@ import lombok.experimental.FieldDefaults;
 import org.bukkit.Bukkit;
 import org.spongepowered.configurate.ConfigurateException;
 import org.spongepowered.configurate.loader.ParsingException;
+import org.yaml.snakeyaml.parser.ParserException;
 import org.yaml.snakeyaml.scanner.ScannerException;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.ConfigLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
@@ -69,7 +70,8 @@ public class ConfigRepository implements IConfigRepository {
                 ConfigurateException.class,
                 InvalidConfigurationException.class,
                 ScannerException.class,
-                NumberFormatException.class
+                NumberFormatException.class,
+                ParserException.class
         );
         boolean isKnownException = knownExceptions.stream().anyMatch(c -> c.isAssignableFrom(e.getClass()));
         boolean isSilent = silentExceptions.stream().anyMatch(c -> c.isAssignableFrom(e.getClass()));
