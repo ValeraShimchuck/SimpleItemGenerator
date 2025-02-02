@@ -19,6 +19,7 @@ import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.event.player.PlayerInteractAtEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
@@ -198,10 +199,15 @@ public class EventsController implements Listener {
         if (!itemService.canBePutInInventory(carriedItem)) forbiddenForInventorySwap.add(carriedItem);
         if (!itemService.canBePutInInventory(clickedItem)) forbiddenForInventorySwap.add(clickedItem);
         if (event.getView().getTopInventory() instanceof PlayerInventory) return;
+        boolean topInventoryIsPlayers;
+        if (event.getView().getTopInventory() instanceof CraftingInventory) {
+            CraftingInventory craftingInventory = (CraftingInventory) event.getView().getTopInventory();
+            topInventoryIsPlayers = craftingInventory.getMatrix().length == 4;
+        } else  topInventoryIsPlayers = false;
         boolean isPlayerInventory = event.getClickedInventory() instanceof PlayerInventory;
         if (forbiddenForInventorySwap.isEmpty()) return;
         if (forbiddenForInventorySwap.contains(clickedItem)) {
-            if (event.getClick().isShiftClick() && isPlayerInventory) {
+            if (event.getClick().isShiftClick() && isPlayerInventory && !topInventoryIsPlayers) {
                 event.setCancelled(true);
                 return;
             }
