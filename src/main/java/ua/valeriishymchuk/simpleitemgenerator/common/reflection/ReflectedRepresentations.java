@@ -2,12 +2,14 @@ package ua.valeriishymchuk.simpleitemgenerator.common.reflection;
 
 import io.vavr.CheckedFunction1;
 import io.vavr.control.Option;
+import io.vavr.control.Try;
 import lombok.NonNull;
 import lombok.SneakyThrows;
 import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.md_5.bungee.api.chat.BaseComponent;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import ua.valeriishymchuk.simpleitemgenerator.common.boundingbox.BoundingBox;
@@ -26,6 +28,22 @@ import java.util.stream.Collectors;
 import static ua.valeriishymchuk.simpleitemgenerator.common.reflection.MinecraftReflection.getCraftBukkit;
 
 public class ReflectedRepresentations {
+
+    public static class Material {
+        public static final Class<org.bukkit.Material> CLASS = org.bukkit.Material.class;
+
+        @SneakyThrows
+        public static boolean isItem(org.bukkit.Material material) {
+            Method m = Arrays.stream(CLASS.getMethods())
+                    .filter(m2 -> m2.getName().equals("isItem")).findFirst().orElse(null);
+            if (m == null) {
+                boolean hasItemVersion = Try.of(() -> org.bukkit.Material.valueOf(material.name() + "_ITEM")).isSuccess();
+                return !hasItemVersion;
+                //return !material.isBlock();
+            }
+            return (boolean) m.invoke(material);
+        }
+    }
 
     public static class World {
         public static final Class<org.bukkit.World> CLASS = org.bukkit.World.class;

@@ -11,15 +11,22 @@ import cloud.commandframework.minecraft.extras.MinecraftExceptionHandler;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.settings.PacketEventsSettings;
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
+import lombok.AccessLevel;
 import lombok.SneakyThrows;
+import lombok.experimental.FieldDefaults;
+import me.arcaniax.hdb.api.DatabaseLoadEvent;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.audience.MessageType;
 import net.kyori.adventure.identity.Identity;
 import net.kyori.adventure.nbt.CompoundBinaryTag;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.EventPriority;
+import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.jetbrains.annotations.NotNull;
@@ -34,6 +41,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.metrics.MetricsHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.scheduler.BukkitTaskScheduler;
+import ua.valeriishymchuk.simpleitemgenerator.common.support.HeadDatabaseSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickerTime;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 import ua.valeriishymchuk.simpleitemgenerator.controller.CommandsController;
@@ -53,6 +61,7 @@ import java.util.Optional;
 import java.util.function.Function;
 import java.util.logging.Level;
 
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public final class SimpleItemGeneratorPlugin extends JavaPlugin {
 
     @Override
@@ -64,27 +73,49 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
     }
 
     public IConfigRepository configRepository;
+    CommandManager<CommandSender> commandManager;
+    BukkitTaskScheduler taskScheduler = new BukkitTaskScheduler(this);
+    ConfigLoader configLoader;
+    IItemService itemService;
+    IInfoService infoService;
+    boolean isHDBLoaded = false;
 
     @Override
     public void onEnable() {
-        if (!checkFor1132()) {
+        if (!isHDBLoaded) {
+            PacketEvents.getAPI().init();
+            if (!checkFor1132()) {
+                return;
+            }
+            commandManager = setupCommandManager();
+            configLoader = yamlLoader();
+            configRepository = new ConfigRepository(configLoader, getLogger());
+            IUpdateRepository updateRepository = new UpdateRepository();
+            SemanticVersion currentVersion = SemanticVersion.parse(getDescription().getVersion());
+            infoService = new InfoService(updateRepository, configRepository, currentVersion);
+            itemService = new ItemService(configRepository);
+            new CommandsController(itemService, infoService).setupCommands(commandManager);
+        }
+        if (!isHDBLoaded && HeadDatabaseSupport.isPluginEnabled()) {
+            getLogger().info("Hooked into HeadDatabase. Waiting for database...");
+            Bukkit.getPluginManager().registerEvents(new Listener() {
+                @EventHandler
+                private void onDatabaseLoad(DatabaseLoadEvent event) {
+                    getLogger().info("HeadDatabase is loaded fully. Enabling plugin...");
+                    HeadDatabaseSupport.init();
+                    isHDBLoaded = true;
+                    onEnable();
+                }
+            }, this);
             return;
         }
-        ConfigLoader configLoader = yamlLoader();
-        CommandManager<CommandSender> commandManager = setupCommandManager();
-        BukkitTaskScheduler taskScheduler = new BukkitTaskScheduler(this);
-        configRepository = new ConfigRepository(configLoader, getLogger());
         if (!configRepository.reload()) {
-            getLogger().severe("Failed to load config. Shutting down...");
-            Bukkit.getPluginManager().disablePlugin(this);
+            Bukkit.getScheduler().runTask(this, () -> {
+                getLogger().severe("Failed to load config. Shutting down...");
+                Bukkit.getPluginManager().disablePlugin(this);
+            });
             return;
         }
-        PacketEvents.getAPI().init();
-        IUpdateRepository updateRepository = new UpdateRepository();
-        SemanticVersion currentVersion = SemanticVersion.parse(getDescription().getVersion());
-        IInfoService infoService = new InfoService(updateRepository, configRepository, currentVersion);
-        IItemService itemService = new ItemService(configRepository);
-        new CommandsController(itemService, infoService).setupCommands(commandManager);
         TickerTime tickerTime = new TickerTime(taskScheduler);
         tickerTime.start();
         Bukkit.getPluginManager().registerEvents(new EventsController(itemService, infoService,tickerTime, taskScheduler), this);

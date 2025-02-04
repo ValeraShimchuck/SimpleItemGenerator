@@ -19,6 +19,7 @@ public class NBTCustomItem {
     private static final Key CUSTOM_ITEM_COOLDOWN_KEY = Key.key("simpleitemgenerator:custom_item_cooldown");
     private static final Key CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY = Key.key("simpleitemgenerator:custom_item_freezetime");
     private static final Key CUSTOM_ITEM_SIGNATURE = Key.key("simpleitemgenerator:custom_item_signature");
+    private static final Key CUSTOM_ITEM_LAST_HOLDER = Key.key("simpleitemgenerator:last_holder");
     private static final String PUBLIC_BUKKIT_VALUES = "PublicBukkitValues";
 
     public static Option<String> getCustomItemId(ItemStack item) {
@@ -55,6 +56,25 @@ public class NBTCustomItem {
                     .flatMap(Option::of);
         });
     }
+
+    public static Option<String> getLastHolder(ItemStack item) {
+        if (item == null || item.getType().name().endsWith("AIR")) return Option.none();
+        return NBT.get(item, nbt -> {
+            return getBukkitValues(nbt)
+                    .map(bukkitValues -> bukkitValues.getString(CUSTOM_ITEM_LAST_HOLDER.asString()))
+                    .flatMap(Option::of);
+        });
+    }
+
+    public static void setLastHolder(ItemStack item, @Nullable String userName) {
+        if (item == null || item.getType().name().endsWith("AIR")) return;
+        NBT.modify(item, nbt -> {
+            if (userName != null)
+                nbt.getOrCreateCompound(PUBLIC_BUKKIT_VALUES).setString(CUSTOM_ITEM_LAST_HOLDER.asString(), userName);
+            else nbt.getOrCreateCompound(PUBLIC_BUKKIT_VALUES).removeKey(CUSTOM_ITEM_LAST_HOLDER.asString());
+        });
+    }
+
 
     public static Cooldown getCooldown(ItemStack itemStack, int cooldownId) {
         return NBT.get(itemStack, nbt -> {

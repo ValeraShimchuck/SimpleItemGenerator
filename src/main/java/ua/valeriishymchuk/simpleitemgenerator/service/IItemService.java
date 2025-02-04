@@ -22,7 +22,7 @@ public interface IItemService {
     boolean shouldRemoveOnDeath(ItemStack item);
     boolean areEqual(ItemStack item, ItemStack item2);
 
-    void updateItem(ItemStack itemStack, Player player);
+    void updateItem(ItemStack itemStack, @Nullable Player player);
     boolean canBeUsedInCraft(ItemStack item);
 
     GiveItemDTO giveItem(String key, @Nullable Player player, Integer slot);

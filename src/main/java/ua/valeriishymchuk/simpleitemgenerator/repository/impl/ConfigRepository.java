@@ -27,8 +27,8 @@ public class ConfigRepository implements IConfigRepository {
 
     final ConfigLoader configLoader;
     final Logger logger;
-    ConfigEntity config;
-    LangEntity lang;
+    ConfigEntity config = new ConfigEntity();
+    LangEntity lang = new LangEntity();
 
     @Override
     public ConfigEntity getConfig() {

@@ -318,8 +318,7 @@ public class ItemService implements IItemService {
     }
 
     @Override
-    public void updateItem(ItemStack itemStack, Player player) {
-        if (!PapiSupport.isPluginEnabled()) return;
+    public void updateItem(ItemStack itemStack, @Nullable Player player) {
         config().updateItem(itemStack, player);
     }
 

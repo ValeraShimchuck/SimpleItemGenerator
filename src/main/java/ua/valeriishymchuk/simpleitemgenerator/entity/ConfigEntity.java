@@ -27,6 +27,7 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import org.spongepowered.configurate.serialize.SerializationException;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
+import ua.valeriishymchuk.simpleitemgenerator.common.item.HeadTexture;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.RawItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
@@ -197,6 +198,9 @@ public class ConfigEntity {
             items.forEach((key, value) -> {
                 try {
                     value.getUsages();
+                    value.getHeadTexture().peek(h -> {
+                        h.apply(value.getItemStack(), s -> s);
+                    });
                     value.getItemStack();
                 } catch (Exception e) {
                     throw InvalidConfigurationException.path(key, e);
@@ -224,8 +228,18 @@ public class ConfigEntity {
         int configItemSignature = customItem.getSignature();
         Integer itemSignature = NBTCustomItem.getSignature(itemStack).getOrNull();
         boolean isSameSignature = itemSignature != null && itemSignature == configItemSignature;
-        if (!customItem.hasPlaceHolders() && isSameSignature) return;
+        String lastPlayer = NBTCustomItem.getLastHolder(itemStack).getOrNull();
+        String currentPlayer = Option.of(player).map(Player::getName).getOrNull();
+        boolean shouldUpdateHeadTexture = customItem.getHeadTexture()
+                .map(t -> t.getValue().contains("%player%")).getOrElse(false)
+                && !Objects.equals(lastPlayer, currentPlayer);
+        if (!customItem.hasPlaceHolders() && isSameSignature && !shouldUpdateHeadTexture) return;
         ItemStack configItemStack = customItem.getItemStack();
+        if (shouldUpdateHeadTexture) {
+            customItem.getHeadTexture().get()
+                    .apply(configItemStack, s -> s.replace("%player%", player == null? "n" : player.getName()));
+            NBTCustomItem.setLastHolder(configItemStack, currentPlayer);
+        }
         ItemMeta configItemMeta = configItemStack.getItemMeta();
         itemStack.setType(configItemStack.getType());
         //ItemMeta meta = itemStack.getItemMeta();
@@ -275,6 +289,8 @@ public class ConfigEntity {
         transient ItemStack itemStack;
         @NonFinal
         transient Boolean hasPlaceholders;
+        @NonFinal
+        transient Option<HeadTexture> headTexture;
 
         private CustomItem() {
             this(
@@ -292,6 +308,21 @@ public class ConfigEntity {
         private static ConfigurationNode createNode() {
             return DefaultLoader.yaml().createNode();
             //return createNode(ConfigurationOptions.defaults());
+        }
+
+        public Option<HeadTexture> getHeadTexture() {
+            if (headTexture == null) headTexture = getHeadTexture0();
+            return headTexture;
+        };
+
+        private Option<HeadTexture> getHeadTexture0() {
+            if (!item.isMap()) return Option.none();
+            if (!item.hasChild("head-texture")) return Option.none();
+            ConfigurationNode headTextureNode = item.node("head-texture");
+            if (headTextureNode.isMap() || headTextureNode.isList())
+                throw InvalidConfigurationException.nestedPath("Should be a scalar", "item", "head-texture");
+            HeadTexture texture = HeadTexture.fromString(headTextureNode.getString());
+            return Option.some(texture);
         }
 
         public boolean isIngredient() {
@@ -468,6 +499,10 @@ public class ConfigEntity {
         public ItemStack getItemStack() throws InvalidConfigurationException {
             if (itemStack == null) {
                 itemStack = parseItem();
+                getHeadTexture().peek(h -> {
+                    if (h.getValue().contains("%player%")) return;
+                    itemStack = h.apply(itemStack, s -> s);
+                });
                 if (nbt != null) {
                     NBT.modify(itemStack, itemNbt -> {
                         ReadWriteNBT nbt2 = NBTConverter.toNBTApi(nbt);

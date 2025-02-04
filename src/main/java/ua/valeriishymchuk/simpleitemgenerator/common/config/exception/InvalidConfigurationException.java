@@ -14,6 +14,15 @@ public class InvalidConfigurationException extends RuntimeException {
         return new InvalidConfigurationException("Error in <white>[" + path + "]</white>", cause);
     }
 
+    public static InvalidConfigurationException nestedPath(String error, String path0, String... path) {
+        return nestedPath(new InvalidConfigurationException(error), path0, path);
+    }
+    public static InvalidConfigurationException nestedPath(Throwable error, String path0, String... path) {
+        return (InvalidConfigurationException) io.vavr.collection.List.of(path)
+                .prepend(path0)
+                .foldRight(error, InvalidConfigurationException::path);
+    }
+
     public static InvalidConfigurationException format(Throwable cause, String message, Object... args) {
         return new InvalidConfigurationException(String.format(message, args), cause);
     }

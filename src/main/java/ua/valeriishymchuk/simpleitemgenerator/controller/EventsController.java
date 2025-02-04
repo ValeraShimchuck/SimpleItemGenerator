@@ -15,10 +15,7 @@ import org.bukkit.event.inventory.InventoryAction;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.event.inventory.PrepareItemCraftEvent;
-import org.bukkit.event.player.PlayerDropItemEvent;
-import org.bukkit.event.player.PlayerInteractAtEntityEvent;
-import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.event.player.PlayerJoinEvent;
+import org.bukkit.event.player.*;
 import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
@@ -170,6 +167,20 @@ public class EventsController implements Listener {
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
     private void onDeath(PlayerDeathEvent event) {
         event.getDrops().removeIf(itemService::shouldRemoveOnDeath);
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    private void onPickup(PlayerPickupItemEvent event) {
+        if (event.getRemaining() != 0) return;
+        if (!event.getItem().getItemStack().hasItemMeta()) return;
+        itemService.updateItem(event.getItem().getItemStack(), event.getPlayer());
+    }
+
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    private void replaceItemOnDrop(PlayerDropItemEvent event) {
+        if (!event.getItemDrop().getItemStack().hasItemMeta()) return;
+        itemService.updateItem(event.getItemDrop().getItemStack(), null);
+        event.getItemDrop().setItemStack(event.getItemDrop().getItemStack());
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)

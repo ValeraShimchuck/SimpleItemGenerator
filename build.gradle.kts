@@ -68,6 +68,7 @@ dependencies {
 
     compileOnlyApi("com.github.LoneDev6:API-ItemsAdder:3.6.1")
     compileOnlyApi("me.clip:placeholderapi:2.11.6")
+    compileOnlyApi("com.arcaniax:HeadDatabase-API:1.3.2")
 
 
     api("de.tr7zw:item-nbt-api:2.14.1")

@@ -19,10 +19,7 @@ import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.EnchantmentStorageMeta;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.inventory.meta.LeatherArmorMeta;
-import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.inventory.meta.*;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.jetbrains.annotations.Nullable;
@@ -347,9 +344,10 @@ public class RawItem implements Cloneable {
             if (this.material == null) throw new InvalidConfigurationException("Property is not defined");
             String rawMaterial = material.toUpperCase();
             Try<Material> materialTry = Try.of(() -> Material.valueOf(rawMaterial))
+                    .filter(ReflectedRepresentations.Material::isItem)
                     .mapFailure(API.Case(API.$(), e -> {
                         List<String> list = Arrays.stream(Material.values())
-                                .filter(m -> !m.isBlock())
+                                .filter(ReflectedRepresentations.Material::isItem)
                                 .map(Material::name)
                                 .filter(m -> !m.startsWith("LEGACY_"))
                                 .map(m -> new AbstractMap.SimpleEntry<>(
