@@ -66,6 +66,7 @@ public class ConfigEntity {
                 Arrays.asList(ItemFlag.HIDE_ATTRIBUTES.name(), ItemFlag.HIDE_ENCHANTS.name()),
                 io.vavr.collection.HashMap.of(serializeEnchantment(Enchantment.LUCK), 1).toJavaMap(),
                 Collections.emptyList(),
+                null,
                 null
         );
         if (FeatureSupport.CMD_SUPPORT) {
@@ -347,7 +348,8 @@ public class ConfigEntity {
                             .mapKeys(ConfigEntity::serializeEnchantment)
                             .toJavaMap(),
                     Collections.emptyList(),
-                    null// TODO add later
+                    null, // TODO add serializers later
+                    null
             );
             Integer cmd = ReflectedRepresentations.ItemMeta.tryGetCustomModelData(meta).getOrNull();
             if (cmd != null) {

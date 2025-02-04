@@ -8,18 +8,19 @@ import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.md_5.bungee.api.chat.BaseComponent;
 import org.bukkit.Bukkit;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import ua.valeriishymchuk.simpleitemgenerator.common.boundingbox.BoundingBox;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 
-import java.lang.reflect.Field;
-import java.lang.reflect.Method;
-import java.lang.reflect.Modifier;
+import java.lang.reflect.*;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 
 import static ua.valeriishymchuk.simpleitemgenerator.common.reflection.MinecraftReflection.getCraftBukkit;
@@ -37,6 +38,44 @@ public class ReflectedRepresentations {
             } catch (NoSuchMethodException e) {
                 return 0;
             }
+        }
+    }
+
+    public static class PotionMeta {
+        public static final Class<org.bukkit.inventory.meta.PotionMeta> CLASS = org.bukkit.inventory.meta.PotionMeta.class;
+
+        public static boolean setColor(org.bukkit.inventory.meta.PotionMeta meta, org.bukkit.Color color) {
+            AtomicBoolean result = new AtomicBoolean(false);
+            Arrays.stream(CLASS.getMethods())
+                    .filter(m -> m.getParameterTypes().length == 1 && m.getParameterTypes()[0].equals(org.bukkit.Color.class))
+                    .findFirst().ifPresent(m -> {
+                        try {
+                            m.invoke(meta, color); // should work for 1.11+
+                            result.set(true);
+                        } catch (IllegalAccessException | InvocationTargetException e) {
+                            throw new RuntimeException(e);
+                        }
+                    });
+            return result.get();
+        }
+    }
+
+    public static class PotionEffect {
+        public static final Class<org.bukkit.potion.PotionEffect> CLASS = org.bukkit.potion.PotionEffect.class;
+
+        @SneakyThrows
+        public static Option<org.bukkit.potion.PotionEffect> create(PotionEffectType type, int duration, int amplifier, boolean ambient, boolean particles, boolean icon) {
+            Constructor<?> constructor = Arrays.stream(CLASS.getConstructors())
+                    .filter(c -> c.getParameterCount() == 6
+                            && c.getParameterTypes()[0].equals(PotionEffectType.class)
+                            && c.getParameterTypes()[1].equals(int.class)
+                            && c.getParameterTypes()[2].equals(int.class)
+                            && c.getParameterTypes()[3].equals(boolean.class)
+                            && c.getParameterTypes()[4].equals(boolean.class)
+                            && c.getParameterTypes()[5].equals(boolean.class)
+                    ).findFirst().orElse(null);
+            if (constructor == null) return Option.none();
+            return Option.some((org.bukkit.potion.PotionEffect) constructor.newInstance(type, duration, amplifier, ambient, particles, icon));
         }
     }
 

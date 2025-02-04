@@ -22,6 +22,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.EnchantmentStorageMeta;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
+import org.bukkit.inventory.meta.PotionMeta;
+import org.bukkit.potion.PotionEffect;
+import org.bukkit.potion.PotionEffectType;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
@@ -31,6 +34,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidCon
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.text.StringSimilarityUtils;
+import ua.valeriishymchuk.simpleitemgenerator.common.time.TimeTokenParser;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 
@@ -61,7 +65,61 @@ public class RawItem implements Cloneable {
     Map<String, Integer> enchantments;
     List<ConfigurationNode> attributes;
     @Nullable ConfigurationNode color;
+    @Nullable ConfigurationNode potion;
 
+    private List<PotionEffect> getPotionEffects() throws InvalidConfigurationException {
+        int i = -1;
+        try {
+            if (potion == null || potion.isNull()) return Collections.emptyList();
+            if (!potion.isList()) throw new InvalidConfigurationException("Potion node should be a list");
+            List<PotionEffect> effects = new ArrayList<>();
+            List<ConfigurationNode> rawList = potion.getList(ConfigurationNode.class);
+            i++;
+            for (ConfigurationNode node : rawList) {
+                if (!node.isMap()) throw new InvalidConfigurationException("Not a map");
+                List<String> allowedKeys = Arrays.asList("type", "duration", "amplifier", "show-particles", "show-icon", "ambient");
+                List<String> unknownKeys = node.childrenMap().keySet().stream().map(Object::toString)
+                        .filter(s -> !allowedKeys.contains(s))
+                        .collect(Collectors.toList());
+                if (!unknownKeys.isEmpty()) throw new InvalidConfigurationException("Unknown keys in potion: " + unknownKeys);
+                String rawType = node.node("type").getString();
+                if (rawType == null) throw new InvalidConfigurationException("'type' property is not defined");
+                Try<PotionEffectType> potionTry = Try.of(() -> PotionEffectType.getByName(rawType))
+                        .filter(Objects::nonNull)
+                        .mapFailure(API.Case(API.$(), e -> {
+                            List<String> list = StringSimilarityUtils.getSuggestions(rawType, Arrays.stream(PotionEffectType.values())
+                                    .map(PotionEffectType::getName));
+                            return InvalidConfigurationException.unknownOption("potion type", rawType, list);
+                        }));
+                PotionEffectType potion = potionTry.get();
+                int duration = Try.of(() ->  node.node("duration").getString("1s"))
+                        .map(TimeTokenParser::parse)
+                        .map(l -> l / 50)
+                        .map(Long::intValue)
+                        .getOrElseThrow(e -> InvalidConfigurationException.path("duration", e));
+                int amplifier = Try.of(() ->  node.node("amplifier").getString())
+                        .map(s -> s == null? "1" : s)
+                        .mapTry(Integer::parseInt)
+                        .filter(n -> n > 0 && n <= 256)
+                        .getOrElseThrow(e -> new InvalidConfigurationException("'amplifier' is invalid. Should be an integer from 1 to 256")) - 1;
+                boolean showParticles = Try.of(() ->  node.node("show-particles").getBoolean(true))
+                        .getOrElseThrow(e -> new InvalidConfigurationException("'show-particles' is invalid. Should be true or false"));
+                boolean showIcon = Try.of(() ->  node.node("show-icon").getBoolean(true))
+                        .getOrElseThrow(e -> new InvalidConfigurationException("'show-icon' is invalid. Should be true or false"));
+                boolean ambient = Try.of(() ->  node.node("ambient").getBoolean(true))
+                        .getOrElseThrow(e -> new InvalidConfigurationException("'ambient' is invalid. Should be true or false"));
+                // works very weird. You can't get particles without icon. But if you want icon without particles you can get it
+                PotionEffect effect = ReflectedRepresentations.PotionEffect.create(potion, duration, amplifier, ambient, showParticles, showIcon)
+                        .getOrElse(new PotionEffect(potion, duration, amplifier, ambient, showParticles));
+                effects.add(effect);
+                i++;
+            }
+            return effects;
+        } catch (Exception e) {
+            if (i == -1) throw InvalidConfigurationException.path("potion", e);
+            else throw InvalidConfigurationException.path("potion, " + i, e);
+        }
+    }
 
     private Option<org.bukkit.Color> getColor() {
         try {
@@ -248,6 +306,7 @@ public class RawItem implements Cloneable {
                 Collections.emptyList(),
                 Collections.emptyMap(),
                 Collections.emptyList(),
+                null,
                 null
         );
     }
@@ -348,8 +407,17 @@ public class RawItem implements Cloneable {
         Option<org.bukkit.Color> colorOpt = getColor();
         if (meta instanceof LeatherArmorMeta && colorOpt.isDefined()) {
             ((LeatherArmorMeta) meta).setColor(colorOpt.get());
+        } else if (meta instanceof PotionMeta && colorOpt.isDefined()) {
+            boolean setColorSuccess = ReflectedRepresentations.PotionMeta.setColor((PotionMeta) meta, colorOpt.get());
+            if (!setColorSuccess) throw new InvalidConfigurationException("'color' node is not supported for potions until 1.11.");
         } else if (colorOpt.isDefined()) {
             throw new InvalidConfigurationException("'color' node is not supported for this material.");
+        }
+        if (meta instanceof PotionMeta) {
+            PotionMeta potionMeta = (PotionMeta) meta;
+            getPotionEffects().forEach(e -> {
+                potionMeta.addCustomEffect(e, true);
+            });
         }
         if (FeatureSupport.CMD_SUPPORT && !FeatureSupport.MODERN_CMD_SUPPORT) {
             if (cmd != null) setLegacyCustomModelData(meta, cmd.getLegacyId());
