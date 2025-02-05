@@ -532,7 +532,13 @@ public class ConfigEntity {
                 String link = matcher.group("link");
                 ItemStack item;
                 if (linkType.equals("itemsadder")) {
-                    item = ItemsAdderSupport.getItem(link);
+                    try {
+                        item = ItemsAdderSupport.getItem(link);
+                    } catch (Exception e) {
+                        if (!ItemsAdderSupport.isPluginEnabled()) throw new InvalidConfigurationException("Plugin ItemsAdder is not enabled!");
+                        else throw new InvalidConfigurationException("Can't find item <white>" + link + "</white>");
+                    }
+
                 } else {
                     throw InvalidConfigurationException.format("Invalid link type: <white>[%s]</white>[", linkType);
                 }
