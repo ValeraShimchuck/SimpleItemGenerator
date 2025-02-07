@@ -1,8 +1,10 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.boundingbox;
 
+import io.vavr.Tuple;
 import io.vavr.collection.HashMap;
 import io.vavr.control.Option;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.bukkit.block.BlockFace;
@@ -13,6 +15,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceHelper;
 import java.text.NumberFormat;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.Objects;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class BoundingBox {
@@ -37,13 +40,26 @@ public class BoundingBox {
         this(new Vector3d(minX, minY, minZ), new Vector3d(maxX, maxY, maxZ));
     }
 
-    public Option<Vector3d> intersects(Vector3d lineStart, Vector3d lineEnd) {
+    public Option<IntersectResult> intersects(Vector3d lineStart, Vector3d lineEnd) {
         Map<BlockFace, BoxPlane> planes = getBlockPlanes();
-        return Option.ofOptional(planes.values().stream()
-                .map(boxPlane -> boxPlane.intersects(lineStart, lineEnd))
-                .filter(Option::isDefined)
-                .map(Option::get)
-                .min(Comparator.comparingDouble(lineStart::distance)));
+        return HashMap.ofAll(planes)
+                .map((face, boxPlane) -> Tuple.of(face, boxPlane.intersects(lineStart, lineEnd).getOrNull()))
+                .filterValues(Objects::nonNull)
+                .minBy(t -> lineStart.distance(t._2()))
+                .map(t -> new IntersectResult(t._2(), t._1()));
+        //return Option.ofOptional(planes.values().stream()
+        //        .map(boxPlane -> boxPlane.intersects(lineStart, lineEnd))
+        //        .filter(Option::isDefined)
+        //        .map(Option::get)
+        //        .min(Comparator.comparingDouble(lineStart::distance)));
+    }
+
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    @RequiredArgsConstructor
+    @Getter
+    public static class IntersectResult {
+        Vector3d point;
+        BlockFace face;
     }
 
     private Map<BlockFace, BoxPlane> getBlockPlanes() {

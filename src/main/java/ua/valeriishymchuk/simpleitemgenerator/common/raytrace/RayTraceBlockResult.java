@@ -8,6 +8,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 
 import java.util.List;
 import java.util.Objects;
@@ -17,10 +18,12 @@ import java.util.Objects;
 public final class RayTraceBlockResult extends RayTraceResult {
 
     Block hitBlock;
+    BlockFace side;
 
-    public RayTraceBlockResult(@NonNull Block hitBlock, @NonNull Location hitLocation) {
+    public RayTraceBlockResult(@NonNull Block hitBlock, @NonNull Location hitLocation, BlockFace side) {
         super(Objects.requireNonNull(hitLocation));
         this.hitBlock = Objects.requireNonNull(hitBlock);
+        this.side = side;
     }
 
 

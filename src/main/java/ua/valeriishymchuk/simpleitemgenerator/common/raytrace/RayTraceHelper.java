@@ -138,7 +138,11 @@ public class RayTraceHelper {
                 block.getZ() + 1
         );
         return blocksBox.intersects(startLine, endLine)
-                .map(point -> new RayTraceBlockResult(block, new Location(livingEntity.getWorld(), point.x(), point.y(), point.z())));
+                .map(point -> new RayTraceBlockResult(
+                        block,
+                        new Location(livingEntity.getWorld(), point.getPoint().x(), point.getPoint().y(), point.getPoint().z()),
+                        point.getFace()
+                ));
     }
 
     private static Option<RayTraceEntityResult> getFirstEntityOnTheLine(LivingEntity livingEntity, int distance) {
@@ -156,7 +160,7 @@ public class RayTraceHelper {
                 .filter(tuple -> tuple._1() != null)
                 .map(tuple -> new RayTraceEntityResult(
                         tuple._2(),
-                        new Location(livingEntity.getWorld(), tuple._1().x(), tuple._1().y(), tuple._1().z())
+                        new Location(livingEntity.getWorld(), tuple._1().getPoint().x(), tuple._1().getPoint().y(), tuple._1().getPoint().z())
                 ))
                 .min(Comparator.comparingDouble(res -> livingEntity.getEyeLocation().distance(res.hitLocation)));
         return Option.ofOptional(opt);

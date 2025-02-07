@@ -1,5 +1,7 @@
 package ua.valeriishymchuk.simpleitemgenerator.controller;
 
+import io.vavr.Tuple;
+import io.vavr.Tuple2;
 import io.vavr.control.Option;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
@@ -9,6 +11,7 @@ import org.bukkit.GameMode;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
+import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.InventoryAction;
@@ -20,6 +23,7 @@ import org.bukkit.inventory.CraftingInventory;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
+import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.scheduler.BukkitTaskScheduler;
 import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickerTime;
@@ -28,8 +32,10 @@ import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 
+import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
@@ -41,6 +47,7 @@ public class EventsController implements Listener {
     BukkitTaskScheduler scheduler;
     Map<Player, Long> lastDropTick = new WeakHashMap<>();
     Map<Player, Long> lastPlayerClickTick = new WeakHashMap<>();
+    Map<Player, Map<Integer, Long>> lastUsedItemTicks = new WeakHashMap<>();
 
     @EventHandler
     private void onJoin(PlayerJoinEvent event) {
@@ -65,11 +72,25 @@ public class EventsController implements Listener {
         Long lastPlayerClickTick = this.lastPlayerClickTick.get(event.getPlayer());
         if (lastDropTick != null && currentTick == lastDropTick) return;
         if (lastPlayerClickTick != null && currentTick == lastPlayerClickTick) return;
+        Option<String> customItemOpt = Option.of(event.getItem())
+                .flatMap(NBTCustomItem::getCustomItemId);
+        if (customItemOpt.isDefined()) {
+            Map<Integer, Long> map = lastUsedItemTicks.computeIfAbsent(event.getPlayer(), p -> new HashMap<>());
+            Long lastUsedItemTick = map.get(event.getItem().hashCode());
+            long ticksSinceLastUse = currentTick - (lastUsedItemTick != null ? lastUsedItemTick : 0);
+            boolean shouldCancel = ticksSinceLastUse == 0 || (event.getAction() == Action.LEFT_CLICK_BLOCK && ticksSinceLastUse < 2);
+            if (lastUsedItemTick != null && shouldCancel) {
+                event.setCancelled(true);
+                return;
+            }
+            map.put(event.getItem().hashCode(), currentTick);
+        }
         ItemUsageResultDTO result = itemService.useItem(
                 event.getPlayer(),
                 event.getAction(),
                 event.getItem(),
-                event.getClickedBlock()
+                event.getClickedBlock(),
+                event.getBlockFace()
         );
         handleResult(result, event.getItem(), event.getPlayer(), event);
     }
@@ -214,7 +235,7 @@ public class EventsController implements Listener {
         if (event.getView().getTopInventory() instanceof CraftingInventory) {
             CraftingInventory craftingInventory = (CraftingInventory) event.getView().getTopInventory();
             topInventoryIsPlayers = craftingInventory.getMatrix().length == 4;
-        } else  topInventoryIsPlayers = false;
+        } else topInventoryIsPlayers = false;
         boolean isPlayerInventory = event.getClickedInventory() instanceof PlayerInventory;
         if (forbiddenForInventorySwap.isEmpty()) return;
         if (forbiddenForInventorySwap.contains(clickedItem)) {

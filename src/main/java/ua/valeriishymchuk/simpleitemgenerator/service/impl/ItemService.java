@@ -8,11 +8,13 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
+import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
+import org.joml.Vector3i;
 import ua.valeriishymchuk.simpleitemgenerator.common.component.RawComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.IRayTraceResult;
@@ -54,7 +56,7 @@ public class ItemService implements IItemService {
     }
 
     @Override
-    public ItemUsageResultDTO useItem(Player player, Action action, ItemStack item, @Nullable Block clickedBlock) {
+    public ItemUsageResultDTO useItem(Player player, Action action, ItemStack item, @Nullable Block clickedBlock, @Nullable BlockFace blockFace) {
         boolean isBlock = clickedBlock != null;
         boolean isLeftClick = action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK;
         UsageEntity.ClickType clickType = new UsageEntity.ClickType(
@@ -69,16 +71,21 @@ public class ItemService implements IItemService {
         );
         if (action == Action.PHYSICAL) return nop;
         Map<String, String> placeholders = new HashMap<>();
-        if (isBlock) placeholders.putAll(placeholdersFor(clickedBlock));
+        if (isBlock) placeholders.putAll(placeholdersFor(clickedBlock, blockFace));
         return useItem0(player, item, clickType, placeholders);
 
     }
 
-    private Map<String, String> placeholdersFor(Block block) {
+    private Map<String, String> placeholdersFor(Block block, BlockFace blockFace) {
         Map<String, String> placeholders = new HashMap<>();
         placeholders.put("%target_x%", block.getX() + "");
         placeholders.put("%target_y%", block.getY() + "");
         placeholders.put("%target_z%", block.getZ() + "");
+        Vector3i placedVector = new Vector3i(block.getX(), block.getY(), block.getZ());
+        placedVector.add(new Vector3i(blockFace.getModX(), blockFace.getModY(), blockFace.getModZ()));
+        placeholders.put("%place_x%", placedVector.x() + "");
+        placeholders.put("%place_y%", placedVector.y() + "");
+        placeholders.put("%place_z%", placedVector.z() + "");
         return placeholders;
     }
 
@@ -115,7 +122,7 @@ public class ItemService implements IItemService {
         if (result.hitBlock()) {
             RayTraceBlockResult castesResult = (RayTraceBlockResult) result;
             clickAt = UsageEntity.ClickAt.BLOCK;
-            placeholders.putAll(placeholdersFor(castesResult.getHitBlock()));
+            placeholders.putAll(placeholdersFor(castesResult.getHitBlock(), castesResult.getSide()));
         } else if (result.hitEntity()) {
             RayTraceEntityResult castesResult = (RayTraceEntityResult) result;
             if (castesResult.getEntity() instanceof Player) {
