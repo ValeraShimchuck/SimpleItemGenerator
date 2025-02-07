@@ -9,6 +9,7 @@ import lombok.experimental.FieldDefaults;
 
 import java.lang.reflect.Method;
 import java.util.Arrays;
+import java.util.stream.Collectors;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
@@ -81,7 +82,10 @@ public class ReflectionObject {
                     }
                     return true;
                 }).findFirst().orElseThrow(() -> new NullPointerException(
-                        "Method " + methodName + " with parameters " + Arrays.toString(toClassesArray(args)) + " not found"
+                        "Method " + methodName + " with parameters " + Arrays.toString(toClassesArray(args)) + " not found.\n" +
+                                "Possible methods:\n" + Arrays.toString(Arrays.stream(clazz.getMethods()).filter(m -> m.getName().contains(methodName))
+                                        .map(m -> m.getName() + "(" + String.join(",", Arrays.stream(m.getParameterTypes()).map(Class::getName).collect(Collectors.toList())) + ")\n")
+                                .toArray())
                 ));
         Class<?> returnClass = method.getReturnType();
         return Option.of(method.invoke(object, toObjectsArray(args)))

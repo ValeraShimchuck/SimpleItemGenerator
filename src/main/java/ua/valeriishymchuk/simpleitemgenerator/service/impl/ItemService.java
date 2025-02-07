@@ -6,6 +6,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import net.kyori.adventure.text.Component;
 import org.bukkit.GameMode;
+import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.BlockFace;
@@ -23,6 +24,10 @@ import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceEntityResu
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.regex.RegexUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.PapiSupport;
+import ua.valeriishymchuk.simpleitemgenerator.common.usage.Predicate;
+import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickAt;
+import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickButton;
+import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.PredicateInput;
 import ua.valeriishymchuk.simpleitemgenerator.dto.CommandExecutionDTO;
 import ua.valeriishymchuk.simpleitemgenerator.dto.GiveItemDTO;
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageResultDTO;
@@ -55,14 +60,24 @@ public class ItemService implements IItemService {
         return configRepository.getLang();
     }
 
+    private int getTotalItems(ItemStack item, Player player) {
+        if (item == null || item.getType().name().endsWith("AIR")) return 0;
+        String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
+        if (customItemId == null) return 0;
+        ConfigEntity.CustomItem customItem = config().getItem(customItemId).getOrNull();
+        if (customItem == null) return 0;
+        return Arrays.stream(player.getInventory().getContents())
+                .filter(Objects::nonNull)
+                .filter(i -> NBTCustomItem.getCustomItemId(i)
+                        .map(s -> s.equals(customItemId))
+                        .getOrElse(false)
+                ).mapToInt(ItemStack::getAmount).sum();
+    }
+
     @Override
     public ItemUsageResultDTO useItem(Player player, Action action, ItemStack item, @Nullable Block clickedBlock, @Nullable BlockFace blockFace) {
         boolean isBlock = clickedBlock != null;
         boolean isLeftClick = action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK;
-        UsageEntity.ClickType clickType = new UsageEntity.ClickType(
-                isLeftClick ? UsageEntity.ClickButton.LEFT : UsageEntity.ClickButton.RIGHT,
-                isBlock ? UsageEntity.ClickAt.BLOCK : UsageEntity.ClickAt.AIR
-        );
         ItemUsageResultDTO nop = new ItemUsageResultDTO(
                 null,
                 Collections.emptyList(),
@@ -72,7 +87,17 @@ public class ItemService implements IItemService {
         if (action == Action.PHYSICAL) return nop;
         Map<String, String> placeholders = new HashMap<>();
         if (isBlock) placeholders.putAll(placeholdersFor(clickedBlock, blockFace));
-        return useItem0(player, item, clickType, placeholders);
+        PredicateInput predicateInput = new PredicateInput(
+                player,
+                isBlock ? clickedBlock.getLocation() : null,
+                isLeftClick ? ClickButton.LEFT : ClickButton.RIGHT,
+                isBlock ? ClickAt.BLOCK : ClickAt.AIR,
+                new PredicateInput.Amount(
+                        getTotalItems(item, player),
+                        item == null? 0 : item.getAmount()
+                )
+        );
+        return useItem0(player, item, predicateInput, placeholders);
 
     }
 
@@ -118,22 +143,39 @@ public class ItemService implements IItemService {
                 playerReach + 1
         );
         Map<String, String> placeholders = new HashMap<>();
-        UsageEntity.ClickAt clickAt;
+        ClickAt clickAt;
+        Location useLoc = null;
         if (result.hitBlock()) {
             RayTraceBlockResult castesResult = (RayTraceBlockResult) result;
-            clickAt = UsageEntity.ClickAt.BLOCK;
+            clickAt = ClickAt.BLOCK;
+            useLoc = castesResult.getHitBlock().getLocation();
             placeholders.putAll(placeholdersFor(castesResult.getHitBlock(), castesResult.getSide()));
         } else if (result.hitEntity()) {
             RayTraceEntityResult castesResult = (RayTraceEntityResult) result;
+            useLoc = castesResult.getEntity().getLocation();
             if (castesResult.getEntity() instanceof Player) {
                 placeholders.putAll(placeholdersFor((Player) castesResult.getEntity()));
-                clickAt = UsageEntity.ClickAt.PLAYER;
+                clickAt = ClickAt.PLAYER;
             } else {
                 placeholders.putAll(placeholdersFor(castesResult.getEntity()));
-                clickAt = UsageEntity.ClickAt.ENTITY;
+                clickAt = ClickAt.ENTITY;
             }
-        } else clickAt = UsageEntity.ClickAt.AIR;
-        ItemUsageResultDTO usageResult = useItem0(player, item, new UsageEntity.ClickType(UsageEntity.ClickButton.DROP, clickAt), placeholders);
+        } else clickAt = ClickAt.AIR;
+        ItemUsageResultDTO usageResult = useItem0(
+                player,
+                item,
+                new PredicateInput(
+                        player,
+                        useLoc,
+                        ClickButton.DROP,
+                        clickAt,
+                        new PredicateInput.Amount(
+                                getTotalItems(item, player),
+                                item == null? 0 : item.getAmount()
+                        )
+                ),
+                placeholders
+        );
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (usageResult.isShouldCancel() && player.getGameMode() == GameMode.CREATIVE && customItemId != null) {
             usageResult = usageResult.withMessage(lang().getCreativeDrop().replaceText("%key%", customItemId).bake());
@@ -141,7 +183,7 @@ public class ItemService implements IItemService {
         return usageResult;
     }
 
-    private ItemUsageResultDTO useItem0(Player player, ItemStack item, UsageEntity.ClickType clickType, Map<String, String> placeholders) {
+    private ItemUsageResultDTO useItem0(Player player, ItemStack item, PredicateInput predicateInput, Map<String, String> placeholders) {
         ItemUsageResultDTO nop = new ItemUsageResultDTO(
                 null,
                 Collections.emptyList(),
@@ -159,7 +201,7 @@ public class ItemService implements IItemService {
                 UsageEntity.Consume.NONE
         );
         List<UsageEntity> usages = customItem.getUsages().stream()
-                .filter(usageFilter -> usageFilter.accepts(clickType))
+                .filter(usageFilter -> usageFilter.accepts(predicateInput))
                 .collect(Collectors.toList());
         return usages.stream().map(usage -> {
             NBTCustomItem.Cooldown cooldown = NBTCustomItem
@@ -277,9 +319,15 @@ public class ItemService implements IItemService {
     @Override
     public ItemUsageResultDTO useItemAt(Player player, boolean isRightClicked, Entity clicked, ItemStack item) {
         boolean isPlayer = clicked instanceof Player;
-        UsageEntity.ClickType clickType = new UsageEntity.ClickType(
-                isRightClicked ? UsageEntity.ClickButton.RIGHT : UsageEntity.ClickButton.LEFT,
-                isPlayer ? UsageEntity.ClickAt.PLAYER : UsageEntity.ClickAt.ENTITY
+        PredicateInput clickType = new PredicateInput(
+                player,
+                clicked == null ? null : clicked.getLocation(),
+                isRightClicked ? ClickButton.RIGHT : ClickButton.LEFT,
+                isPlayer ? ClickAt.PLAYER : ClickAt.ENTITY,
+                new PredicateInput.Amount(
+                        getTotalItems(item, player),
+                        item == null? 0 : item.getAmount()
+                )
         );
         Map<String, String> placeholders = isPlayer ? placeholdersFor((Player) clicked) : placeholdersFor(clicked);
         return useItem0(player, item, clickType, placeholders);

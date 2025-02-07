@@ -109,20 +109,19 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
             }, this);
             return;
         }
-        if (!configRepository.reload()) {
-            Bukkit.getScheduler().runTask(this, () -> {
+        taskScheduler.runTask(() -> {
+            if (!configRepository.reload()) {
                 getLogger().severe("Failed to load config. Shutting down...");
                 Bukkit.getPluginManager().disablePlugin(this);
-            });
-            return;
-        }
-        TickerTime tickerTime = new TickerTime(taskScheduler);
-        tickerTime.start();
-        Bukkit.getPluginManager().registerEvents(new EventsController(itemService, infoService,tickerTime, taskScheduler), this);
-        new TickController(itemService, taskScheduler).start();
-        //PacketEvents.getAPI().getEventManager().registerListener(new PacketsController(), PacketListenerPriority.MONITOR);
-        new API();
-        MetricsHelper.init(this);
+                return;
+            }
+            TickerTime tickerTime = new TickerTime(taskScheduler);
+            tickerTime.start();
+            Bukkit.getPluginManager().registerEvents(new EventsController(itemService, infoService,tickerTime, taskScheduler), this);
+            new TickController(itemService, taskScheduler).start();
+            new API();
+            MetricsHelper.init(this);
+        });
     }
 
     private boolean checkFor1132() {

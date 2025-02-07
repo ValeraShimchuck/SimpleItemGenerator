@@ -5,4 +5,5 @@ softdepend:
   - ItemsAdder
   - PlaceholderAPI
   - HeadDatabase
+  - WorldGuard
 api-version: 1.13

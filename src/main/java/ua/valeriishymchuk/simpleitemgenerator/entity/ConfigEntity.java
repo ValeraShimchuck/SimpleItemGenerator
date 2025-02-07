@@ -4,6 +4,7 @@ import de.tr7zw.changeme.nbtapi.NBT;
 import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
 import io.vavr.API;
 import io.vavr.Function0;
+import io.vavr.Tuple2;
 import io.vavr.control.Option;
 import io.vavr.control.Try;
 import lombok.AccessLevel;
@@ -13,7 +14,6 @@ import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import net.kyori.adventure.nbt.CompoundBinaryTag;
-import net.kyori.adventure.nbt.TagStringIO;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -36,14 +36,14 @@ import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedReprese
 import ua.valeriishymchuk.simpleitemgenerator.common.regex.RegexUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.ItemsAdderSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.PapiSupport;
+import ua.valeriishymchuk.simpleitemgenerator.common.support.WorldGuardSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.text.StringSimilarityUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.time.TimeTokenParser;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
-import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity.ClickAt;
-import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity.ClickButton;
-import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity.ClickType;
+import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickAt;
+import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickButton;
+import ua.valeriishymchuk.simpleitemgenerator.common.usage.Predicate;
 
-import java.io.IOException;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
@@ -98,12 +98,12 @@ public class ConfigEntity {
                 .withPredicates(Collections.singletonList(ClickAt.PLAYER.asType()))
                 .withCooldownMillis(TimeTokenParser.parse("3h5m3s200"));
         UsageEntity example6 = example5
-                .withPredicates(Collections.singletonList(new ClickType(ClickButton.LEFT, ClickAt.AIR)));
+                .withPredicates(Collections.singletonList(ClickButton.LEFT.asType()
+                        .withAt(ClickAt.AIR)));
         UsageEntity example7 = example6
                 .withCooldownMillis(0);
         UsageEntity example8 = example7
-                .withPredicates(Arrays.asList(
-                        new ClickType(ClickButton.LEFT, ClickAt.AIR),
+                .withPredicates(Arrays.asList(ClickButton.LEFT.asType().withAt(ClickAt.AIR),
                         ClickAt.BLOCK.asType()
                 ));
         AtomicInteger ai = new AtomicInteger();
@@ -270,7 +270,7 @@ public class ConfigEntity {
         private static final Pattern COMMAND_EXECUTION_PATTERN =
                 Pattern.compile("\\[(?<sender>player|console)] (?<command>.*)");
         private static final Pattern SINGLE_PREDICATE_PATTERN =
-                Pattern.compile("\\[(?<enum>at|button)] (?<type>.*)");
+                Pattern.compile("\\[(?<enum>at|button|permission|amount|total_amount|state_flag)] (?<type>.*)");
         private static final Pattern ITEM_LINK_PATTERN = Pattern.compile("\\[(?<linktype>.+)] (?<link>.*)");
 
 
@@ -427,7 +427,7 @@ public class ConfigEntity {
         }
 
         @SneakyThrows
-        private static ConfigurationNode serializePredicates(List<ClickType> predicate) {
+        private static ConfigurationNode serializePredicates(List<Predicate> predicate) {
             ConfigurationNode node = createNode();
             if (predicate.isEmpty()) return node;
             if (predicate.size() == 1) {
@@ -438,19 +438,19 @@ public class ConfigEntity {
         }
 
         @SneakyThrows
-        private static ConfigurationNode serializePredicate(ClickType clickType) {
-            boolean hasAtOrSide = clickType.getAt().isDefined() ^ clickType.getSide().isDefined();
+        private static ConfigurationNode serializePredicate(Predicate clickType) {
+            boolean hasAtOrSide = clickType.getAt().isDefined() ^ clickType.getButton().isDefined();
             if (hasAtOrSide) {
                 boolean isAt = clickType.getAt().isDefined();
                 String prepend = isAt ? "at" : "button";
-                String value = clickType.getAt().map(Enum::name).orElse(clickType.getSide().map(Enum::name)).map(String::toLowerCase).get();
+                String value = clickType.getAt().map(Enum::name).orElse(clickType.getButton().map(Enum::name)).map(String::toLowerCase).get();
                 ConfigurationNode node = createNode();
                 node.set("[" + prepend + "] " + value);
                 return node;
             }
             ConfigurationNode node = createNode();
             node.node("at").set(clickType.getAt().map(Enum::name).map(String::toLowerCase).get());
-            node.node("button").set(clickType.getSide().map(Enum::name).map(String::toLowerCase).get());
+            node.node("button").set(clickType.getButton().map(Enum::name).map(String::toLowerCase).get());
             return node;
         }
 
@@ -650,19 +650,19 @@ public class ConfigEntity {
                 }
             }
             //boolean shouldConsume = node.node("consume").getBoolean(false);
-            List<ClickType> predicate;
+            List<Predicate> predicate;
             ConfigurationNode predicateNode = node.node("predicate");
             if (predicateNode.isNull()) predicate = Collections.emptyList();
             else if (predicateNode.isList()) {
                 AtomicInteger increment = new AtomicInteger();
                 try {
-                    predicate = predicateNode.getList(ConfigurationNode.class).stream()
-                            .map(prediacteNode -> {
-                                ClickType predicateResult = parsePredicate(prediacteNode);
-                                increment.incrementAndGet();
-                                return predicateResult;
-                            })
-                            .collect(Collectors.toList());
+                    predicate = new ArrayList<>();
+                    List<ConfigurationNode> predicateNodeList = predicateNode.getList(ConfigurationNode.class);
+                    for (ConfigurationNode prediacteNode : predicateNodeList) {
+                        Predicate predicateResult = parsePredicate(prediacteNode);
+                        increment.incrementAndGet();
+                        predicate.add(predicateResult);
+                    }
                 } catch (Exception e) {
                     throw InvalidConfigurationException.path("predicate, " + increment.get(), e);
                 }
@@ -745,7 +745,28 @@ public class ConfigEntity {
                     })).getOrElseThrow(x -> InvalidConfigurationException.path("button", x));
         }
 
-        private ClickType parsePredicate(ConfigurationNode node) throws InvalidConfigurationException {
+        private static List<String> parsePermissions(String raw) throws InvalidConfigurationException  {
+            return Arrays.stream(raw.split(","))
+                    .map(String::trim)
+                    .collect(Collectors.toList());
+        }
+
+        private static int parseInt(String raw) throws InvalidConfigurationException {
+            return Try.ofSupplier(() -> Integer.parseInt(raw.trim())).getOrElseThrow(x -> InvalidConfigurationException.format("Invalid integer: <white>%s</white>", raw));
+        }
+
+        private static Tuple2<String, Boolean> parseStateFlag(String raw) throws InvalidConfigurationException {
+            Pattern pattern = Pattern.compile("^(?<flag>[a-z\\-\\d]+)(?::(?<value>true|false))?$");
+            Matcher matcher = pattern.matcher(raw.trim());
+            if (!matcher.matches()) throw InvalidConfigurationException.format("Invalid state flag predicate format: <white>%s</white>.\n" +
+                    "Should be something like <white><wg-flag></white>[:<white><true|false></white>]", raw);
+            String flag = matcher.group("flag");
+            WorldGuardSupport.ensureStateFlagIsValid(flag);
+            boolean value = matcher.group("value") == null || matcher.group("value").equals("true");
+            return new Tuple2<>(flag, value);
+        }
+
+        private Predicate parsePredicate(ConfigurationNode node) throws InvalidConfigurationException, SerializationException {
             if (node.isMap()) {
                 ClickAt clickAt = Option.of(node.node("at").getString())
                         .map(CustomItem::parseClickAt)
@@ -753,18 +774,81 @@ public class ConfigEntity {
                 ClickButton clickButton = Option.of(node.node("button").getString())
                         .map(CustomItem::parseClickButton)
                         .getOrNull();
-                return new ClickType(clickButton, clickAt);
+                Predicate.Amount amount = new Predicate.Amount(
+                        Option.of(node.node("total-amount").get(Integer.class))
+                                .getOrElse(node.node("total_amount").get(Integer.class)),
+                        node.node("amount").get(Integer.class)
+                );
+                Map<String, Boolean> flags = new HashMap<>();
+                ConfigurationNode flagsNode = node.node("state-flag");
+                if (flagsNode.isNull()) flagsNode = node.node("state_flag");
+                if (flagsNode.isMap()) {
+                    flagsNode.childrenMap().forEach((key, value) -> {
+                        String flag = key.toString();
+                        WorldGuardSupport.ensureStateFlagIsValid(flag);
+                        boolean valueBool = value.getBoolean(true);
+                        flags.put(flag, valueBool);
+                    });
+                }
+                List<String> permissions = node.node("permissions").getList(String.class);
+                return new Predicate(clickButton, clickAt, flags, amount, permissions);
             }
             Matcher matcher = SINGLE_PREDICATE_PATTERN.matcher(node.getString());
             if (!matcher.find())
                 throw InvalidConfigurationException.format("Invalid predicate: <white>%s</white>", node.getString());
             String type = matcher.group("type");
-            boolean isAt = matcher.group("enum").equals("at");
+            PredicateType predicateType = PredicateType.fromString(matcher.group("enum"));
             ClickAt clickAt = null;
             ClickButton clickButton = null;
-            if (isAt) clickAt = parseClickAt(type);
-            else clickButton = parseClickButton(type);
-            return new ClickType(clickButton, clickAt);
+            Predicate.Amount amount = null;
+            List<String> permissions = null;
+            Map<String, Boolean> flags = null;
+            switch (predicateType) {
+                case AT:
+                    clickAt = parseClickAt(type);
+                    break;
+                case BUTTON:
+                    clickButton = parseClickButton(type);
+                    break;
+                case AMOUNT:
+                    amount = new Predicate.Amount(null, parseInt(type));
+                    break;
+                case TOTAL_AMOUNT:
+                    amount = new Predicate.Amount(parseInt(type), null);
+                    break;
+                case PERMISSION:
+                    permissions = parsePermissions(type);
+                    break;
+                case STATE_FLAG:
+                    Tuple2<String, Boolean> flag = parseStateFlag(type);
+                    flags = Collections.singletonMap(flag._1, flag._2);
+                    break;
+            }
+            return new Predicate(clickButton, clickAt, flags, amount, permissions);
+        }
+
+        private enum PredicateType {
+            AT,
+            BUTTON,
+            AMOUNT,
+            TOTAL_AMOUNT,
+            PERMISSION,
+            STATE_FLAG;
+
+            public static PredicateType fromString(String raw) {
+                String upper = raw.toUpperCase();
+                return Try.ofSupplier(() -> PredicateType.valueOf(upper))
+                        .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
+                            List<String> suggestions = StringSimilarityUtils.getSuggestions(
+                                    upper,
+                                    Arrays.stream(PredicateType.values())
+                                            .map(PredicateType::name)
+                            );
+                            return InvalidConfigurationException.unknownOption("predicate type", upper, suggestions);
+                        })).get();
+            }
+
+
         }
 
     }

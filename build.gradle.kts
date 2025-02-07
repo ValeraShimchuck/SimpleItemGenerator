@@ -29,6 +29,7 @@ allprojects {
             url = uri( "https://oss.sonatype.org/content/groups/public/")
         }
 
+        maven { url = uri("https://maven.enginehub.org/repo/") }
         maven { url = uri("https://hub.spigotmc.org/nexus/content/repositories/snapshots/") }
         maven { url = uri("https://oss.sonatype.org/content/repositories/snapshots") }
         maven { url = uri("https://oss.sonatype.org/content/repositories/central") }
@@ -69,6 +70,7 @@ dependencies {
     compileOnlyApi("com.github.LoneDev6:API-ItemsAdder:3.6.1")
     compileOnlyApi("me.clip:placeholderapi:2.11.6")
     compileOnlyApi("com.arcaniax:HeadDatabase-API:1.3.2")
+    compileOnlyApi("com.sk89q:worldguard:6.1")
 
 
     api("de.tr7zw:item-nbt-api:2.14.1")
