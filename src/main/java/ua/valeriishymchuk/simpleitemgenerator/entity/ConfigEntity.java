@@ -790,7 +790,7 @@ public class ConfigEntity {
                         flags.put(flag, valueBool);
                     });
                 }
-                List<String> permissions = node.node("permissions").getList(String.class);
+                List<String> permissions = node.node("permission").getList(String.class);
                 return new Predicate(clickButton, clickAt, flags, amount, permissions);
             }
             Matcher matcher = SINGLE_PREDICATE_PATTERN.matcher(node.getString());
