@@ -10,6 +10,8 @@ import net.kyori.adventure.text.Component;
 import net.md_5.bungee.api.chat.BaseComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.inventory.EntityEquipment;
+import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import ua.valeriishymchuk.simpleitemgenerator.common.boundingbox.BoundingBox;
@@ -28,6 +30,29 @@ import java.util.stream.Collectors;
 import static ua.valeriishymchuk.simpleitemgenerator.common.reflection.MinecraftReflection.getCraftBukkit;
 
 public class ReflectedRepresentations {
+
+    public static class EntityEquipment {
+        public static final Class<org.bukkit.inventory.EntityEquipment> CLASS = org.bukkit.inventory.EntityEquipment.class;
+
+        @SneakyThrows
+        public static void setItemInOffhand(org.bukkit.inventory.EntityEquipment equipment, ItemStack item) {
+            try {
+                Method m = CLASS.getMethod("setItemInOffHand", ItemStack.class);
+                m.invoke(equipment, item);
+            } catch (NoSuchMethodException ignored) {}
+        }
+
+        @SneakyThrows
+        public static Option<ItemStack> getItemInOffhand(org.bukkit.inventory.EntityEquipment equipment) {
+            try {
+                Method m = CLASS.getMethod("getItemInOffHand");
+                return Option.of((ItemStack) m.invoke(equipment));
+            } catch (NoSuchMethodException e) {
+                return Option.none();
+            }
+        }
+
+    }
 
     public static class Material {
         public static final Class<org.bukkit.Material> CLASS = org.bukkit.Material.class;
