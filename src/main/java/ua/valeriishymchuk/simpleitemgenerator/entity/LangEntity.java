@@ -75,11 +75,11 @@ public class LangEntity {
             "There is a new version available out there: <white>%new_version%</white>.",
             "Your current version is <white>%current_version%</white>.",
             "Download options(they are clickable):",
-            "<yellow><click:open_url:'https://www.spigotmc.org/resources/simpleitemgenerator-1-8-1-21-4-free.121339/'>Spigot</click></yellow>",
-            "<green><click:open_url:'https://modrinth.com/plugin/simpleitemgenerator'>Modrith</click></green>",
-            "<gold><click:open_url:'https://www.curseforge.com/minecraft/bukkit-plugins/simpleitemgenerator'>Curse forge(the latest update can be delayed)</click></gold>",
-            "<aqua><click:open_url:'https://hangar.papermc.io/ValeraShimchuck/SimpleItemGenerator'>Hangar</click></aqua>",
-            "<blue><click:open_url:'https://builtbybit.com/resources/simpleitemgenerator.57158/'>BuiltByBit</click></blue>"
+            "<yellow><click:open_url:'https://www.spigotmc.org/resources/simpleitemgenerator-1-8-1-21-4-free.121339/'><hover:show_text:'Click to open'>Spigot</hover></click></yellow>",
+            "<green><click:open_url:'https://modrinth.com/plugin/simpleitemgenerator'><hover:show_text:'Click to open'>Modrith</hover></click></green>",
+            "<gold><click:open_url:'https://www.curseforge.com/minecraft/bukkit-plugins/simpleitemgenerator'><hover:show_text:'Click to open'>Curse forge</hover></click></gold>",
+            "<aqua><click:open_url:'https://hangar.papermc.io/ValeraShimchuck/SimpleItemGenerator'><hover:show_text:'Click to open'>Hangar</hover></click></aqua>",
+            "<blue><click:open_url:'https://builtbybit.com/resources/simpleitemgenerator.57158/'><hover:show_text:'Click to open'>BuiltByBit</hover></click></blue>"
     );
 
 
