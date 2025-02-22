@@ -17,6 +17,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.PredicateIn
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
@@ -31,11 +32,15 @@ public class Predicate {
     @Nullable Map<String, Boolean> stateFlags;
     @Nullable Amount amount;
     @Nullable List<String> permissions;
+    @Nullable List<Integer> timeTick;
+    @Nullable List<Integer> slots;
 
 
     public Option<ClickButton> getButton() {
         return Option.of(button);
     }
+
+    public List<Integer> getSlots() { return Option.of(slots).getOrElse(Collections.emptyList()); }
 
     public Option<ClickAt> getAt() {
         return Option.of(at);
@@ -51,9 +56,23 @@ public class Predicate {
         return Option.of(amount);
     }
 
+    public List<Integer> getTimeTick() {
+        return Option.of(timeTick).getOrElse(Collections.emptyList());
+    }
+
+    private <T> boolean isEmptyOrAnyMatch(List<T> list, java.util.function.Predicate<T> predicate) {
+        if (list.isEmpty()) return true;
+        return list.stream().anyMatch(predicate);
+    }
+
     public boolean test(PredicateInput input) {
         Location location = input.getLocation().getOrElse(input.getPlayer().getLocation());
-        return getButton().map(side1 -> side1 == input.getClickButton()).getOrElse(true) &&
+        boolean tickPass = !getTimeTick().isEmpty() || input.getButton().isDefined();
+        if (!tickPass) return false;
+        return getButton().map(side1 -> input.getButton()
+                        .map(button -> button == side1).getOrElse(false)).getOrElse(true) &&
+                isEmptyOrAnyMatch(getTimeTick(), tick -> input.getCurrentTick() % tick == 0) &&
+                isEmptyOrAnyMatch(getSlots(), slot -> slot == input.getSlot() || (slot == -1 && input.getPlayer().getInventory().getHeldItemSlot() == input.getSlot())) &&
                 getAt().map(at1 -> at1 == input.getClickAt()).getOrElse(true) &&
                 getAmount().map(amount1 -> amount1.test(input.getAmount())).getOrElse(true) &&
                 getPermissions().stream().allMatch(s -> input.getPlayer().hasPermission(s)) &&

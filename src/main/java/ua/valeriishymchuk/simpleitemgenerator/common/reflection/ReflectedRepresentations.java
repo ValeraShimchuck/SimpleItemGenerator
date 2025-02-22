@@ -11,6 +11,7 @@ import net.md_5.bungee.api.chat.BaseComponent;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.inventory.EntityEquipment;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -30,6 +31,22 @@ import java.util.stream.Collectors;
 import static ua.valeriishymchuk.simpleitemgenerator.common.reflection.MinecraftReflection.getCraftBukkit;
 
 public class ReflectedRepresentations {
+
+    public static class PlayerInteractEvent {
+        public static final Class<org.bukkit.event.player.PlayerInteractEvent> CLASS = org.bukkit.event.player.PlayerInteractEvent.class;
+
+        public static int getClickedItemSlot(org.bukkit.event.player.PlayerInteractEvent event) {
+            try {
+                Method m = CLASS.getMethod("getHand");
+                EquipmentSlot hand = (EquipmentSlot) m.invoke(event);
+                if (hand.name().equals("OFF_HAND")) return 40;
+                return event.getPlayer().getInventory().getHeldItemSlot();
+            } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
+                return event.getPlayer().getInventory().getHeldItemSlot();
+            }
+        }
+
+    }
 
     public static class EntityEquipment {
         public static final Class<org.bukkit.inventory.EntityEquipment> CLASS = org.bukkit.inventory.EntityEquipment.class;

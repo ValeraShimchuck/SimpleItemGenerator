@@ -1,23 +1,19 @@
 package ua.valeriishymchuk.simpleitemgenerator.service;
 
 import net.kyori.adventure.text.Component;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
-import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.block.Action;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
-import ua.valeriishymchuk.simpleitemgenerator.dto.GiveItemDTO;
-import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageResultDTO;
+import ua.valeriishymchuk.simpleitemgenerator.dto.*;
 
 import java.util.List;
 
 public interface IItemService {
 
-    ItemUsageResultDTO useItem(Player player, Action action, ItemStack item, @Nullable Block clickedBlock, @Nullable BlockFace clickedFace);
-    ItemUsageResultDTO dropItem(Player player, ItemStack item);
-    ItemUsageResultDTO useItemAt(Player player, boolean isRightClicked, Entity clicked, ItemStack item);
+    ItemUsageResultDTO useItem(ItemUsageBlockDTO itemUsageBlockDTO);
+    ItemUsageResultDTO dropItem(ItemUsageGeneralDTO itemUsageGeneralDTO);
+    ItemUsageResultDTO useItemAt(ItemUsageEntityDTO itemUsageEntityDTO);
+    ItemUsageResultDTO tickItem(ItemUsageGeneralDTO itemUsageGeneralDTO);
     boolean canBePutInInventory(ItemStack item);
     boolean canBeMoved(ItemStack itemStack);
     boolean shouldRemoveOnDeath(ItemStack item);

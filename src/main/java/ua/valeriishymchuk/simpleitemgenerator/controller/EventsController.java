@@ -7,38 +7,35 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.bukkit.Bukkit;
-import org.bukkit.GameMode;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
-import org.bukkit.event.inventory.InventoryAction;
-import org.bukkit.event.inventory.InventoryClickEvent;
-import org.bukkit.event.inventory.InventoryDragEvent;
-import org.bukkit.event.inventory.PrepareItemCraftEvent;
+import org.bukkit.event.inventory.*;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.CraftingInventory;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.PlayerInventory;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
+import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.scheduler.BukkitTaskScheduler;
 import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickerTime;
+import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
+import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageBlockDTO;
+import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageEntityDTO;
+import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageGeneralDTO;
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageResultDTO;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 
-import java.lang.reflect.Modifier;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@RequiredArgsConstructor
 public class EventsController implements Listener {
 
     IItemService itemService;
@@ -48,6 +45,15 @@ public class EventsController implements Listener {
     Map<Player, Long> lastDropTick = new WeakHashMap<>();
     Map<Player, Long> lastPlayerClickTick = new WeakHashMap<>();
     Map<Player, Map<Integer, Long>> lastUsedItemTicks = new WeakHashMap<>();
+    Map<Player, Tuple2<Long, Integer>> playerTickSlotMap = new WeakHashMap<>();
+
+    public EventsController(IItemService itemService, IInfoService infoService, TickerTime tickerTime, BukkitTaskScheduler scheduler) {
+        this.itemService = itemService;
+        this.infoService = infoService;
+        this.tickerTime = tickerTime;
+        this.scheduler = scheduler;
+    }
+
 
     @EventHandler
     private void onJoin(PlayerJoinEvent event) {
@@ -86,11 +92,15 @@ public class EventsController implements Listener {
             map.put(event.getItem().hashCode(), currentTick);
         }
         ItemUsageResultDTO result = itemService.useItem(
-                event.getPlayer(),
-                event.getAction(),
-                event.getItem(),
-                event.getClickedBlock(),
-                event.getBlockFace()
+                new ItemUsageBlockDTO(
+                        event.getPlayer(),
+                        event.getAction(),
+                        event.getItem(),
+                        event.getClickedBlock(),
+                        event.getBlockFace(),
+                        ReflectedRepresentations.PlayerInteractEvent.getClickedItemSlot(event),
+                        tickerTime.getTick()
+                )
         );
         handleResult(result, event.getItem(), event.getPlayer(), event);
     }
@@ -105,11 +115,31 @@ public class EventsController implements Listener {
         }
     }
 
+    @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
+    private void onPlayerInventoryDrop(InventoryClickEvent event) {
+        if (event.getClick() == ClickType.CREATIVE || event.getClick() == ClickType.DROP) {
+            playerTickSlotMap.put((Player) event.getWhoClicked(), Tuple.of(tickerTime.getTick(), event.getSlot()));
+        }
+    }
+
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
     private void onDrop(PlayerDropItemEvent event) {
         Player player = event.getPlayer();
         lastDropTick.put(player, tickerTime.getTick());
-        handleResult(itemService.dropItem(player, event.getItemDrop().getItemStack()), event.getItemDrop().getItemStack(), player, event);
+        ItemStack itemStack = event.getItemDrop().getItemStack();
+        int slot;
+        Tuple2<Long, Integer> tuple = playerTickSlotMap.get(player);
+        if (tuple != null && tuple._1() == tickerTime.getTick()) {
+            slot = tuple._2();
+        } else slot = player.getInventory().getHeldItemSlot();
+        handleResult(itemService.dropItem(
+                new ItemUsageGeneralDTO(
+                        player,
+                        itemStack,
+                        tickerTime.getTick(),
+                        slot
+                )
+        ), itemStack, player, event);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
@@ -117,12 +147,23 @@ public class EventsController implements Listener {
         long currentTick = tickerTime.getTick();
         Long lastPlayerClickTickValue = this.lastPlayerClickTick.get(event.getPlayer());
         if (lastPlayerClickTickValue != null && currentTick == lastPlayerClickTickValue) return;
+        int clickedSlot;
+        if ((event.getPlayer().getItemInHand() == null ||
+                event.getPlayer().getItemInHand().getType().name().endsWith("AIR")) &&
+                FeatureSupport.MODERN_COMBAT
+        ) {
+            clickedSlot = 40;
+        } else clickedSlot = event.getPlayer().getInventory().getHeldItemSlot();
         lastPlayerClickTick.put(event.getPlayer(), tickerTime.getTick());
         ItemUsageResultDTO result = itemService.useItemAt(
-                event.getPlayer(),
-                true,
-                event.getRightClicked(),
-                event.getPlayer().getItemInHand()
+                new ItemUsageEntityDTO(
+                        event.getPlayer(),
+                        true,
+                        event.getRightClicked(),
+                        event.getPlayer().getItemInHand(),
+                        clickedSlot,
+                        tickerTime.getTick()
+                )
         );
         handleResult(result, event.getPlayer().getItemInHand(), event.getPlayer(), event);
     }
@@ -132,7 +173,16 @@ public class EventsController implements Listener {
         if (!(event.getDamager() instanceof Player)) return;
         Player player = (Player) event.getDamager();
         boolean isCancelled = event.isCancelled();
-        ItemUsageResultDTO result = itemService.useItemAt(player, false, event.getEntity(), player.getItemInHand());
+        ItemUsageResultDTO result = itemService.useItemAt(
+                new ItemUsageEntityDTO(
+                        player,
+                        false,
+                        event.getEntity(),
+                        player.getItemInHand(),
+                        player.getInventory().getHeldItemSlot(),
+                        tickerTime.getTick()
+                )
+        );
         handleResult(result, player.getItemInHand(), player, event);
         if (isCancelled) {
             event.setCancelled(true);

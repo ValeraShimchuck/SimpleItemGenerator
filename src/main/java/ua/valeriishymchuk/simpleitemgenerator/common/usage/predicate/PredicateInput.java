@@ -18,12 +18,19 @@ public class PredicateInput {
     Player player;
     @Getter(AccessLevel.NONE)
     @Nullable Location location;
-    ClickButton clickButton;
+    @Getter(AccessLevel.NONE)
+    @Nullable ClickButton clickButton;
     ClickAt clickAt;
     Amount amount;
+    long currentTick;
+    int slot;
 
     public Option<Location> getLocation() {
         return Option.of(location);
+    }
+
+    public Option<ClickButton> getButton() {
+        return Option.of(clickButton);
     }
 
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)

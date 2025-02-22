@@ -3,6 +3,7 @@ package ua.valeriishymchuk.simpleitemgenerator.entity;
 import de.tr7zw.changeme.nbtapi.NBT;
 import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
 import io.vavr.API;
+import io.vavr.CheckedFunction0;
 import io.vavr.Function0;
 import io.vavr.Tuple2;
 import io.vavr.control.Option;
@@ -15,9 +16,12 @@ import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import net.kyori.adventure.nbt.CompoundBinaryTag;
 import net.kyori.adventure.text.Component;
+import org.apache.commons.lang.math.IntRange;
+import org.apache.commons.lang.math.LongRange;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -46,6 +50,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.usage.Predicate;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -270,8 +275,10 @@ public class ConfigEntity {
         private static final Pattern COMMAND_EXECUTION_PATTERN =
                 Pattern.compile("\\[(?<sender>player|console)] (?<command>.*)");
         private static final Pattern SINGLE_PREDICATE_PATTERN =
-                Pattern.compile("\\[(?<enum>at|button|permission|amount|total_amount|state_flag)] (?<type>.*)");
+                Pattern.compile("\\[(?<enum>" + PredicateType.getPattern() + ")] (?<type>.*)");
         private static final Pattern ITEM_LINK_PATTERN = Pattern.compile("\\[(?<linktype>.+)] (?<link>.*)");
+
+
 
 
         ConfigurationNode item;
@@ -780,51 +787,172 @@ public class ConfigEntity {
                         node.node("amount").get(Integer.class)
                 );
                 Map<String, Boolean> flags = new HashMap<>();
-                ConfigurationNode flagsNode = node.node("state-flag");
-                if (flagsNode.isNull()) flagsNode = node.node("state_flag");
+                String flagsNodePath = "state-flag";
+                ConfigurationNode flagsNode = node.node(flagsNodePath);
+                if (flagsNode.isNull()) {
+                    flagsNodePath = "state_flag";
+                    flagsNode = node.node(flagsNodePath);
+                }
                 if (flagsNode.isMap()) {
                     flagsNode.childrenMap().forEach((key, value) -> {
                         String flag = key.toString();
-                        WorldGuardSupport.ensureStateFlagIsValid(flag);
-                        boolean valueBool = value.getBoolean(true);
-                        flags.put(flag, valueBool);
+                        flags.put(flag, wrapErrorSupply(() -> {
+                            WorldGuardSupport.ensureStateFlagIsValid(flag);
+                            return value.getBoolean(true);
+                        }, "state-flag, " + flag));
                     });
                 }
                 List<String> permissions = node.node("permission").getList(String.class);
-                return new Predicate(clickButton, clickAt, flags, amount, permissions);
+                List<Integer> ticks = wrapErrorSupply(() -> {
+                    ConfigurationNode timeNode = node.node("time");
+                    if (timeNode.isList()) {
+                        return timeNode.getList(String.class).stream().flatMap(s -> parseTime(s).stream()).distinct()
+                                .collect(Collectors.toList());
+                    } else if (!timeNode.isNull() && !timeNode.isMap()) {
+                        return parseTime(timeNode.getString());
+                    }
+                    return null;
+                }, "time");
+
+                List<Integer> slots = wrapErrorSupply(() -> {
+                    ConfigurationNode slotNode = node.node("slot");
+                    if (slotNode.isList()) {
+                        return slotNode.getList(String.class).stream().flatMap(s -> parseSlots(s).stream())
+                                .distinct().collect(Collectors.toList());
+                    } else if (!slotNode.isNull() && !slotNode.isMap()) {
+                        return parseSlots(slotNode.getString());
+                    }
+                    return null;
+                }, "slot");
+
+                return new Predicate(clickButton, clickAt, flags, amount, permissions, ticks, slots);
             }
             Matcher matcher = SINGLE_PREDICATE_PATTERN.matcher(node.getString());
             if (!matcher.find())
                 throw InvalidConfigurationException.format("Invalid predicate: <white>%s</white>", node.getString());
-            String type = matcher.group("type");
+            String value = matcher.group("type");
             PredicateType predicateType = PredicateType.fromString(matcher.group("enum"));
             ClickAt clickAt = null;
             ClickButton clickButton = null;
             Predicate.Amount amount = null;
             List<String> permissions = null;
             Map<String, Boolean> flags = null;
+            List<Integer> ticks = null;
+            List<Integer> slots = null;
             switch (predicateType) {
                 case AT:
-                    clickAt = parseClickAt(type);
+                    clickAt = parseClickAt(value);
                     break;
                 case BUTTON:
-                    clickButton = parseClickButton(type);
+                    clickButton = parseClickButton(value);
                     break;
                 case AMOUNT:
-                    amount = new Predicate.Amount(null, parseInt(type));
+                    amount = new Predicate.Amount(null, parseInt(value));
                     break;
                 case TOTAL_AMOUNT:
-                    amount = new Predicate.Amount(parseInt(type), null);
+                    amount = new Predicate.Amount(parseInt(value), null);
                     break;
                 case PERMISSION:
-                    permissions = parsePermissions(type);
+                    permissions = parsePermissions(value);
                     break;
                 case STATE_FLAG:
-                    Tuple2<String, Boolean> flag = parseStateFlag(type);
+                    Tuple2<String, Boolean> flag = parseStateFlag(value);
                     flags = Collections.singletonMap(flag._1, flag._2);
                     break;
+                case TIME:
+                    ticks = parseTime(value);
+                    break;
+                case SLOT:
+                    slots = parseSlots(value);
+                    break;
             }
-            return new Predicate(clickButton, clickAt, flags, amount, permissions);
+            return new Predicate(clickButton, clickAt, flags, amount, permissions, ticks, slots);
+        }
+
+        private <T> T wrapErrorSupply(CheckedFunction0<T> action, String path) {
+            try {
+                return action.apply();
+            } catch (Throwable e) {
+                throw InvalidConfigurationException.path(path, e);
+            }
+        }
+
+
+        private List<Integer> parseSlots(String raw) {
+            return Arrays.stream(raw.split(","))
+                    .map(String::trim)
+                    .flatMap(element -> {
+                        String[] split = element.split("-");
+                        if (split.length == 1) {
+                            String first = split[0];
+                            return Try.ofSupplier(() -> Collections.singletonList(Integer.parseInt(first)))
+                                    .recover(t -> parseEquipmentSlot(first)).get().stream();
+                        } else {
+                            int start = parseInt(split[0]) ;
+                            int end = parseInt(split[1]);
+                            return Arrays.stream(new IntRange(start, end).toArray())
+                                    .boxed();
+                        }
+                    }).collect(Collectors.toList());
+        }
+
+        private List<Integer> parseEquipmentSlot(String raw) {
+            String upper = raw.toUpperCase();
+            return Try.ofSupplier(() -> SlotGroup.valueOf(upper))
+                    .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
+                        List<String> suggestions = StringSimilarityUtils.getSuggestions(
+                                upper,
+                                Arrays.stream(SlotGroup.values())
+                                        .map(SlotGroup::name)
+                        );
+                        return InvalidConfigurationException.unknownOption("equipment slot", raw, suggestions);
+                    })).map(SlotGroup::getSlots).get();
+        }
+
+        private List<Integer> parseTime(String raw) {
+            return Arrays.stream(raw.split(","))
+                    .map(String::trim)
+                    .flatMap(element -> {
+                        String[] split = element.split("-");
+                        if (split.length == 1) {
+                            return Stream.of(TimeTokenParser.parse(split[0]))
+                                    .map(millis -> millis / 50)
+                                    .map(l -> (int) (long) l);
+                        } else {
+                            long start = TimeTokenParser.parse(split[0]) / 50;
+                            long end = TimeTokenParser.parse(split[1]) / 50;
+                            return Arrays.stream(new LongRange(start, end).toArray())
+                                    .mapToObj(l -> (int) l);
+                        }
+                    }).map(i -> Math.max(1, i))
+                    .distinct()
+                    .collect(Collectors.toList());
+        }
+
+        @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+        @Getter
+        @RequiredArgsConstructor
+        private enum SlotGroup {
+            HAND(-1),
+            OFF_HAND(40),
+            ANY_HAND(-1, 40),
+            ANY(io.vavr.collection.List.range(0, 41)),
+            HEAD(39),
+            CHEST(38),
+            LEGS(37),
+            FEET(36),
+            ARMOR(io.vavr.collection.List.range(36, 40)),
+            HOTBAR(io.vavr.collection.List.range(0, 8)),
+            ;
+            List<Integer> slots;
+            SlotGroup(int... slots) {
+                this(Arrays.stream(slots).boxed().collect(Collectors.toList()));
+            }
+
+            SlotGroup(io.vavr.collection.List<Integer> slots) {
+                this(slots.toJavaList());
+            }
+
         }
 
         private enum PredicateType {
@@ -833,7 +961,9 @@ public class ConfigEntity {
             AMOUNT,
             TOTAL_AMOUNT,
             PERMISSION,
-            STATE_FLAG;
+            STATE_FLAG,
+            TIME,
+            SLOT;
 
             public static PredicateType fromString(String raw) {
                 String upper = raw.toUpperCase();
@@ -848,6 +978,12 @@ public class ConfigEntity {
                         })).get();
             }
 
+            public static String getPattern() {
+                return Arrays.stream(values())
+                        .map(p -> p.name().toLowerCase())
+                        .reduce((s1, s2) -> s1 + "|" + s2)
+                        .get();
+            }
 
         }
 

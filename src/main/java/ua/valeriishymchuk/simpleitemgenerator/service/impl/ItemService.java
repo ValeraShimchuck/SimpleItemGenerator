@@ -24,13 +24,10 @@ import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceEntityResu
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.regex.RegexUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.PapiSupport;
-import ua.valeriishymchuk.simpleitemgenerator.common.usage.Predicate;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickAt;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickButton;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.PredicateInput;
-import ua.valeriishymchuk.simpleitemgenerator.dto.CommandExecutionDTO;
-import ua.valeriishymchuk.simpleitemgenerator.dto.GiveItemDTO;
-import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageResultDTO;
+import ua.valeriishymchuk.simpleitemgenerator.dto.*;
 import ua.valeriishymchuk.simpleitemgenerator.entity.ConfigEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.LangEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
@@ -75,29 +72,32 @@ public class ItemService implements IItemService {
     }
 
     @Override
-    public ItemUsageResultDTO useItem(Player player, Action action, ItemStack item, @Nullable Block clickedBlock, @Nullable BlockFace blockFace) {
-        boolean isBlock = clickedBlock != null;
-        boolean isLeftClick = action == Action.LEFT_CLICK_AIR || action == Action.LEFT_CLICK_BLOCK;
+    public ItemUsageResultDTO useItem(ItemUsageBlockDTO itemUsageBlockDTO) {
+        boolean isBlock = itemUsageBlockDTO.getClickedBlock().isDefined();
+        boolean isLeftClick = itemUsageBlockDTO.getAction() == Action.LEFT_CLICK_AIR ||
+                itemUsageBlockDTO.getAction() == Action.LEFT_CLICK_BLOCK;
         ItemUsageResultDTO nop = new ItemUsageResultDTO(
                 null,
                 Collections.emptyList(),
                 false,
                 UsageEntity.Consume.NONE
         );
-        if (action == Action.PHYSICAL) return nop;
+        if (itemUsageBlockDTO.getAction() == Action.PHYSICAL) return nop;
         Map<String, String> placeholders = new HashMap<>();
-        if (isBlock) placeholders.putAll(placeholdersFor(clickedBlock, blockFace));
+        if (isBlock) placeholders.putAll(placeholdersFor(itemUsageBlockDTO.getClickedBlock().get(), itemUsageBlockDTO.getClickedFace().get()));
         PredicateInput predicateInput = new PredicateInput(
-                player,
-                isBlock ? clickedBlock.getLocation() : null,
+                itemUsageBlockDTO.getPlayer(),
+                isBlock ? itemUsageBlockDTO.getClickedBlock().get().getLocation() : null,
                 isLeftClick ? ClickButton.LEFT : ClickButton.RIGHT,
                 isBlock ? ClickAt.BLOCK : ClickAt.AIR,
                 new PredicateInput.Amount(
-                        getTotalItems(item, player),
-                        item == null? 0 : item.getAmount()
-                )
+                        getTotalItems(itemUsageBlockDTO.getItem(), itemUsageBlockDTO.getPlayer()),
+                        itemUsageBlockDTO.getItem() == null? 0 : itemUsageBlockDTO.getItem().getAmount()
+                ),
+                itemUsageBlockDTO.getCurrentTick(),
+                itemUsageBlockDTO.getSlot()
         );
-        return useItem0(player, item, predicateInput, placeholders);
+        return useItem0(itemUsageBlockDTO.getPlayer(), itemUsageBlockDTO.getItem(), predicateInput, placeholders);
 
     }
 
@@ -129,7 +129,9 @@ public class ItemService implements IItemService {
     }
 
     @Override
-    public ItemUsageResultDTO dropItem(Player player, ItemStack item) {
+    public ItemUsageResultDTO dropItem(ItemUsageGeneralDTO itemUsageGeneralDTO) {
+        Player player = itemUsageGeneralDTO.getPlayer();
+        ItemStack item = itemUsageGeneralDTO.getItemStack();
         int playerReach = 3;
         IRayTraceResult result = RayTraceHelper.rayTrace(
                 player,
@@ -172,7 +174,9 @@ public class ItemService implements IItemService {
                         new PredicateInput.Amount(
                                 getTotalItems(item, player),
                                 item == null? 0 : item.getAmount()
-                        )
+                        ),
+                        itemUsageGeneralDTO.getCurrentTick(),
+                        itemUsageGeneralDTO.getSlot()
                 ),
                 placeholders
         );
@@ -317,7 +321,11 @@ public class ItemService implements IItemService {
 
 
     @Override
-    public ItemUsageResultDTO useItemAt(Player player, boolean isRightClicked, Entity clicked, ItemStack item) {
+    public ItemUsageResultDTO useItemAt(ItemUsageEntityDTO itemUsageEntityDTO) {
+        Entity clicked = itemUsageEntityDTO.getClicked();
+        ItemStack item = itemUsageEntityDTO.getItem();
+        Player player = itemUsageEntityDTO.getPlayer();
+        boolean isRightClicked = itemUsageEntityDTO.isRightClicked();
         boolean isPlayer = clicked instanceof Player;
         PredicateInput clickType = new PredicateInput(
                 player,
@@ -327,10 +335,66 @@ public class ItemService implements IItemService {
                 new PredicateInput.Amount(
                         getTotalItems(item, player),
                         item == null? 0 : item.getAmount()
-                )
+                ),
+                itemUsageEntityDTO.getCurrentTick(),
+                itemUsageEntityDTO.getSlot()
         );
         Map<String, String> placeholders = isPlayer ? placeholdersFor((Player) clicked) : placeholdersFor(clicked);
         return useItem0(player, item, clickType, placeholders);
+    }
+
+    @Override
+    public ItemUsageResultDTO tickItem(ItemUsageGeneralDTO itemUsageGeneralDTO) {
+        Player player = itemUsageGeneralDTO.getPlayer();
+        ItemStack item = itemUsageGeneralDTO.getItemStack();
+        int playerReach = 3;
+        IRayTraceResult result = RayTraceHelper.rayTrace(
+                player,
+                Arrays.stream(Material.values()).filter(material -> material.isBlock() && (
+                                material.name().endsWith("AIR") ||
+                                        material.name().endsWith("WATER") ||
+                                        material.name().endsWith("LAVA"))
+                        )
+                        .collect(Collectors.toSet()),
+                playerReach,
+                playerReach + 1
+        );
+        Map<String, String> placeholders = new HashMap<>();
+        ClickAt clickAt;
+        Location useLoc = null;
+        if (result.hitBlock()) {
+            RayTraceBlockResult castesResult = (RayTraceBlockResult) result;
+            clickAt = ClickAt.BLOCK;
+            useLoc = castesResult.getHitBlock().getLocation();
+            placeholders.putAll(placeholdersFor(castesResult.getHitBlock(), castesResult.getSide()));
+        } else if (result.hitEntity()) {
+            RayTraceEntityResult castesResult = (RayTraceEntityResult) result;
+            useLoc = castesResult.getEntity().getLocation();
+            if (castesResult.getEntity() instanceof Player) {
+                placeholders.putAll(placeholdersFor((Player) castesResult.getEntity()));
+                clickAt = ClickAt.PLAYER;
+            } else {
+                placeholders.putAll(placeholdersFor(castesResult.getEntity()));
+                clickAt = ClickAt.ENTITY;
+            }
+        } else clickAt = ClickAt.AIR;
+        return useItem0(
+                player,
+                item,
+                new PredicateInput(
+                        player,
+                        useLoc,
+                        null,
+                        clickAt,
+                        new PredicateInput.Amount(
+                                getTotalItems(item, player),
+                                item == null? 0 : item.getAmount()
+                        ),
+                        itemUsageGeneralDTO.getCurrentTick(),
+                        itemUsageGeneralDTO.getSlot()
+                ),
+                placeholders
+        );
     }
 
     @Override
