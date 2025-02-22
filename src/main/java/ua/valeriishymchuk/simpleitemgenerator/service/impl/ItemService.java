@@ -5,6 +5,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -22,6 +23,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.IRayTraceResult;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceBlockResult;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceEntityResult;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceHelper;
+import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.regex.RegexUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.PapiSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickAt;
@@ -468,6 +470,50 @@ public class ItemService implements IItemService {
         return new GiveItemDTO(
                 message.bake(),
                 itemStack
+        );
+    }
+
+    @Override
+    public WithdrawItemDTO withdrawItem(String key, @Nullable Player player, int amount) {
+        if (player == null) return new WithdrawItemDTO(
+                lang().getSenderNotPlayer().bake(),
+                null,
+                false
+        );
+        ConfigEntity.CustomItem customItem = config().getItem(key).getOrNull();
+        if (customItem == null) return new WithdrawItemDTO(
+                lang().getItemDoesntExist().replaceText("%key%", key).bake(),
+                null,
+                false
+        );
+        int totalItems = Arrays.stream(player.getInventory().getContents())
+                .filter(item -> NBTCustomItem.getCustomItemId(item).map(s -> s.equals(key)).getOrElse(false))
+                .mapToInt(ItemStack::getAmount)
+                .sum();
+        List<RawComponent> messages = new ArrayList<>();
+        boolean success;
+        if (totalItems < amount) {
+            messages.add(lang().getNotEnoughItemsSender());
+            messages.add(lang().getNotEnoughItemsReceiver());
+            success = false;
+        } else {
+            messages.add(lang().getSuccessfullyWithdrewSender());
+            messages.add(lang().getSuccessfullyWithdrewReceiver());
+            success = true;
+        }
+        Component itemName = ReflectedRepresentations.ItemMeta.getDisplayName(customItem.getItemStack().getItemMeta())
+                .getOrElse(MiniMessage.miniMessage().deserialize("<white>" + key + "</white>"));
+        List<Component> finalMessages = messages.stream().map(raw -> {
+            return raw.replaceText("%amount%", amount + "")
+                    .replaceText("%item%", itemName)
+                    .replaceText("%player%", player.getName())
+                    .replaceText("%key%", key)
+                    .bake();
+        }).collect(Collectors.toList());
+        return new WithdrawItemDTO(
+                finalMessages.get(0),
+                finalMessages.get(1),
+                success
         );
     }
 

@@ -28,6 +28,8 @@ public interface IItemService {
         return giveItem(key, player, null);
     }
 
+    WithdrawItemDTO withdrawItem(String key, @Nullable Player player, int amount);
+
     List<String> getItemKeys();
     long getUpdatePeriodTicks();
     Component reload();

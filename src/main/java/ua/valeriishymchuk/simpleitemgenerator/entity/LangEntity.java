@@ -49,7 +49,11 @@ public class LangEntity {
     RawComponent reloadSuccessfully = component("Configs were successfully reloaded.");
     RawComponent reloadUnsuccessfully = error("Configs weren't reloaded. Check console.");
     RawComponent invalidItem = error("This custom item is invalid. Report this case to the server admins. Item key <white>%key%</white>.");
-    RawComponent senderNotPlayer = error("Use argument player to use this command. Or try execute it as a player");
+    RawComponent senderNotPlayer = error("Use <white>player</white> argument to use this command. Or try execute it as a player");
+    RawComponent notEnoughItemsSender = error("Player <white>%player%</white> doesn't have <white>%amount%</white> of item <white>%item%</white> in their inventory.");
+    RawComponent notEnoughItemsReceiver = error("You don't have <white>%amount%</white> of item <white>[%item%</white><white>]</white>.");
+    RawComponent successfullyWithdrewSender = component("Successfully withdrew <white>%amount%</white> of item <white>%item%</white> from <white>%player%</white>.");
+    RawComponent successfullyWithdrewReceiver = component("Successfully withdrew <white>%amount%</white> of item <white>[%item%</white><white>]</white> from your inventory.");
     RawComponent creativeDrop = error(
             "You may experience weird behavior when dropping a",
             "custom item in creative mode.",

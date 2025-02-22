@@ -16,11 +16,14 @@ import com.github.retrooper.packetevents.event.PacketListenerPriority;
 import com.github.retrooper.packetevents.event.PacketReceiveEvent;
 import com.github.retrooper.packetevents.manager.server.ServerVersion;
 import com.github.retrooper.packetevents.protocol.packettype.PacketType;
+import com.github.retrooper.packetevents.protocol.player.DiggingAction;
 import com.github.retrooper.packetevents.protocol.player.UserProfile;
+import com.github.retrooper.packetevents.protocol.world.BlockFace;
 import com.github.retrooper.packetevents.util.Vector3d;
+import com.github.retrooper.packetevents.util.Vector3i;
 import com.github.retrooper.packetevents.wrapper.login.server.WrapperLoginServerSetCompression;
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerFlying;
-import com.github.retrooper.packetevents.wrapper.play.client.WrapperPlayClientPlayerPosition;
+import com.github.retrooper.packetevents.wrapper.play.client.*;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerBlockAction;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerPositionAndLook;
 import com.google.common.base.Preconditions;
 import de.tr7zw.changeme.nbtapi.NBT;
@@ -36,9 +39,18 @@ import net.kyori.adventure.nbt.TagStringIO;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
+import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
+import org.bukkit.entity.ArmorStand;
+import org.bukkit.entity.Entity;
+import org.bukkit.entity.Player;
+import org.bukkit.entity.Slime;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerDropItemEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.util.BlockIterator;
 import org.jetbrains.annotations.NotNull;
 import ua.valeriishymchuk.simpleitemgenerator.SimpleItemGeneratorPlugin;
 import ua.valeriishymchuk.simpleitemgenerator.api.SimpleItemGenerator;
@@ -48,7 +60,9 @@ import ua.valeriishymchuk.simpleitemgenerator.common.nbt.NBTConverter;
 import ua.valeriishymchuk.simpleitemgenerator.entity.ConfigEntity;
 import ua.valeriishymchuk.simpleitemgenerator.tester.annotation.Test;
 import ua.valeriishymchuk.simpleitemgenerator.tester.client.MinecraftTestClient;
+import ua.valeriishymchuk.simpleitemgenerator.tester.packet.DebugPacketListener;
 import ua.valeriishymchuk.simpleitemgenerator.tester.stream.WrappedPrintStream;
+import ua.valeriishymchuk.simpleitemgenerator.tester.sync.BukkitSync;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -60,6 +74,10 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executor;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.function.Function;
 import java.util.function.Supplier;
@@ -72,7 +90,7 @@ import static com.google.common.base.Preconditions.checkArgument;
 import static ua.valeriishymchuk.simpleitemgenerator.tester.version.VersionUtils.runSince;
 import static ua.valeriishymchuk.simpleitemgenerator.tester.version.VersionUtils.runUpTo;
 
-public class SIGTesterPlugin extends JavaPlugin {
+public class SIGTesterPlugin extends JavaPlugin implements Listener {
 
     private static boolean isFinished = false;
 
@@ -110,13 +128,19 @@ public class SIGTesterPlugin extends JavaPlugin {
         });
     }
 
+    private MinecraftTestClient client;
+    private BukkitSync sync = new BukkitSync(this);
+    private ExecutorService executor = Executors.newSingleThreadExecutor();
+
     @SneakyThrows
     @Override
     public void onEnable() {
         if (isFinished) return;
         try {
+            PacketEvents.getAPI().getEventManager().registerListener(new DebugPacketListener(), PacketListenerPriority.MONITOR);
+            Bukkit.getPluginManager().registerEvents(this, this);
             registerCommands();
-            MinecraftTestClient client = testClient();
+            client = testClient();
             runUpTo(ServerVersion.V_1_9, () -> {
                 client.handleNext(PacketType.Play.Server.MAP_CHUNK_BULK, event -> {
                     Bukkit.getScheduler().runTaskLater(this, this::runTests, 1);
@@ -124,6 +148,9 @@ public class SIGTesterPlugin extends JavaPlugin {
             });
             runSince(ServerVersion.V_1_9, () -> {
                 client.handleNext(PacketType.Play.Server.CHUNK_DATA, event -> {
+                    runSince(ServerVersion.V_1_21_4, () -> {
+                        client.write(new WrapperPlayClientPlayerLoaded());
+                    });
                     Bukkit.getScheduler().runTaskLater(this, this::runTests, 1);
                 });
             });
@@ -157,6 +184,12 @@ public class SIGTesterPlugin extends JavaPlugin {
     * /sigtest fail
     * /sigtest proceed <name>
     * */
+
+    @EventHandler
+    private void dropEvent(PlayerDropItemEvent event) {
+        System.out.println("Player dropped item");
+    }
+
     private void registerCommands() {
         CommandManager<CommandSender> manager = setupCommandManager();
         Supplier<Command.Builder<CommandSender>> builder = () -> manager.commandBuilder("sigtest");
@@ -166,6 +199,7 @@ public class SIGTesterPlugin extends JavaPlugin {
                 builder.get().literal("proceed").argument(StringArgument.builder("proceed"))
                         .handler(ctx -> {
                             String proceed = ctx.get("proceed");
+                            ctx.getSender().sendMessage("Got proceed: " + proceed);
                             if (proceedFuture == null || proceedFuture.isDone()) {
                                 fail();
                                 return;
@@ -184,7 +218,7 @@ public class SIGTesterPlugin extends JavaPlugin {
         Bukkit.getScheduler().runTaskLaterAsynchronously(this, () -> {
             if (proceedFuture.isDone()) return;
             proceedFuture.completeExceptionally(new RuntimeException("Command wasn't executed in time"));
-        }, 20);
+        }, 80);
         return future.thenAccept(result -> {
             if (!result.equals(key)) throw new RuntimeException("Got " + result + " instead of " + key);
         });
@@ -223,24 +257,26 @@ public class SIGTesterPlugin extends JavaPlugin {
         return testClient;
     }
 
-    private void runTests() {
-        try {
-            Arrays.stream(getClass().getMethods())
-                    .filter(m -> m.getAnnotation(Test.class) != null)
-                    .forEach(m -> {
-                        try {
-                            getLogger().info("Running test: " + m.getName());
-                            m.invoke(this);
-                        } catch (IllegalAccessException | InvocationTargetException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
-        } catch (Throwable e) {
-            e.printStackTrace();
-            fail();
-        }
 
-        success();
+    private void runTests() {
+        executor.execute(() -> {
+            try {
+                Arrays.stream(getClass().getMethods())
+                        .filter(m -> m.getAnnotation(Test.class) != null)
+                        .forEach(m -> {
+                            try {
+                                getLogger().info("Running test: " + m.getName());
+                                m.invoke(this);
+                            } catch (IllegalAccessException | InvocationTargetException e) {
+                                throw new RuntimeException(e);
+                            }
+                        });
+            } catch (Throwable e) {
+                e.printStackTrace();
+                fail();
+            }
+            success();
+        });
     }
 
     private void forceSetConfig(String key) {
@@ -250,6 +286,7 @@ public class SIGTesterPlugin extends JavaPlugin {
     private void ensureDefined(String itemKey) {
         checkArgument(getSIG().configRepository.getConfig().getItem(itemKey).isDefined(), "Can't access " + itemKey);
     }
+
 
     @Test
     public void testAPI() {
@@ -261,6 +298,78 @@ public class SIGTesterPlugin extends JavaPlugin {
         checkArgument(itemStack != null, "Can't bake " + itemKey + " through API");
         checkArgument(SimpleItemGenerator.get().isCustomItem(itemStack), "Can't get custom item out of " + itemKey + " through API");
         SimpleItemGenerator.get().updateItem(itemStack, null);
+    }
+
+    @Test
+    public void testDrop0() {
+        forceSetConfig("droptest");
+        String itemRaw = "item1";
+        ensureDefined(itemRaw);
+        Player player = Bukkit.getOnlinePlayers().stream().findFirst().orElse(null);
+        checkArgument(player != null, "No players online");
+        ItemStack item = SimpleItemGenerator.get().bakeItem(itemRaw, player).orElse(null);
+        checkArgument(item != null, "Can't bake " + itemRaw);
+        // air
+        sync.sync(() -> {
+            player.getInventory().setItem(0, item);
+            player.getInventory().setHeldItemSlot(0);
+            Location loc = player.getLocation();
+            loc.setYaw(0);
+            loc.setPitch(0);
+            player.teleport(loc);
+            player.getWorld().getEntities().stream().filter(e -> !e.equals(player))
+                    .forEach(Entity::remove);
+            new BlockIterator(player, 10).forEachRemaining(b -> b.setType(Material.AIR));
+        }).thenCompose(v -> {
+            CompletableFuture<Void> future = tryProceed("air");
+            client.write(new WrapperPlayClientPlayerDigging(DiggingAction.DROP_ITEM, Vector3i.zero(), BlockFace.values()[0], 0));
+            return future;
+        }).join();
+
+
+        // block
+        sync.sync(() -> {
+            Location loc = player.getLocation();
+            loc.setYaw(0);
+            loc.setPitch(0);
+            player.teleport(loc);
+            player.getWorld().getEntities().stream().filter(e -> !e.equals(player))
+                    .forEach(Entity::remove);
+            AtomicInteger skip = new AtomicInteger(2);
+            new BlockIterator(player, 3).forEachRemaining(b -> {
+                boolean shouldSkip = skip.decrementAndGet() != 0;
+                if (shouldSkip) return;
+                b.setType(Material.STONE);
+            });
+        }).thenCompose(v -> {
+            CompletableFuture<Void> future = tryProceed("block");
+            client.write(new WrapperPlayClientPlayerDigging(DiggingAction.DROP_ITEM, Vector3i.zero(), BlockFace.values()[0], 0));
+            return future;
+        }).join();
+
+        // entity
+        sync.sync(() -> {
+            Location loc = player.getLocation();
+            loc.setYaw(0);
+            loc.setPitch(0);
+            player.teleport(loc);
+            player.getWorld().getEntities().stream().filter(e -> !e.equals(player))
+                    .forEach(Entity::remove);
+            Location entityLoc = player.getEyeLocation()
+                    .add(player.getLocation().getDirection().normalize().multiply(2))
+                    .add(0, -0.2, 0);
+            new BlockIterator(player, 10).forEachRemaining(b -> {
+                b.setType(Material.AIR);
+            });
+            ArmorStand entity = player.getWorld().spawn(entityLoc, ArmorStand.class);
+            entity.setGravity(false);
+        }).thenCompose(v -> {
+            CompletableFuture<Void> future = tryProceed("entity");
+            client.write(new WrapperPlayClientPlayerDigging(DiggingAction.DROP_ITEM, Vector3i.zero(), BlockFace.values()[0], 0));
+            return future;
+        }).join();
+
+
     }
 
     @Test

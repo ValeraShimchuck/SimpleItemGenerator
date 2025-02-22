@@ -1,0 +1,14 @@
+items:
+  item1:
+    item:
+      material: GOLD_INGOT
+    usage:
+      - predicate: '[at] entity'
+        commands: '[console] sigtest proceed entity'
+      - predicate: '[at] block'
+        commands: '[console] sigtest proceed block'
+      - predicate: '[at] air'
+        commands: '[console] sigtest proceed air'
+placeholder-update-period: 10t
+check-for-updates: true
+send-welcome-message: true
