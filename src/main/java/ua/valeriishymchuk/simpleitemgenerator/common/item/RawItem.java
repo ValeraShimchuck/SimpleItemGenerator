@@ -385,7 +385,8 @@ public class RawItem implements Cloneable {
                                     increment.incrementAndGet();
                                     return a;
                                 }))
-                        .foldLeft(preparedItem, (itemStream, attribute) -> attribute.applyOnItem(itemStream));
+                        //.foldLeft(preparedItem, (itemStream, attribute) -> attribute.applyOnItem(itemStream));
+                        .transform(list -> Attribute.applyOnItem(list.toJavaList(), preparedItem));
             } catch (Throwable e) {
                 throw InvalidConfigurationException.path("attributes, " + increment.get(), e);
             }

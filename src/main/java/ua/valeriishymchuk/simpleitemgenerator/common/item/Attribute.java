@@ -25,6 +25,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 
 import javax.annotation.Nullable;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -178,30 +179,36 @@ public class Attribute {
         return nbt;
     }
 
-    public ItemStack applyOnItem(ItemStack itemStack) {
+    public static ItemStack applyOnItem(List<Attribute> attributes, ItemStack itemStack) {
         boolean supportsComponents = FeatureSupport.ITEM_COMPONENTS_SUPPORT;
         if (!supportsComponents) {
             NBT.modify(itemStack, nbt -> {
-                nbt.getCompoundList(ATTRIBUTE_MODIFIERS).addCompound(toNbt(nbt.getCompoundList(ATTRIBUTE_MODIFIERS).size()));
+                attributes.forEach(attribute -> {
+                    nbt.getCompoundList(ATTRIBUTE_MODIFIERS).addCompound(attribute.toNbt(nbt.getCompoundList(ATTRIBUTE_MODIFIERS).size()));
+                });
+
             });
             return itemStack;
         }
         com.github.retrooper.packetevents.protocol.item.ItemStack peStack = SpigotConversionUtil.fromBukkitItemStack(itemStack);
         ItemAttributeModifiers modifiers = new ItemAttributeModifiers(new ArrayList<>(), true);
-        int entropy = modifiers.getModifiers().size();
-        String name = this.name == null ? entropy + "" : this.name;
-        java.util.UUID uuid = this.uuid == null ? java.util.UUID.nameUUIDFromBytes(name.getBytes()) : this.uuid;
-        modifiers.addModifier(new ItemAttributeModifiers.ModifierEntry(
-                Attributes.getByName(modifier.getNotation(SemanticVersion.CURRENT_MINECRAFT)),
-                new ItemAttributeModifiers.Modifier(
-                        uuid,
-                        name,
-                        amount,
-                        AttributeOperation.values()[operation.ordinal()]
-                ),
-                slot == null ? ItemAttributeModifiers.EquipmentSlotGroup.ANY : slot
-        ));
-        peStack.setComponent(ComponentTypes.ATTRIBUTE_MODIFIERS, modifiers);
+        AtomicInteger atomicEntropy = new AtomicInteger(0);
+        attributes.forEach(attribute -> {
+            int entropy = atomicEntropy.getAndIncrement();
+            String name = attribute.name == null ? entropy + "" : attribute.name;
+            java.util.UUID uuid = attribute.uuid == null ? java.util.UUID.nameUUIDFromBytes(name.getBytes()) : attribute.uuid;
+            modifiers.addModifier(new ItemAttributeModifiers.ModifierEntry(
+                    Attributes.getByName(attribute.modifier.getNotation(SemanticVersion.CURRENT_MINECRAFT)),
+                    new ItemAttributeModifiers.Modifier(
+                            uuid,
+                            name,
+                            attribute.amount,
+                            AttributeOperation.values()[attribute.operation.ordinal()]
+                    ),
+                    attribute.slot == null ? ItemAttributeModifiers.EquipmentSlotGroup.ANY : attribute.slot
+            ));
+        });
+        peStack.getComponents().set(ComponentTypes.ATTRIBUTE_MODIFIERS, modifiers);
         return SpigotConversionUtil.toBukkitItemStack(peStack);
     }
 
