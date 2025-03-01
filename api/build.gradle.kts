@@ -141,9 +141,9 @@ jreleaser {
         signing {
             active = Active.ALWAYS
             armored = true
-            publicKey = findProperty("gpg.public")!!.toString()
-            secretKey = findProperty("gpg.secret")!!.toString()
-            passphrase = findProperty("gpg.pass")!!.toString()
+            publicKey = findProperty("gpg.public")?.toString() ?: ""
+            secretKey = findProperty("gpg.secret")?.toString() ?: ""
+            passphrase = findProperty("gpg.pass")?.toString() ?: ""
             mode = Signing.Mode.FILE
         }
 
