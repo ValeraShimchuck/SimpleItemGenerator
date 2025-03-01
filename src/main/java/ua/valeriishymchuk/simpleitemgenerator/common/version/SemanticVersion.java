@@ -75,10 +75,11 @@ public class SemanticVersion implements Comparable<SemanticVersion> {
     public static SemanticVersion parse(String version) {
         Matcher matcher = VERSION_PATTERN.matcher(version);
         if (!matcher.find()) throw new IllegalArgumentException("Invalid version: " + version);
+        String subVersion = matcher.group(4);
         return new SemanticVersion(
                 Integer.parseInt(matcher.group(1)),
                 Integer.parseInt(matcher.group(2)),
-                matcher.groupCount() >= 4 ? Integer.parseInt(matcher.group(4)) : 0
+                subVersion != null? Integer.parseInt(matcher.group(4)) : 0
         );
     }
 }
