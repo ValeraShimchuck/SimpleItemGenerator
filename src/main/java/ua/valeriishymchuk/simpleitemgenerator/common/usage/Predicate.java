@@ -65,13 +65,19 @@ public class Predicate {
         return list.stream().anyMatch(predicate);
     }
 
+    private boolean checkTime(PredicateInput input) {
+        if (getTimeTick().isEmpty() && input.getButton().isEmpty()) return false;
+        return isEmptyOrAnyMatch(getTimeTick(), tick -> input.getCurrentTick() % tick == 0);
+    }
+
     public boolean test(PredicateInput input) {
         Location location = input.getLocation().getOrElse(input.getPlayer().getLocation());
         boolean tickPass = !getTimeTick().isEmpty() || input.getButton().isDefined();
         if (!tickPass) return false;
         return getButton().map(side1 -> input.getButton()
                         .map(button -> button == side1).getOrElse(false)).getOrElse(true) &&
-                isEmptyOrAnyMatch(getTimeTick(), tick -> input.getCurrentTick() % tick == 0) &&
+                //isEmptyOrAnyMatch(getTimeTick(), tick -> input.getCurrentTick() % tick == 0) &&
+                checkTime(input) &&
                 isEmptyOrAnyMatch(getSlots(), slot -> slot == input.getSlot() || (slot == -1 && input.getPlayer().getInventory().getHeldItemSlot() == input.getSlot())) &&
                 getAt().map(at1 -> at1 == input.getClickAt()).getOrElse(true) &&
                 getAmount().map(amount1 -> amount1.test(input.getAmount())).getOrElse(true) &&

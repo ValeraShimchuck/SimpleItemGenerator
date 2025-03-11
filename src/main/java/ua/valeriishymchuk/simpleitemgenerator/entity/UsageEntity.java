@@ -37,7 +37,7 @@ public class UsageEntity {
     List<Command> commands;
 
     public boolean accepts(PredicateInput input) {
-        if (predicates.isEmpty()) return true;
+        if (predicates.isEmpty() && input.getButton().isDefined()) return true;
         return predicates.stream().anyMatch(t -> t.test(input));
     }
 
