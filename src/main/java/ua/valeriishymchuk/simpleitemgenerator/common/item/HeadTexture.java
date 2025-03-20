@@ -76,18 +76,16 @@ public class HeadTexture {
                         .map(ItemStack::getType).findFirst().get();
                 throw new InvalidConfigurationException("Item's material should be " + playerHeadMaterial);
             }
-            if (type != Type.HEADDB) {
-                inputItem.setDurability((short) 3);
-            }
+            inputItem.setDurability((short) 3);
             switch (type) {
                 case HEADDB:
                     try {
-                        return HeadDatabaseSupport.getHead(value);
+                        String id = HeadDatabaseSupport.getBase64(value);
+                        return setInternal(inputItem, id);
                     } catch (Exception e) {
                         if (!HeadDatabaseSupport.isPluginEnabled()) throw new InvalidConfigurationException("HeadDatabase plugin is not enabled");
                         throw new InvalidConfigurationException("Can't find head: " + value);
                     }
-
                 case NICKNAME:
                     ItemMeta meta = inputItem.getItemMeta();
                     SkullMeta skullMeta = (SkullMeta) meta;

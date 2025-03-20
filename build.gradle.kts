@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "ua.valeriishymchuk"
-version = "1.7.3"
+version = "1.8.0"
 
 
 

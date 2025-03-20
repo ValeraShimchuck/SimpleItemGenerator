@@ -20,6 +20,13 @@ public class HeadDatabaseSupport {
         return item;
     }
 
+    public static String getBase64(String id) {
+        ensureInitialized();
+        String base64 = getAPI().getBase64(id);
+        if (base64 == null) throw new IllegalArgumentException("Head not found: " + id);
+        return base64;
+    }
+
     public static HeadDatabaseAPI getAPI() {
         ensureInitialized();
         return (HeadDatabaseAPI) API;
