@@ -34,4 +34,6 @@ public interface IItemService {
     long getUpdatePeriodTicks();
     Component reload();
     Component playerNotFound(String input);
+
+    void cooldownAutoSave();
 }

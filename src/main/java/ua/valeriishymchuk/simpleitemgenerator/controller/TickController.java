@@ -17,7 +17,7 @@ import org.bukkit.inventory.ItemStack;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.scheduler.BukkitTaskScheduler;
-import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickerTime;
+import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickTimer;
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageGeneralDTO;
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageResultDTO;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
@@ -36,15 +36,27 @@ public class TickController {
 
     IItemService itemService;
     BukkitTaskScheduler taskScheduler;
-    TickerTime tickerTime;
+    TickTimer tickerTime;
 
 
     public void start() {
+        startUpdatingItems();
+        startTickingItems();
+        taskScheduler.runTaskTimerAsynchronously(itemService::cooldownAutoSave, 20 * 60 * 5, 20 * 60 * 5);
+    }
+
+    private void startUpdatingItems() {
         taskScheduler.runTaskLater(() -> {
             updateItems();
-            tickItems();
-            start();
+            startUpdatingItems();
         }, itemService.getUpdatePeriodTicks());
+    }
+
+    private void startTickingItems() {
+        taskScheduler.runTaskLater(() -> {
+            tickItems();
+            startTickingItems();
+        }, 1);
     }
 
 

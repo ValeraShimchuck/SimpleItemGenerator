@@ -21,11 +21,9 @@ import net.kyori.adventure.identity.Identity;
 import net.kyori.adventure.nbt.CompoundBinaryTag;
 import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
@@ -42,20 +40,23 @@ import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.metrics.MetricsHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.scheduler.BukkitTaskScheduler;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.HeadDatabaseSupport;
-import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickerTime;
+import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickTimer;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 import ua.valeriishymchuk.simpleitemgenerator.controller.CommandsController;
 import ua.valeriishymchuk.simpleitemgenerator.controller.EventsController;
 import ua.valeriishymchuk.simpleitemgenerator.controller.TickController;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IConfigRepository;
+import ua.valeriishymchuk.simpleitemgenerator.repository.ICooldownRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IUpdateRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ConfigRepository;
+import ua.valeriishymchuk.simpleitemgenerator.repository.impl.CooldownRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.UpdateRepository;
 import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 import ua.valeriishymchuk.simpleitemgenerator.service.impl.InfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
 
+import java.io.File;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -78,6 +79,7 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
     ConfigLoader configLoader;
     IItemService itemService;
     IInfoService infoService;
+    ICooldownRepository cooldownRepository = null;
     boolean isHDBLoaded = false;
 
     @Override
@@ -88,12 +90,14 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
                 return;
             }
             commandManager = setupCommandManager();
-            configLoader = yamlLoader();
+            configLoader = configLoader();
             configRepository = new ConfigRepository(configLoader, getLogger());
             IUpdateRepository updateRepository = new UpdateRepository();
+            cooldownRepository = new CooldownRepository(cooldownLoader());
+            cooldownRepository.reload();
             SemanticVersion currentVersion = SemanticVersion.parse(getDescription().getVersion());
             infoService = new InfoService(updateRepository, configRepository, currentVersion);
-            itemService = new ItemService(configRepository);
+            itemService = new ItemService(configRepository, cooldownRepository);
             new CommandsController(itemService, infoService).setupCommands(commandManager);
         }
         if (!isHDBLoaded && HeadDatabaseSupport.isPluginEnabled()) {
@@ -115,7 +119,7 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
                 Bukkit.getPluginManager().disablePlugin(this);
                 return;
             }
-            TickerTime tickerTime = new TickerTime(taskScheduler);
+            TickTimer tickerTime = new TickTimer(taskScheduler);
             tickerTime.start();
             Bukkit.getPluginManager().registerEvents(new EventsController(itemService, infoService,tickerTime, taskScheduler), this);
             new TickController(itemService, taskScheduler, tickerTime).start();
@@ -135,13 +139,29 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
 
     @Override
     public void onDisable() {
+        if (cooldownRepository != null) {
+            cooldownRepository.save();
+        }
         MetricsHelper.shutdown();
         PacketEvents.getAPI().terminate();
     }
 
-    private ConfigLoader yamlLoader() {
+    private ConfigLoader configLoader() {
         return new ConfigLoader(
                 getDataFolder(),
+                ".yml",
+                ConfigLoaderConfigurationBuilder.yaml()
+                        .peekBuilder(b -> b.indent(2).nodeStyle(NodeStyle.BLOCK))
+                        .defaultOptions(opts -> opts.serializers(b ->
+                                b.register(CompoundBinaryTag.class, new CompoundBinaryTagTypeSerializer()))
+                        )
+                        .build()
+        );
+    }
+
+    private ConfigLoader cooldownLoader() {
+        return new ConfigLoader(
+                new File(getDataFolder(), "cooldowns"),
                 ".yml",
                 ConfigLoaderConfigurationBuilder.yaml()
                         .peekBuilder(b -> b.indent(2).nodeStyle(NodeStyle.BLOCK))

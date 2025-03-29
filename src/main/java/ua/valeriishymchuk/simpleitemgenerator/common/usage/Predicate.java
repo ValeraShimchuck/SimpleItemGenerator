@@ -36,6 +36,18 @@ public class Predicate {
     @Nullable List<Integer> slots;
 
 
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Predicate predicate = (Predicate) o;
+        return button == predicate.button && at == predicate.at && Objects.equals(stateFlags, predicate.stateFlags) && Objects.equals(amount, predicate.amount) && Objects.equals(permissions, predicate.permissions) && Objects.equals(timeTick, predicate.timeTick) && Objects.equals(slots, predicate.slots);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(button, at, stateFlags, amount, permissions, timeTick, slots);
+    }
+
     public Option<ClickButton> getButton() {
         return Option.of(button);
     }
@@ -107,6 +119,17 @@ public class Predicate {
                     getTotalAmount().map(totalAmount1 -> totalAmount1 <= input.getTotalAmount()).getOrElse(true);
         }
 
+        @Override
+        public boolean equals(Object o) {
+            if (o == null || getClass() != o.getClass()) return false;
+            Amount amount = (Amount) o;
+            return Objects.equals(totalAmount, amount.totalAmount) && Objects.equals(stackAmount, amount.stackAmount);
+        }
+
+        @Override
+        public int hashCode() {
+            return Objects.hash(totalAmount, stackAmount);
+        }
     }
 
 }

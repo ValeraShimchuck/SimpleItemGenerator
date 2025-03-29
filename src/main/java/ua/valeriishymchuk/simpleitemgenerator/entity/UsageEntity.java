@@ -2,6 +2,7 @@ package ua.valeriishymchuk.simpleitemgenerator.entity;
 
 import lombok.*;
 import lombok.experimental.FieldDefaults;
+import ua.valeriishymchuk.simpleitemgenerator.common.cooldown.CooldownType;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.Predicate;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.PredicateInput;
 
@@ -23,7 +24,8 @@ public class UsageEntity {
             false,
             Consume.NONE,
             Collections.emptyList(),
-            Collections.emptyList()
+            Collections.emptyList(),
+            CooldownType.PER_ITEM
     );
 
     public static UsageEntity DEFAULT = EMPTY.withCancel(true);
@@ -35,6 +37,7 @@ public class UsageEntity {
     Consume consume;
     List<Command> onCooldown;
     List<Command> commands;
+    CooldownType cooldownType;
 
     public boolean accepts(PredicateInput input) {
         if (predicates.isEmpty() && input.getButton().isDefined()) return true;

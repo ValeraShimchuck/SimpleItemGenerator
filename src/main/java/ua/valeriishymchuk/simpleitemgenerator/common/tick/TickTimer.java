@@ -13,7 +13,7 @@ import java.util.function.Consumer;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
-public class TickerTime {
+public class TickTimer {
 
     BukkitTaskScheduler scheduler;
     @Getter

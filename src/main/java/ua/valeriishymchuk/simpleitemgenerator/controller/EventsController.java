@@ -22,7 +22,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.scheduler.BukkitTaskScheduler;
-import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickerTime;
+import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickTimer;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageBlockDTO;
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageEntityDTO;
@@ -40,14 +40,14 @@ public class EventsController implements Listener {
 
     IItemService itemService;
     IInfoService infoService;
-    TickerTime tickerTime;
+    TickTimer tickerTime;
     BukkitTaskScheduler scheduler;
     Map<Player, Long> lastDropTick = new WeakHashMap<>();
     Map<Player, Long> lastPlayerClickTick = new WeakHashMap<>();
     Map<Player, Map<Integer, Long>> lastUsedItemTicks = new WeakHashMap<>();
     Map<Player, Tuple2<Long, Integer>> playerTickSlotMap = new WeakHashMap<>();
 
-    public EventsController(IItemService itemService, IInfoService infoService, TickerTime tickerTime, BukkitTaskScheduler scheduler) {
+    public EventsController(IItemService itemService, IInfoService infoService, TickTimer tickerTime, BukkitTaskScheduler scheduler) {
         this.itemService = itemService;
         this.infoService = infoService;
         this.tickerTime = tickerTime;

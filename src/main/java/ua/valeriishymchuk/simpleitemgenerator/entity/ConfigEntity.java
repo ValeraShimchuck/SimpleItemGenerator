@@ -31,6 +31,7 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import org.spongepowered.configurate.serialize.SerializationException;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
+import ua.valeriishymchuk.simpleitemgenerator.common.cooldown.CooldownType;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.HeadTexture;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.RawItem;
@@ -566,7 +567,8 @@ public class ConfigEntity {
                                 true,
                                 UsageEntity.Consume.NONE,
                                 Collections.emptyList(),
-                                Collections.emptyList()
+                                Collections.emptyList(),
+                                CooldownType.PER_ITEM
                         )
                 );
             AtomicInteger increment = new AtomicInteger();
@@ -608,10 +610,23 @@ public class ConfigEntity {
                     true,
                     UsageEntity.Consume.NONE,
                     Collections.emptyList(),
-                    parseCommands(node, true)
+                    parseCommands(node, true),
+                    CooldownType.PER_ITEM
             );
             long cooldown = parseTime(node.node("cooldown"));
             long freezeTime = parseTime(node.node("freezetime"));
+            CooldownType cooldownType;
+            if (node.node("cooldown-type").isNull()) cooldownType = CooldownType.PER_ITEM;
+            else {
+                String rawType;
+                try {
+                    rawType = node.node("cooldown-type").getString();
+                } catch (IllegalArgumentException e) {
+                    throw InvalidConfigurationException.path("cooldown-type", e);
+                }
+                if (rawType != null) cooldownType = parseCooldownType(rawType);
+                else cooldownType = CooldownType.PER_ITEM;
+            }
             boolean shouldCancelEvent = node.node("cancel").getBoolean(true);
             ConfigurationNode consumeNode = node.node("consume");
             UsageEntity.Consume consume;
@@ -685,7 +700,7 @@ public class ConfigEntity {
             List<UsageEntity.Command> commands;
             onCooldown = parseCommands(node.node("on-cooldown"));
             commands = parseCommands(node.node("commands"));
-            return new UsageEntity(predicate, cooldown, freezeTime, shouldCancelEvent, consume, onCooldown, commands);
+            return new UsageEntity(predicate, cooldown, freezeTime, shouldCancelEvent, consume, onCooldown, commands, cooldownType);
         }
 
         private List<UsageEntity.Command> parseCommands(ConfigurationNode node) throws InvalidConfigurationException {
@@ -737,6 +752,19 @@ public class ConfigEntity {
                         );
                         return InvalidConfigurationException.unknownOption("at", raw, suggestions);
                     })).getOrElseThrow(x -> InvalidConfigurationException.path("at", x));
+        }
+
+        private static CooldownType parseCooldownType(String raw) throws InvalidConfigurationException {
+            String upper = raw.toUpperCase();
+            return Try.ofSupplier(() -> CooldownType.valueOf(upper))
+                    .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
+                        List<String> suggestions = StringSimilarityUtils.getSuggestions(
+                                upper,
+                                Arrays.stream(CooldownType.values())
+                                        .map(CooldownType::name)
+                        );
+                        return InvalidConfigurationException.unknownOption("cooldown type", raw, suggestions);
+                    })).getOrElseThrow(x -> InvalidConfigurationException.path("cooldown-type", x));
         }
 
         private static ClickButton parseClickButton(String raw) throws InvalidConfigurationException {

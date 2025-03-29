@@ -4,6 +4,7 @@ import io.vavr.control.Option;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.extern.log4j.Log4j2;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.GameMode;
@@ -18,6 +19,7 @@ import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3i;
 import ua.valeriishymchuk.simpleitemgenerator.common.component.RawComponent;
+import ua.valeriishymchuk.simpleitemgenerator.common.cooldown.CooldownType;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.IRayTraceResult;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceBlockResult;
@@ -34,6 +36,7 @@ import ua.valeriishymchuk.simpleitemgenerator.entity.ConfigEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.LangEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IConfigRepository;
+import ua.valeriishymchuk.simpleitemgenerator.repository.ICooldownRepository;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 
 import java.util.*;
@@ -42,6 +45,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Log4j2
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
 public class ItemService implements IItemService {
@@ -49,7 +53,7 @@ public class ItemService implements IItemService {
     private static final Pattern TIME_PATTERN = Pattern.compile("%time_(?<timeunit>[a-z])(\\.(?<precision>\\d+)f)?%");
 
     IConfigRepository configRepository;
-
+    ICooldownRepository cooldownRepository;
 
     private ConfigEntity config() {
         return configRepository.getConfig();
@@ -210,17 +214,71 @@ public class ItemService implements IItemService {
                 .filter(usageFilter -> usageFilter.accepts(predicateInput))
                 .collect(Collectors.toList());
         return usages.stream().map(usage -> {
-            NBTCustomItem.Cooldown cooldown = NBTCustomItem
-                    .queryCooldown(item, usage.getCooldownMillis(), usage.getCooldownFreezeTimeMillis(), customItem.getUsages().indexOf(usage));
-            if (cooldown.isFrozen()) return new ItemUsageResultDTO(
+            int id = customItem.getUsages().indexOf(usage);
+            CooldownType cooldownType = usage.getCooldownType();
+            boolean isOnCooldown;
+            boolean isFreeze;
+            Long remainingCooldownTime;
+            Option<Long> lastUsage;
+            switch (cooldownType) {
+                case PER_ITEM:
+                    NBTCustomItem.Cooldown cooldown = NBTCustomItem
+                            .queryCooldown(item, usage.getCooldownMillis(), usage.getCooldownFreezeTimeMillis(), id);
+                    isOnCooldown = cooldown.isDefault();
+                    isFreeze = cooldown.isFrozen();
+                    if (isOnCooldown) {
+                        remainingCooldownTime = cooldown.getRemainingMillis();
+                    } else remainingCooldownTime = null;
+                    break;
+                case GLOBAL:
+                    lastUsage = cooldownRepository.lastUsageGlobal(customItemId, id, false);
+                    isOnCooldown = lastUsage
+                            .map(l -> l + usage.getCooldownMillis() > System.currentTimeMillis()).getOrElse(false);
+                    if (isOnCooldown) {
+                        isFreeze = cooldownRepository.lastUsageGlobal(customItemId, id, true)
+                                .map(l -> l + usage.getCooldownFreezeTimeMillis() > System.currentTimeMillis()).getOrElse(false);
+                        if (!isFreeze) {
+                            cooldownRepository.updateGlobal(customItemId, id, true);
+                        }
+                        remainingCooldownTime = lastUsage.getOrElse(0L) + usage.getCooldownMillis() - System.currentTimeMillis();
+                    } else {
+                        remainingCooldownTime = null;
+                        isFreeze = false;
+                        cooldownRepository.updateGlobal(customItemId, id, false);
+                        cooldownRepository.updateGlobal(customItemId, id, true);
+                    }
+                    break;
+                case PER_PLAYER:
+                    lastUsage = cooldownRepository.lastUsagePerPlayer(customItemId, player.getUniqueId(), id, false);
+                    isOnCooldown = lastUsage
+                            .map(l -> l + usage.getCooldownMillis() > System.currentTimeMillis()).getOrElse(false);
+                    if (isOnCooldown) {
+                        isFreeze = cooldownRepository.lastUsagePerPlayer(customItemId, player.getUniqueId(), id, true)
+                                .map(l -> l + usage.getCooldownFreezeTimeMillis() > System.currentTimeMillis()).getOrElse(false);
+                        if (!isFreeze) {
+                            cooldownRepository.updatePerPlayer(customItemId, player.getUniqueId(), id, true);
+                        }
+                        remainingCooldownTime = lastUsage.getOrElse(0L) + usage.getCooldownMillis() - System.currentTimeMillis() ;
+                    } else {
+                        isFreeze = false;
+                        cooldownRepository.updatePerPlayer(customItemId, player.getUniqueId(), id, false);
+                        cooldownRepository.updatePerPlayer(customItemId, player.getUniqueId(), id, true);
+                        remainingCooldownTime = null;
+                    }
+                    break;
+                default:
+                    throw new IllegalStateException("Unexpected value: " + cooldownType);
+
+            }
+            if (isFreeze) return new ItemUsageResultDTO(
                     null,
                     Collections.emptyList(),
                     true,
                     UsageEntity.Consume.NONE
             );
-            if (cooldown.isDefault()) return new ItemUsageResultDTO(
+            if (isOnCooldown) return new ItemUsageResultDTO(
                     null,
-                    usage.getOnCooldown().stream().map(it -> prepareCooldown(cooldown.getRemainingMillis(), player, it, placeholders))
+                    usage.getOnCooldown().stream().map(it -> prepareCooldown(remainingCooldownTime, player, it, placeholders))
                             .collect(Collectors.toList()),
                     true,
                     UsageEntity.Consume.NONE
@@ -529,6 +587,11 @@ public class ItemService implements IItemService {
 
     @Override
     public Component reload() {
+        try {
+            cooldownRepository.reload();
+        } catch (Throwable ignored) {
+            log.warn("Failed to reload cooldowns: {}", ignored.getMessage());
+        }
         boolean result = configRepository.reload();
         return result ? lang().getReloadSuccessfully().bake() : lang().getReloadUnsuccessfully().bake();
     }
@@ -536,5 +599,10 @@ public class ItemService implements IItemService {
     @Override
     public Component playerNotFound(String input) {
         return lang().getInvalidPlayer().replaceText("%player%", input).bake();
+    }
+
+    @Override
+    public void cooldownAutoSave() {
+        cooldownRepository.save();
     }
 }
