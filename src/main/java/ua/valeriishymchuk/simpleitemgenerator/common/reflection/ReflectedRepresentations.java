@@ -39,6 +39,7 @@ public class ReflectedRepresentations {
             try {
                 Method m = CLASS.getMethod("getHand");
                 EquipmentSlot hand = (EquipmentSlot) m.invoke(event);
+                if (hand == null) return event.getPlayer().getInventory().getHeldItemSlot();
                 if (hand.name().equals("OFF_HAND")) return 40;
                 return event.getPlayer().getInventory().getHeldItemSlot();
             } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {

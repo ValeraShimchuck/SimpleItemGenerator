@@ -73,6 +73,7 @@ public class EventsController implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     private void onUsage(PlayerInteractEvent event) {
         if (event.useItemInHand() == Event.Result.DENY) return;
+        if ( event.getAction() == Action.PHYSICAL) return;
         long currentTick = tickerTime.getTick();
         Long lastDropTick = this.lastDropTick.get(event.getPlayer());
         Long lastPlayerClickTick = this.lastPlayerClickTick.get(event.getPlayer());
