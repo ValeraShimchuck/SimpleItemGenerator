@@ -191,7 +191,7 @@ public class EventsController implements Listener {
     }
 
     private void handleResult(ItemUsageResultDTO result, ItemStack item, Player player, Cancellable event) {
-        event.setCancelled(result.isShouldCancel());
+        event.setCancelled(result.isShouldCancel() || event.isCancelled());
         result.getCommands().forEach(commands -> {
             CommandSender sender = commands.isExecuteAsConsole() ? Bukkit.getConsoleSender() : player;
             Bukkit.dispatchCommand(sender, commands.getCommand());
