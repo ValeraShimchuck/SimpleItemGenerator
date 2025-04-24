@@ -33,6 +33,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickButton
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.PredicateInput;
 import ua.valeriishymchuk.simpleitemgenerator.dto.*;
 import ua.valeriishymchuk.simpleitemgenerator.entity.ConfigEntity;
+import ua.valeriishymchuk.simpleitemgenerator.entity.CustomItemEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.LangEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IConfigRepository;
@@ -67,7 +68,7 @@ public class ItemService implements IItemService {
         if (item == null || item.getType().name().endsWith("AIR")) return 0;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (customItemId == null) return 0;
-        ConfigEntity.CustomItem customItem = config().getItem(customItemId).getOrNull();
+        CustomItemEntity customItem = config().getItem(customItemId).getOrNull();
         if (customItem == null) return 0;
         return Arrays.stream(player.getInventory().getContents())
                 .filter(Objects::nonNull)
@@ -203,7 +204,7 @@ public class ItemService implements IItemService {
         if (item == null || !NBTCustomItem.hasCustomItemId(item)) return nop;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (customItemId == null) return nop;
-        ConfigEntity.CustomItem customItem = config().getItem(customItemId).getOrNull();
+        CustomItemEntity customItem = config().getItem(customItemId).getOrNull();
         if (customItem == null) return new ItemUsageResultDTO(
                 lang().getInvalidItem().replaceText("%key%", customItemId).bake(),
                 Collections.emptyList(),
@@ -462,7 +463,7 @@ public class ItemService implements IItemService {
         if (item == null || !NBTCustomItem.hasCustomItemId(item)) return true;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (customItemId == null) return true;
-        ConfigEntity.CustomItem customItem = config().getItem(customItemId).getOrNull();
+        CustomItemEntity customItem = config().getItem(customItemId).getOrNull();
         if (customItem == null) return true;
         return customItem.canBePutInInventory();
     }
@@ -472,7 +473,7 @@ public class ItemService implements IItemService {
         if (itemStack == null || itemStack.getType().name().endsWith("AIR")) return true;
         String customItemId = NBTCustomItem.getCustomItemId(itemStack).getOrNull();
         if (customItemId == null) return true;
-        ConfigEntity.CustomItem customItem = config().getItem(customItemId).getOrNull();
+        CustomItemEntity customItem = config().getItem(customItemId).getOrNull();
         if (customItem == null) return true;
         return customItem.canMove();
     }
@@ -482,7 +483,7 @@ public class ItemService implements IItemService {
         if (item == null || item.getType().name().endsWith("AIR")) return false;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (customItemId == null) return false;
-        ConfigEntity.CustomItem customItem = config().getItem(customItemId).getOrNull();
+        CustomItemEntity customItem = config().getItem(customItemId).getOrNull();
         if (customItem == null) return false;
         return customItem.removeOnDeath();
     }
@@ -506,7 +507,7 @@ public class ItemService implements IItemService {
         if (item == null || !NBTCustomItem.hasCustomItemId(item)) return true;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (customItemId == null) return true;
-        ConfigEntity.CustomItem customItem = config().getItem(customItemId).getOrNull();
+        CustomItemEntity customItem = config().getItem(customItemId).getOrNull();
         if (customItem == null) return true;
         return customItem.isIngredient();
     }
@@ -538,7 +539,7 @@ public class ItemService implements IItemService {
                 null,
                 false
         );
-        ConfigEntity.CustomItem customItem = config().getItem(key).getOrNull();
+        CustomItemEntity customItem = config().getItem(key).getOrNull();
         if (customItem == null) return new WithdrawItemDTO(
                 lang().getItemDoesntExist().replaceText("%key%", key).bake(),
                 null,

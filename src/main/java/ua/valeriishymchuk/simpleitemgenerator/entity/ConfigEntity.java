@@ -1,61 +1,34 @@
 package ua.valeriishymchuk.simpleitemgenerator.entity;
 
-import de.tr7zw.changeme.nbtapi.NBT;
-import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
-import io.vavr.API;
-import io.vavr.CheckedFunction0;
 import io.vavr.Function0;
-import io.vavr.Tuple2;
 import io.vavr.control.Option;
-import io.vavr.control.Try;
 import lombok.AccessLevel;
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
-import lombok.experimental.NonFinal;
-import net.kyori.adventure.nbt.CompoundBinaryTag;
-import net.kyori.adventure.text.Component;
-import org.apache.commons.lang.math.IntRange;
-import org.apache.commons.lang.math.LongRange;
-import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.Nullable;
-import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
-import org.spongepowered.configurate.serialize.SerializationException;
-import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
-import ua.valeriishymchuk.simpleitemgenerator.common.cooldown.CooldownType;
-import ua.valeriishymchuk.simpleitemgenerator.common.item.HeadTexture;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.RawItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
-import ua.valeriishymchuk.simpleitemgenerator.common.nbt.NBTConverter;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.regex.RegexUtils;
-import ua.valeriishymchuk.simpleitemgenerator.common.support.ItemsAdderSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.PapiSupport;
-import ua.valeriishymchuk.simpleitemgenerator.common.support.WorldGuardSupport;
-import ua.valeriishymchuk.simpleitemgenerator.common.text.StringSimilarityUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.time.TimeTokenParser;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickAt;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickButton;
-import ua.valeriishymchuk.simpleitemgenerator.common.usage.Predicate;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Supplier;
 import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 
 @ConfigSerializable
@@ -63,7 +36,7 @@ import java.util.stream.Stream;
 public class ConfigEntity {
 
 
-    Map<String, CustomItem> items = Function0.of(() -> {
+    Map<String, CustomItemEntity> items = Function0.of(() -> {
         RawItem preparedItem = new RawItem(
                 "DIAMOND",
                 "<red><bold>Cool diamond%id%",
@@ -126,7 +99,7 @@ public class ConfigEntity {
                 "item9", Arrays.asList(example8, example8
                         .withPredicates(Collections.singletonList(ClickAt.ENTITY.asType()))
                         .withCommands(deserializeConfigCommands("[console] tellraw %minimessage_<green>You clicked at entity%")))
-        ).mapValues(usage -> CustomItem.of(exampleItem.replace("%id%", ai.getAndIncrement() + ""), usage)).toJavaMap();
+        ).mapValues(usage -> CustomItemEntity.of(exampleItem.replace("%id%", ai.getAndIncrement() + ""), usage)).toJavaMap();
     }).get();
 
     String placeholderUpdatePeriod = "10t";
@@ -135,14 +108,14 @@ public class ConfigEntity {
     @Getter
     boolean sendWelcomeMessage = true;
 
-    private static String serializeEnchantment(Enchantment enchantment) {
+    public static String serializeEnchantment(Enchantment enchantment) {
         if (!FeatureSupport.NAMESPACED_ENCHANTMENTS_SUPPORT) return enchantment.getName();
         return ReflectedRepresentations.Enchantment.getKyoriKey(enchantment).asString();
     }
 
-    private static UsageEntity.Command deserializeCommand(String rawCommand) throws IllegalArgumentException {
+    public static UsageEntity.Command deserializeCommand(String rawCommand) throws IllegalArgumentException {
         return prepareCommand(rawCommand).replace(command -> RegexUtils.replaceAll(
-                CustomItem.MINIMESSAGE_COMMAND_PLACEHOLDER.matcher(command),
+                CustomItemEntity.MINIMESSAGE_COMMAND_PLACEHOLDER.matcher(command),
                 commandMatcher -> {
                     String rawMessage = commandMatcher.group("placeholder");
                     return KyoriHelper.mimiMessageToJson(rawMessage);
@@ -151,7 +124,7 @@ public class ConfigEntity {
     }
 
     private static UsageEntity.Command prepareCommand(String rawCommand) throws InvalidConfigurationException {
-        Matcher matcher = CustomItem.COMMAND_EXECUTION_PATTERN.matcher(rawCommand);
+        Matcher matcher = CustomItemEntity.COMMAND_EXECUTION_PATTERN.matcher(rawCommand);
         if (!matcher.find())
             throw InvalidConfigurationException.format("Invalid command: <white>%s</white>. Example command: <white>[console] msg %%player%% hello</white>", rawCommand);
         String command = matcher.group("command");
@@ -175,7 +148,7 @@ public class ConfigEntity {
         return deserializeConfigCommands(Arrays.asList(rawCommands));
     }
 
-    private static String serializeCommand(UsageEntity.Command command) {
+    public static String serializeCommand(UsageEntity.Command command) {
         String prepend = command.isExecuteAsConsole() ? "[console]" : "[player]";
         return prepend + " " + command.getCommand();
     }
@@ -190,7 +163,7 @@ public class ConfigEntity {
 
     @SneakyThrows
     public Option<ItemStack> bakeItem(String key, @Nullable Player player) {
-        CustomItem customItem = getItem(key).getOrNull();
+        CustomItemEntity customItem = getItem(key).getOrNull();
         if (customItem == null) return Option.none();
         ItemStack itemStack = customItem.getItemStack();
         NBTCustomItem.setCustomItemId(itemStack, key);
@@ -221,7 +194,7 @@ public class ConfigEntity {
         return new ArrayList<>(items.keySet());
     }
 
-    public Option<CustomItem> getItem(String key) {
+    public Option<CustomItemEntity> getItem(String key) {
         return Option.of(items.get(key));
     }
 
@@ -229,10 +202,11 @@ public class ConfigEntity {
     public void updateItem(ItemStack itemStack, @Nullable Player player) {
         String customItemId = NBTCustomItem.getCustomItemId(itemStack).getOrNull();
         if (customItemId == null) return;
-        CustomItem customItem = items.get(customItemId);
+        CustomItemEntity customItem = items.get(customItemId);
         if (customItem == null) return;
         int configItemSignature = customItem.getSignature();
         Integer itemSignature = NBTCustomItem.getSignature(itemStack).getOrNull();
+        if (itemSignature != null & !customItem.autoUpdate()) return;
         boolean isSameSignature = itemSignature != null && itemSignature == configItemSignature;
         String lastPlayer = NBTCustomItem.getLastHolder(itemStack).getOrNull();
         String currentPlayer = Option.of(player).map(Player::getName).getOrNull();
@@ -265,756 +239,6 @@ public class ConfigEntity {
         itemStack.setItemMeta(configItemMeta);
         NBTCustomItem.setCustomItemId(itemStack, customItemId);
         //NBTCustomItem.setSignature(itemStack, configItemSignature);
-    }
-
-    @ConfigSerializable
-    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    @RequiredArgsConstructor
-    public static class CustomItem {
-        private static final Pattern MINIMESSAGE_COMMAND_PLACEHOLDER = Pattern.compile("%minimessage_(?<placeholder>.+)%");
-        private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("%(?<placeholder>\\S+)%");
-        private static final Pattern COMMAND_EXECUTION_PATTERN =
-                Pattern.compile("\\[(?<sender>player|console)] (?<command>.*)");
-        private static final Pattern SINGLE_PREDICATE_PATTERN =
-                Pattern.compile("\\[(?<enum>" + PredicateType.getPattern() + ")] (?<type>.*)");
-        private static final Pattern ITEM_LINK_PATTERN = Pattern.compile("\\[(?<linktype>.+)] (?<link>.*)");
-
-
-
-
-        ConfigurationNode item;
-        ConfigurationNode usage;
-        CompoundBinaryTag nbt;
-        Boolean isIngredient;
-        Boolean canBePutInInventory;
-        Boolean removeOnDeath;
-        Boolean isPlain;
-        Boolean canMove;
-
-        @NonFinal
-        transient List<UsageEntity> usages;
-        @NonFinal
-        transient ItemStack itemStack;
-        @NonFinal
-        transient Boolean hasPlaceholders;
-        @NonFinal
-        transient Option<HeadTexture> headTexture;
-
-        private CustomItem() {
-            this(
-                    createNode(),
-                    createNode(),
-                    null,
-                    null,
-                    null,
-                    null,
-                    null,
-                    null
-            );
-        }
-
-        private static ConfigurationNode createNode() {
-            return DefaultLoader.yaml().createNode();
-            //return createNode(ConfigurationOptions.defaults());
-        }
-
-        public Option<HeadTexture> getHeadTexture() {
-            if (headTexture == null) headTexture = getHeadTexture0();
-            return headTexture;
-        };
-
-        private Option<HeadTexture> getHeadTexture0() {
-            if (!item.isMap()) return Option.none();
-            if (!item.hasChild("head-texture")) return Option.none();
-            ConfigurationNode headTextureNode = item.node("head-texture");
-            if (headTextureNode.isMap() || headTextureNode.isList())
-                throw InvalidConfigurationException.nestedPath("Should be a scalar", "item", "head-texture");
-            HeadTexture texture = HeadTexture.fromString(headTextureNode.getString());
-            return Option.some(texture);
-        }
-
-        public boolean isIngredient() {
-            if (isPlainItem()) return true;
-            if (isIngredient == null) return false;
-            return isIngredient;
-        }
-
-        public boolean canBePutInInventory() {
-            if (isPlainItem()) return true;
-            if (canBePutInInventory == null) return false;
-            return canBePutInInventory;
-        }
-
-        public boolean removeOnDeath() {
-            if (isPlainItem()) return false;
-            if (removeOnDeath == null) return false;
-            return removeOnDeath;
-        }
-
-        public boolean isPlainItem() {
-            if (isPlain == null) return false;
-            return isPlain;
-        }
-
-        public boolean canMove() {
-            if (isPlainItem()) return true;
-            if (canMove == null) return true;
-            return canMove;
-        }
-
-        public static CustomItem of(ItemStack item, List<UsageEntity> usages) {
-            return new CustomItem(serializeItemStack(item), serializeUsages(usages), null,null, null, null, null, null);
-        }
-
-        @SneakyThrows
-        public static CustomItem of(RawItem item, List<UsageEntity> usages) {
-            return new CustomItem(createNode().set(item), serializeUsages(usages), null, null, null, null, null, null);
-        }
-
-        @SneakyThrows
-        private static ConfigurationNode serializeItemStack(ItemStack item) {
-            ConfigurationNode node = createNode();
-            ItemMeta meta = item.getItemMeta();
-            Material material = item.getType();
-            RawItem rawItem = new RawItem(
-                    material.name(),
-                    Option.of(meta.getDisplayName()).map(KyoriHelper::jsonToMiniMessage).getOrNull(),
-                    meta.getLore().stream().map(KyoriHelper::jsonToMiniMessage).collect(Collectors.toList()),
-                    null,
-                    ReflectedRepresentations.ItemMeta.isUnbreakable(meta),
-                    new ArrayList<>(meta.getItemFlags().stream().map(ItemFlag::name).collect(Collectors.toList())),
-                    io.vavr.collection.HashMap.ofAll(meta.getEnchants())
-                            .mapKeys(ConfigEntity::serializeEnchantment)
-                            .toJavaMap(),
-                    Collections.emptyList(),
-                    null, // TODO add serializers later
-                    null
-            );
-            Integer cmd = ReflectedRepresentations.ItemMeta.tryGetCustomModelData(meta).getOrNull();
-            if (cmd != null) {
-                rawItem = rawItem.withCmd(cmd);
-            }
-            node.set(RawItem.class, rawItem);
-            return node;
-        }
-
-        @SneakyThrows
-        private static ConfigurationNode serializeUsages(List<UsageEntity> usages) {
-            ConfigurationNode node = createNode();
-            if (usages.isEmpty()) return node;
-            if (usages.size() == 1) {
-                return serializeUsage(usages.get(0));
-            }
-            return node.set(usages.stream().map(ConfigEntity.CustomItem::serializeUsage).map(ConfigurationNode::raw).collect(Collectors.toList()));
-        }
-
-        @SneakyThrows
-        private static ConfigurationNode serializeUsage(UsageEntity usage) {
-            ConfigurationNode node = createNode();
-            boolean isEmpty = !usage.isCancel() && usage.getCommands().isEmpty() &&
-                    usage.getOnCooldown().isEmpty() && usage.getPredicates().isEmpty();
-            if (isEmpty) return node;
-            boolean isCommandsOnly = !usage.getCommands().isEmpty() && usage.getOnCooldown().isEmpty()
-                    && usage.getPredicates().isEmpty() && usage.getCooldownMillis() == 0 && usage.getCooldownFreezeTimeMillis() == 0;
-            if (isCommandsOnly) {
-                if (usage.getCommands().size() == 1) return serializeCommand(usage.getCommands().get(0));
-                return node.set(usage.getCommands().stream()
-                        .map(ConfigEntity.CustomItem::serializeCommand)
-                        .map(ConfigurationNode::raw)
-                        .collect(Collectors.toList()));
-            }
-            if (usage.getCooldownMillis() > 0)
-                node.node("cooldown").set(TimeTokenParser.parse(usage.getCooldownMillis()));
-            if (usage.getCooldownFreezeTimeMillis() > 0)
-                node.node("freezetime").set(TimeTokenParser.parse(usage.getCooldownFreezeTimeMillis()));
-            if (!usage.isCancel()) node.node("cancel").set(false);
-            node.node("commands").set(serializeCommands(usage.getCommands()).raw());
-            node.node("on-cooldown").set(serializeCommands(usage.getOnCooldown()).raw());
-            node.node("predicate").set(serializePredicates(usage.getPredicates()).raw());
-            return node;
-        }
-
-        @SneakyThrows
-        private static ConfigurationNode serializePredicates(List<Predicate> predicate) {
-            ConfigurationNode node = createNode();
-            if (predicate.isEmpty()) return node;
-            if (predicate.size() == 1) {
-                return serializePredicate(predicate.get(0));
-            }
-            node.set(predicate.stream().map(CustomItem::serializePredicate).map(ConfigurationNode::raw).collect(Collectors.toList()));
-            return node;
-        }
-
-        @SneakyThrows
-        private static ConfigurationNode serializePredicate(Predicate clickType) {
-            boolean hasAtOrSide = clickType.getAt().isDefined() ^ clickType.getButton().isDefined();
-            if (hasAtOrSide) {
-                boolean isAt = clickType.getAt().isDefined();
-                String prepend = isAt ? "at" : "button";
-                String value = clickType.getAt().map(Enum::name).orElse(clickType.getButton().map(Enum::name)).map(String::toLowerCase).get();
-                ConfigurationNode node = createNode();
-                node.set("[" + prepend + "] " + value);
-                return node;
-            }
-            ConfigurationNode node = createNode();
-            node.node("at").set(clickType.getAt().map(Enum::name).map(String::toLowerCase).get());
-            node.node("button").set(clickType.getButton().map(Enum::name).map(String::toLowerCase).get());
-            return node;
-        }
-
-        @SneakyThrows
-        private static ConfigurationNode serializeCommands(List<UsageEntity.Command> commands) {
-            ConfigurationNode node = createNode();
-            if (commands.isEmpty()) return node;
-            if (commands.size() == 1) return serializeCommand(commands.get(0));
-            node.set(commands.stream()
-                    .map(ConfigEntity.CustomItem::serializeCommand)
-                    .map(ConfigurationNode::raw)
-                    .collect(Collectors.toList()));
-            return node;
-        }
-
-        @SneakyThrows
-        private static ConfigurationNode serializeCommand(UsageEntity.Command command) {
-            ConfigurationNode node = createNode();
-            node.set(ConfigEntity.serializeCommand(command));
-            return node;
-        }
-
-        public boolean hasPlaceHolders() throws InvalidConfigurationException {
-            if (hasPlaceholders == null) hasPlaceholders = hasPlaceholders0();
-            return hasPlaceholders;
-        }
-
-        private boolean hasPlaceholders0() throws InvalidConfigurationException {
-            ItemStack item = getItemStack();
-            Option<Component> displayOpt = ReflectedRepresentations.ItemMeta.getDisplayName(item.getItemMeta());
-            List<Component> lore = ReflectedRepresentations.ItemMeta.getLore(item.getItemMeta());
-            return Stream.of(
-                            displayOpt.toJavaList(),
-                            lore
-                    ).flatMap(List::stream).map(KyoriHelper::toJson)
-                    .map(PLACEHOLDER_PATTERN::matcher)
-                    .anyMatch(Matcher::find);
-        }
-
-
-        public List<UsageEntity> getUsages() throws InvalidConfigurationException {
-            if (usages == null) usages = parseUsages();
-            return usages;
-        }
-
-        public ItemStack getItemStack() throws InvalidConfigurationException {
-            if (itemStack == null) {
-                itemStack = parseItem();
-                getHeadTexture().peek(h -> {
-                    if (h.getValue().contains("%player%")) return;
-                    itemStack = h.apply(itemStack, s -> s);
-                });
-                if (nbt != null) {
-                    NBT.modify(itemStack, itemNbt -> {
-                        ReadWriteNBT nbt2 = NBTConverter.toNBTApi(nbt);
-                        itemNbt.mergeCompound(nbt2);
-                    });
-                }
-                int signature = itemStack.serialize().hashCode();
-                NBTCustomItem.setSignature(itemStack, signature);
-            }
-            return itemStack.clone();
-        }
-
-        public int getSignature() {
-            if (itemStack == null) getItemStack();
-            return NBTCustomItem.getSignature(itemStack).get();
-        }
-
-        private ItemStack parseItem() throws InvalidConfigurationException {
-            try {
-                if (item == null || item.isNull()) throw new InvalidConfigurationException("Property is not defined");
-                if (item.isMap()) return item.get(RawItem.class).bake();
-                String rawItem = item.getString();
-                Matcher matcher = ITEM_LINK_PATTERN.matcher(rawItem);
-                if (!matcher.find())
-                    throw InvalidConfigurationException.format("Invalid item: <white>%s</white>", rawItem);
-                String linkType = matcher.group("linktype");
-                String link = matcher.group("link");
-                ItemStack item;
-                if (linkType.equals("itemsadder")) {
-                    try {
-                        item = ItemsAdderSupport.getItem(link);
-                    } catch (Exception e) {
-                        if (!ItemsAdderSupport.isPluginEnabled()) throw new InvalidConfigurationException("Plugin ItemsAdder is not enabled!");
-                        else throw new InvalidConfigurationException("Can't find item <white>" + link + "</white>");
-                    }
-
-                } else {
-                    throw InvalidConfigurationException.format("Invalid link type: <white>[%s]</white>[", linkType);
-                }
-                return item;
-            } catch (Exception e) {
-                throw InvalidConfigurationException.path("item", e);
-            }
-        }
-
-
-        private List<UsageEntity> parseUsages() throws InvalidConfigurationException {
-            if (usage.isNull())
-                return Collections.singletonList(
-                        new UsageEntity(
-                                Collections.emptyList(),
-                                0,
-                                0,
-                                true,
-                                UsageEntity.Consume.NONE,
-                                Collections.emptyList(),
-                                Collections.emptyList(),
-                                CooldownType.PER_ITEM
-                        )
-                );
-            AtomicInteger increment = new AtomicInteger();
-            try {
-                if (usage.isList()) {
-                    List<ConfigurationNode> usages = usage.getList(ConfigurationNode.class);
-                    List<UsageEntity> result = new ArrayList<>(usages.size());
-                    for (ConfigurationNode node : usages) {
-                        UsageEntity usage = parseUsage(node);
-                        increment.incrementAndGet();
-                        result.add(usage);
-                    }
-                    return result;
-                }
-            } catch (Exception e) {
-                throw InvalidConfigurationException.path("usage, " + increment.get(), e);
-            }
-
-            try {
-                return Collections.singletonList(parseUsage(usage));
-            } catch (Exception e) {
-                throw InvalidConfigurationException.path("usage", e);
-            }
-
-        }
-
-        private static long parseTime(ConfigurationNode node) throws InvalidConfigurationException {
-            if (node.isNull()) return 0;
-            return Try.ofSupplier(node::getString)
-                    .mapTry(TimeTokenParser::parse)
-                    .getOrElseThrow(ex -> InvalidConfigurationException.path(node.key().toString(), ex));
-        }
-
-        private UsageEntity parseUsage(ConfigurationNode node) throws InvalidConfigurationException, SerializationException {
-            if (!node.isMap()) return new UsageEntity(
-                    Collections.emptyList(),
-                    0,
-                    0,
-                    true,
-                    UsageEntity.Consume.NONE,
-                    Collections.emptyList(),
-                    parseCommands(node, true),
-                    CooldownType.PER_ITEM
-            );
-            long cooldown = parseTime(node.node("cooldown"));
-            long freezeTime = parseTime(node.node("freezetime"));
-            CooldownType cooldownType;
-            if (node.node("cooldown-type").isNull()) cooldownType = CooldownType.PER_ITEM;
-            else {
-                String rawType;
-                try {
-                    rawType = node.node("cooldown-type").getString();
-                } catch (IllegalArgumentException e) {
-                    throw InvalidConfigurationException.path("cooldown-type", e);
-                }
-                if (rawType != null) cooldownType = parseCooldownType(rawType);
-                else cooldownType = CooldownType.PER_ITEM;
-            }
-            boolean shouldCancelEvent = node.node("cancel").getBoolean(true);
-            ConfigurationNode consumeNode = node.node("consume");
-            UsageEntity.Consume consume;
-            if (consumeNode.isNull()) consume = UsageEntity.Consume.NONE;
-            else if (consumeNode.isMap() || consumeNode.isList()) throw InvalidConfigurationException.path(
-                    "consume",
-                    new InvalidConfigurationException("Property can't be a list or map")
-            );
-            else {
-                String rawConsume = consumeNode.getString();
-                Integer number;
-                try {
-                    number = Integer.parseInt(rawConsume);
-                } catch (NumberFormatException ignored) {
-                    number = null;
-                }
-                boolean isNumber = number != null;
-                if (isNumber) {
-                    consume = new UsageEntity.Consume(UsageEntity.ConsumeType.AMOUNT, number);
-                } else {
-                    String upper = rawConsume.toUpperCase();
-                    Set<UsageEntity.ConsumeType> allowed = io.vavr.collection.HashSet
-                            .of(UsageEntity.ConsumeType.values())
-                            .reject(type -> io.vavr.collection.List.of(
-                                    UsageEntity.ConsumeType.AMOUNT,
-                                    UsageEntity.ConsumeType.NONE
-                            ).contains(type))
-                            .toJavaSet();
-                    UsageEntity.ConsumeType type = Try.ofSupplier(() -> UsageEntity.ConsumeType.valueOf(upper))
-                            .filter(allowed::contains)
-                            .mapFailure(API.Case(API.$(),
-                                    e -> {
-                                        List<String> suggestions = StringSimilarityUtils.getSuggestions(
-                                                upper,
-                                                allowed.stream()
-                                                        .map(UsageEntity.ConsumeType::name)
-                                        );
-                                        return InvalidConfigurationException.unknownOption("consume type", rawConsume, suggestions);
-                                    }
-                            )).getOrElseThrow(e -> InvalidConfigurationException.path("consume", e));
-                    consume = new UsageEntity.Consume(type, 0);
-
-                }
-            }
-            //boolean shouldConsume = node.node("consume").getBoolean(false);
-            List<Predicate> predicate;
-            ConfigurationNode predicateNode = node.node("predicate");
-            if (predicateNode.isNull()) predicate = Collections.emptyList();
-            else if (predicateNode.isList()) {
-                AtomicInteger increment = new AtomicInteger();
-                try {
-                    predicate = new ArrayList<>();
-                    List<ConfigurationNode> predicateNodeList = predicateNode.getList(ConfigurationNode.class);
-                    for (ConfigurationNode prediacteNode : predicateNodeList) {
-                        Predicate predicateResult = parsePredicate(prediacteNode);
-                        increment.incrementAndGet();
-                        predicate.add(predicateResult);
-                    }
-                } catch (Exception e) {
-                    throw InvalidConfigurationException.path("predicate, " + increment.get(), e);
-                }
-            } else {
-                try {
-                    predicate = Collections.singletonList(parsePredicate(predicateNode));
-                } catch (Exception e) {
-                    throw InvalidConfigurationException.path("predicate", e);
-                }
-
-            }
-            List<UsageEntity.Command> onCooldown;
-            List<UsageEntity.Command> commands;
-            onCooldown = parseCommands(node.node("on-cooldown"));
-            commands = parseCommands(node.node("commands"));
-            return new UsageEntity(predicate, cooldown, freezeTime, shouldCancelEvent, consume, onCooldown, commands, cooldownType);
-        }
-
-        private List<UsageEntity.Command> parseCommands(ConfigurationNode node) throws InvalidConfigurationException {
-            try {
-                return parseCommands(node, false);
-            } catch (SerializationException e) {
-                throw new RuntimeException(e); // no point, but it exists to peace the compiler
-            }
-        }
-
-        private List<UsageEntity.Command> parseCommands(ConfigurationNode node, boolean ignoreKey) throws InvalidConfigurationException, SerializationException {
-            if (node.isNull()) return Collections.emptyList();
-            AtomicInteger increment = new AtomicInteger();
-            try {
-                if (node.isList()) {
-                    return node.getList(ConfigurationNode.class).stream()
-                            .map(commandNode -> {
-                                UsageEntity.Command command = parseCommand(commandNode);
-                                increment.incrementAndGet();
-                                return command;
-                            })
-                            .collect(Collectors.toList());
-                }
-            } catch (Error | RuntimeException | SerializationException e) {
-                if (ignoreKey) throw e;
-                throw InvalidConfigurationException.path(node.key().toString() + ", " + increment.get(), e);
-            }
-            try {
-                return Collections.singletonList(parseCommand(node));
-            } catch (Error | RuntimeException e) {
-                if (ignoreKey) throw e;
-                throw InvalidConfigurationException.path(node.key().toString(), e);
-            }
-        }
-
-
-        private UsageEntity.Command parseCommand(ConfigurationNode node) throws InvalidConfigurationException {
-            return deserializeCommand(node.getString());
-        }
-
-        private static ClickAt parseClickAt(String raw) throws InvalidConfigurationException {
-            String upper = raw.toUpperCase();
-            return Try.ofSupplier(() -> ClickAt.valueOf(upper))
-                    .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
-                        List<String> suggestions = StringSimilarityUtils.getSuggestions(
-                                upper,
-                                Arrays.stream(ClickAt.values())
-                                        .map(ClickAt::name)
-                        );
-                        return InvalidConfigurationException.unknownOption("at", raw, suggestions);
-                    })).getOrElseThrow(x -> InvalidConfigurationException.path("at", x));
-        }
-
-        private static CooldownType parseCooldownType(String raw) throws InvalidConfigurationException {
-            String upper = raw.toUpperCase();
-            return Try.ofSupplier(() -> CooldownType.valueOf(upper))
-                    .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
-                        List<String> suggestions = StringSimilarityUtils.getSuggestions(
-                                upper,
-                                Arrays.stream(CooldownType.values())
-                                        .map(CooldownType::name)
-                        );
-                        return InvalidConfigurationException.unknownOption("cooldown type", raw, suggestions);
-                    })).getOrElseThrow(x -> InvalidConfigurationException.path("cooldown-type", x));
-        }
-
-        private static ClickButton parseClickButton(String raw) throws InvalidConfigurationException {
-            String upper = raw.toUpperCase();
-            return Try.ofSupplier(() -> ClickButton.valueOf(upper))
-                    .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
-                        List<String> suggestions = StringSimilarityUtils.getSuggestions(
-                                upper,
-                                Arrays.stream(ClickButton.values())
-                                        .map(ClickButton::name)
-                        );
-                        return InvalidConfigurationException.unknownOption("button", raw, suggestions);
-                    })).getOrElseThrow(x -> InvalidConfigurationException.path("button", x));
-        }
-
-        private static List<String> parsePermissions(String raw) throws InvalidConfigurationException  {
-            return Arrays.stream(raw.split(","))
-                    .map(String::trim)
-                    .collect(Collectors.toList());
-        }
-
-        private static int parseInt(String raw) throws InvalidConfigurationException {
-            return Try.ofSupplier(() -> Integer.parseInt(raw.trim())).getOrElseThrow(x -> InvalidConfigurationException.format("Invalid integer: <white>%s</white>", raw));
-        }
-
-        private static Tuple2<String, Boolean> parseStateFlag(String raw) throws InvalidConfigurationException {
-            Pattern pattern = Pattern.compile("^(?<flag>[a-z\\-\\d]+)(?::(?<value>true|false))?$");
-            Matcher matcher = pattern.matcher(raw.trim());
-            if (!matcher.matches()) throw InvalidConfigurationException.format("Invalid state flag predicate format: <white>%s</white>.\n" +
-                    "Should be something like <white><wg-flag></white>[:<white><true|false></white>]", raw);
-            String flag = matcher.group("flag");
-            WorldGuardSupport.ensureStateFlagIsValid(flag);
-            boolean value = matcher.group("value") == null || matcher.group("value").equals("true");
-            return new Tuple2<>(flag, value);
-        }
-
-        private Predicate parsePredicate(ConfigurationNode node) throws InvalidConfigurationException, SerializationException {
-            if (node.isMap()) {
-                ClickAt clickAt = Option.of(node.node("at").getString())
-                        .map(CustomItem::parseClickAt)
-                        .getOrNull();
-                ClickButton clickButton = Option.of(node.node("button").getString())
-                        .map(CustomItem::parseClickButton)
-                        .getOrNull();
-                Predicate.Amount amount = new Predicate.Amount(
-                        Option.of(node.node("total-amount").get(Integer.class))
-                                .getOrElse(node.node("total_amount").get(Integer.class)),
-                        node.node("amount").get(Integer.class)
-                );
-                Map<String, Boolean> flags = new HashMap<>();
-                String flagsNodePath = "state-flag";
-                ConfigurationNode flagsNode = node.node(flagsNodePath);
-                if (flagsNode.isNull()) {
-                    flagsNodePath = "state_flag";
-                    flagsNode = node.node(flagsNodePath);
-                }
-                if (flagsNode.isMap()) {
-                    flagsNode.childrenMap().forEach((key, value) -> {
-                        String flag = key.toString();
-                        flags.put(flag, wrapErrorSupply(() -> {
-                            WorldGuardSupport.ensureStateFlagIsValid(flag);
-                            return value.getBoolean(true);
-                        }, "state-flag, " + flag));
-                    });
-                }
-                List<String> permissions = node.node("permission").getList(String.class);
-                List<Integer> ticks = wrapErrorSupply(() -> {
-                    ConfigurationNode timeNode = node.node("time");
-                    if (timeNode.isList()) {
-                        return timeNode.getList(String.class).stream().flatMap(s -> parseTime(s).stream()).distinct()
-                                .collect(Collectors.toList());
-                    } else if (!timeNode.isNull() && !timeNode.isMap()) {
-                        return parseTime(timeNode.getString());
-                    }
-                    return null;
-                }, "time");
-
-                List<Integer> slots = wrapErrorSupply(() -> {
-                    ConfigurationNode slotNode = node.node("slot");
-                    if (slotNode.isList()) {
-                        return slotNode.getList(String.class).stream().flatMap(s -> parseSlots(s).stream())
-                                .distinct().collect(Collectors.toList());
-                    } else if (!slotNode.isNull() && !slotNode.isMap()) {
-                        return parseSlots(slotNode.getString());
-                    }
-                    return null;
-                }, "slot");
-
-                return new Predicate(clickButton, clickAt, flags, amount, permissions, ticks, slots);
-            }
-            Matcher matcher = SINGLE_PREDICATE_PATTERN.matcher(node.getString());
-            if (!matcher.find())
-                throw InvalidConfigurationException.format("Invalid predicate: <white>%s</white>", node.getString());
-            String value = matcher.group("type");
-            PredicateType predicateType = PredicateType.fromString(matcher.group("enum"));
-            ClickAt clickAt = null;
-            ClickButton clickButton = null;
-            Predicate.Amount amount = null;
-            List<String> permissions = null;
-            Map<String, Boolean> flags = null;
-            List<Integer> ticks = null;
-            List<Integer> slots = null;
-            switch (predicateType) {
-                case AT:
-                    clickAt = parseClickAt(value);
-                    break;
-                case BUTTON:
-                    clickButton = parseClickButton(value);
-                    break;
-                case AMOUNT:
-                    amount = new Predicate.Amount(null, parseInt(value));
-                    break;
-                case TOTAL_AMOUNT:
-                    amount = new Predicate.Amount(parseInt(value), null);
-                    break;
-                case PERMISSION:
-                    permissions = parsePermissions(value);
-                    break;
-                case STATE_FLAG:
-                    Tuple2<String, Boolean> flag = parseStateFlag(value);
-                    flags = Collections.singletonMap(flag._1, flag._2);
-                    break;
-                case TIME:
-                    ticks = parseTime(value);
-                    break;
-                case SLOT:
-                    slots = parseSlots(value);
-                    break;
-            }
-            return new Predicate(clickButton, clickAt, flags, amount, permissions, ticks, slots);
-        }
-
-        private <T> T wrapErrorSupply(CheckedFunction0<T> action, String path) {
-            try {
-                return action.apply();
-            } catch (Throwable e) {
-                throw InvalidConfigurationException.path(path, e);
-            }
-        }
-
-
-        private List<Integer> parseSlots(String raw) {
-            return Arrays.stream(raw.split(","))
-                    .map(String::trim)
-                    .flatMap(element -> {
-                        String[] split = element.split("-");
-                        if (split.length == 1) {
-                            String first = split[0];
-                            return Try.ofSupplier(() -> Collections.singletonList(Integer.parseInt(first)))
-                                    .recover(t -> parseEquipmentSlot(first)).get().stream();
-                        } else {
-                            int start = parseInt(split[0]) ;
-                            int end = parseInt(split[1]);
-                            return Arrays.stream(new IntRange(start, end).toArray())
-                                    .boxed();
-                        }
-                    }).collect(Collectors.toList());
-        }
-
-        private List<Integer> parseEquipmentSlot(String raw) {
-            String upper = raw.toUpperCase();
-            return Try.ofSupplier(() -> SlotGroup.valueOf(upper))
-                    .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
-                        List<String> suggestions = StringSimilarityUtils.getSuggestions(
-                                upper,
-                                Arrays.stream(SlotGroup.values())
-                                        .map(SlotGroup::name)
-                        );
-                        return InvalidConfigurationException.unknownOption("equipment slot", raw, suggestions);
-                    })).map(SlotGroup::getSlots).get();
-        }
-
-        private List<Integer> parseTime(String raw) {
-            return Arrays.stream(raw.split(","))
-                    .map(String::trim)
-                    .flatMap(element -> {
-                        String[] split = element.split("-");
-                        if (split.length == 1) {
-                            return Stream.of(TimeTokenParser.parse(split[0]))
-                                    .map(millis -> millis / 50)
-                                    .map(l -> (int) (long) l);
-                        } else {
-                            long start = TimeTokenParser.parse(split[0]) / 50;
-                            long end = TimeTokenParser.parse(split[1]) / 50;
-                            return Arrays.stream(new LongRange(start, end).toArray())
-                                    .mapToObj(l -> (int) l);
-                        }
-                    }).map(i -> Math.max(1, i))
-                    .distinct()
-                    .collect(Collectors.toList());
-        }
-
-        @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-        @Getter
-        @RequiredArgsConstructor
-        private enum SlotGroup {
-            HAND(-1),
-            OFF_HAND(40),
-            ANY_HAND(-1, 40),
-            ANY(io.vavr.collection.List.range(0, 41)),
-            HEAD(39),
-            CHEST(38),
-            LEGS(37),
-            FEET(36),
-            ARMOR(io.vavr.collection.List.range(36, 40)),
-            HOTBAR(io.vavr.collection.List.range(0, 8)),
-            ;
-            List<Integer> slots;
-            SlotGroup(int... slots) {
-                this(Arrays.stream(slots).boxed().collect(Collectors.toList()));
-            }
-
-            SlotGroup(io.vavr.collection.List<Integer> slots) {
-                this(slots.toJavaList());
-            }
-
-        }
-
-        private enum PredicateType {
-            AT,
-            BUTTON,
-            AMOUNT,
-            TOTAL_AMOUNT,
-            PERMISSION,
-            STATE_FLAG,
-            TIME,
-            SLOT;
-
-            public static PredicateType fromString(String raw) {
-                String upper = raw.toUpperCase();
-                return Try.ofSupplier(() -> PredicateType.valueOf(upper))
-                        .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
-                            List<String> suggestions = StringSimilarityUtils.getSuggestions(
-                                    upper,
-                                    Arrays.stream(PredicateType.values())
-                                            .map(PredicateType::name)
-                            );
-                            return InvalidConfigurationException.unknownOption("predicate type", upper, suggestions);
-                        })).get();
-            }
-
-            public static String getPattern() {
-                return Arrays.stream(values())
-                        .map(p -> p.name().toLowerCase())
-                        .reduce((s1, s2) -> s1 + "|" + s2)
-                        .get();
-            }
-
-        }
-
     }
 
 
