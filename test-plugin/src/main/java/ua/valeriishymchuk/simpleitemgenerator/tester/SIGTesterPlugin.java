@@ -150,7 +150,6 @@ public class SIGTesterPlugin extends JavaPlugin implements Listener {
 
 
 
-        // TODO continue
     // 1.8 configuration load fail/success
     // 1.14+ configuration load fail/success
     // 1.21.4+ configuration load fail/success

@@ -58,7 +58,6 @@ import static ua.valeriishymchuk.simpleitemgenerator.tester.netty.NettyUtils.*;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class MinecraftTestClient extends ChannelDuplexHandler {
 
-    // TODO continue
 
     private static final String FRAME_ENCODER = "frame-encoder";
     private static final String FRAME_DECODER = "frame-decoder";
