@@ -35,6 +35,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.commands.CommandException;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.ConfigLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.builder.ConfigLoaderConfigurationBuilder;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.serializer.nbt.v2.CompoundBinaryTagTypeSerializer;
+import ua.valeriishymchuk.simpleitemgenerator.common.error.ErrorVisitor;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.metrics.MetricsHelper;
@@ -50,6 +51,7 @@ import ua.valeriishymchuk.simpleitemgenerator.repository.ICooldownRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IUpdateRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ConfigRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.CooldownRepository;
+import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ItemRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.UpdateRepository;
 import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
@@ -77,8 +79,10 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
     CommandManager<CommandSender> commandManager;
     BukkitTaskScheduler taskScheduler = new BukkitTaskScheduler(this);
     ConfigLoader configLoader;
+    ConfigLoader itemsConfigLoader;
     IItemService itemService;
     IInfoService infoService;
+    public ItemRepository itemRepository;
     ICooldownRepository cooldownRepository = null;
     boolean isHDBLoaded = false;
 
@@ -91,13 +95,18 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
             }
             commandManager = setupCommandManager();
             configLoader = configLoader();
-            configRepository = new ConfigRepository(configLoader, getLogger());
+            File itemsFolder = new File(getDataFolder(), "items");
+            itemsFolder.mkdirs();
+            itemsConfigLoader = configLoader(itemsFolder);
+            ErrorVisitor errorVisitor = new ErrorVisitor(getLogger());
+            configRepository = new ConfigRepository(configLoader, errorVisitor);
+            itemRepository = new ItemRepository(configRepository, itemsConfigLoader, errorVisitor);
             IUpdateRepository updateRepository = new UpdateRepository();
             cooldownRepository = new CooldownRepository(cooldownLoader());
             cooldownRepository.reload();
             SemanticVersion currentVersion = SemanticVersion.parse(getDescription().getVersion());
             infoService = new InfoService(updateRepository, configRepository, currentVersion);
-            itemService = new ItemService(configRepository, cooldownRepository);
+            itemService = new ItemService(configRepository, itemRepository, cooldownRepository);
             new CommandsController(itemService, infoService).setupCommands(commandManager);
         }
         if (!isHDBLoaded && HeadDatabaseSupport.isPluginEnabled()) {
@@ -114,7 +123,12 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
             return;
         }
         taskScheduler.runTask(() -> {
-            if (!configRepository.reload()) {
+            if (!configRepository.doesMainConfigExist() && !itemRepository.hasFolder()) {
+                getLogger().info("Can't find items folder, creating one...");
+                itemRepository.createExample();
+
+            }
+            if (!configRepository.reload() || !itemRepository.reloadItems()) {
                 getLogger().severe("Failed to load config. Shutting down...");
                 Bukkit.getPluginManager().disablePlugin(this);
                 return;
@@ -147,8 +161,12 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
     }
 
     private ConfigLoader configLoader() {
+        return configLoader(getDataFolder());
+    }
+
+    private ConfigLoader configLoader(File folder) {
         return new ConfigLoader(
-                getDataFolder(),
+                folder,
                 ".yml",
                 ConfigLoaderConfigurationBuilder.yaml()
                         .peekBuilder(b -> b.indent(2).nodeStyle(NodeStyle.BLOCK))
@@ -223,13 +241,13 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
         @Override
         public Optional<ItemStack> bakeItem(String key, @Nullable Player player) {
             Objects.requireNonNull(key);
-            return configRepository.getConfig().bakeItem(key, player).toJavaOptional();
+            return itemRepository.bakeItem(key, player).toJavaOptional();
         }
 
         @Override
         public boolean hasKey(String key) {
             Objects.requireNonNull(key);
-            return configRepository.getConfig().getItemKeys().contains(key);
+            return itemRepository.getItemKeys().contains(key);
         }
 
         @Override
@@ -242,7 +260,7 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
         public boolean updateItem(ItemStack item, @Nullable Player player) {
             Objects.requireNonNull(item);
             if (!isCustomItem(item)) return false;
-            configRepository.getConfig().updateItem(item, player);
+            itemRepository.updateItem(item, player);
             return true;
         }
     }

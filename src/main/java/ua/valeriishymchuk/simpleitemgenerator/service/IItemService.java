@@ -7,6 +7,7 @@ import org.jetbrains.annotations.Nullable;
 import ua.valeriishymchuk.simpleitemgenerator.dto.*;
 
 import java.util.List;
+import java.util.Set;
 
 public interface IItemService {
 
@@ -30,7 +31,7 @@ public interface IItemService {
 
     WithdrawItemDTO withdrawItem(String key, @Nullable Player player, int amount);
 
-    List<String> getItemKeys();
+    Set<String> getItemKeys();
     long getUpdatePeriodTicks();
     Component reload();
     Component playerNotFound(String input);

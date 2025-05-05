@@ -397,7 +397,7 @@ public class SIGTesterPlugin extends JavaPlugin implements Listener {
         File configToCopy = new File(getSIGDir(), key + ".yml");
         File destination = new File(getSIGDir(), "config.yml");
         Files.copy(configToCopy.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
-        return getSIG().configRepository.reload();
+        return getSIG().configRepository.reload() && getSIG().itemRepository.reloadItems();
     }
 
     private File getSIGDir() {

@@ -174,7 +174,7 @@ public class CustomItemEntity {
                 ReflectedRepresentations.ItemMeta.isUnbreakable(meta),
                 new ArrayList<>(meta.getItemFlags().stream().map(ItemFlag::name).collect(Collectors.toList())),
                 io.vavr.collection.HashMap.ofAll(meta.getEnchants())
-                        .mapKeys(ConfigEntity::serializeEnchantment)
+                        .mapKeys(MainConfigEntity::serializeEnchantment)
                         .toJavaMap(),
                 Collections.emptyList(),
                 null, // TODO add serializers later
@@ -267,7 +267,7 @@ public class CustomItemEntity {
     @SneakyThrows
     private static ConfigurationNode serializeCommand(UsageEntity.Command command) {
         ConfigurationNode node = createNode();
-        node.set(ConfigEntity.serializeCommand(command));
+        node.set(MainConfigEntity.serializeCommand(command));
         return node;
     }
 
@@ -529,7 +529,7 @@ public class CustomItemEntity {
 
 
     private UsageEntity.Command parseCommand(ConfigurationNode node) throws InvalidConfigurationException {
-        return ConfigEntity.deserializeCommand(node.getString());
+        return MainConfigEntity.deserializeCommand(node.getString());
     }
 
     private static ClickAt parseClickAt(String raw) throws InvalidConfigurationException {

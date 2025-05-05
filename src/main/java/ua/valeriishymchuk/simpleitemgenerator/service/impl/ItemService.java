@@ -32,12 +32,13 @@ import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickAt;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickButton;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.PredicateInput;
 import ua.valeriishymchuk.simpleitemgenerator.dto.*;
-import ua.valeriishymchuk.simpleitemgenerator.entity.ConfigEntity;
+import ua.valeriishymchuk.simpleitemgenerator.entity.MainConfigEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.CustomItemEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.LangEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IConfigRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.ICooldownRepository;
+import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ItemRepository;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 
 import java.util.*;
@@ -54,9 +55,10 @@ public class ItemService implements IItemService {
     private static final Pattern TIME_PATTERN = Pattern.compile("%time_(?<timeunit>[a-z])(\\.(?<precision>\\d+)f)?%");
 
     IConfigRepository configRepository;
+    ItemRepository itemRepository;
     ICooldownRepository cooldownRepository;
 
-    private ConfigEntity config() {
+    private MainConfigEntity config() {
         return configRepository.getConfig();
     }
 
@@ -68,7 +70,7 @@ public class ItemService implements IItemService {
         if (item == null || item.getType().name().endsWith("AIR")) return 0;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (customItemId == null) return 0;
-        CustomItemEntity customItem = config().getItem(customItemId).getOrNull();
+        CustomItemEntity customItem = itemRepository.getItem(customItemId).getOrNull();
         if (customItem == null) return 0;
         return Arrays.stream(player.getInventory().getContents())
                 .filter(Objects::nonNull)
@@ -204,7 +206,7 @@ public class ItemService implements IItemService {
         if (item == null || !NBTCustomItem.hasCustomItemId(item)) return nop;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (customItemId == null) return nop;
-        CustomItemEntity customItem = config().getItem(customItemId).getOrNull();
+        CustomItemEntity customItem = itemRepository.getItem(customItemId).getOrNull();
         if (customItem == null) return new ItemUsageResultDTO(
                 lang().getInvalidItem().replaceText("%key%", customItemId).bake(),
                 Collections.emptyList(),
@@ -463,7 +465,7 @@ public class ItemService implements IItemService {
         if (item == null || !NBTCustomItem.hasCustomItemId(item)) return true;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (customItemId == null) return true;
-        CustomItemEntity customItem = config().getItem(customItemId).getOrNull();
+        CustomItemEntity customItem = itemRepository.getItem(customItemId).getOrNull();
         if (customItem == null) return true;
         return customItem.canBePutInInventory();
     }
@@ -473,7 +475,7 @@ public class ItemService implements IItemService {
         if (itemStack == null || itemStack.getType().name().endsWith("AIR")) return true;
         String customItemId = NBTCustomItem.getCustomItemId(itemStack).getOrNull();
         if (customItemId == null) return true;
-        CustomItemEntity customItem = config().getItem(customItemId).getOrNull();
+        CustomItemEntity customItem = itemRepository.getItem(customItemId).getOrNull();
         if (customItem == null) return true;
         return customItem.canMove();
     }
@@ -483,7 +485,7 @@ public class ItemService implements IItemService {
         if (item == null || item.getType().name().endsWith("AIR")) return false;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (customItemId == null) return false;
-        CustomItemEntity customItem = config().getItem(customItemId).getOrNull();
+        CustomItemEntity customItem = itemRepository.getItem(customItemId).getOrNull();
         if (customItem == null) return false;
         return customItem.removeOnDeath();
     }
@@ -499,7 +501,7 @@ public class ItemService implements IItemService {
 
     @Override
     public void updateItem(ItemStack itemStack, @Nullable Player player) {
-        config().updateItem(itemStack, player);
+        itemRepository.updateItem(itemStack, player);
     }
 
     @Override
@@ -507,7 +509,7 @@ public class ItemService implements IItemService {
         if (item == null || !NBTCustomItem.hasCustomItemId(item)) return true;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (customItemId == null) return true;
-        CustomItemEntity customItem = config().getItem(customItemId).getOrNull();
+        CustomItemEntity customItem = itemRepository.getItem(customItemId).getOrNull();
         if (customItem == null) return true;
         return customItem.isIngredient();
     }
@@ -522,7 +524,7 @@ public class ItemService implements IItemService {
                 lang().getSlotNotExist().replaceText("%slot%", slot + "").bake(),
                 null
         );
-        ItemStack itemStack = config().bakeItem(key, player).getOrNull();
+        ItemStack itemStack = itemRepository.bakeItem(key, player).getOrNull();
         RawComponent message = itemStack == null ? lang().getItemDoesntExist() : lang().getGiveItemSuccessfully();
         message = message.replaceText("%player%", player.getName())
                 .replaceText("%key%", key);
@@ -539,7 +541,7 @@ public class ItemService implements IItemService {
                 null,
                 false
         );
-        CustomItemEntity customItem = config().getItem(key).getOrNull();
+        CustomItemEntity customItem = itemRepository.getItem(key).getOrNull();
         if (customItem == null) return new WithdrawItemDTO(
                 lang().getItemDoesntExist().replaceText("%key%", key).bake(),
                 null,
@@ -577,8 +579,8 @@ public class ItemService implements IItemService {
     }
 
     @Override
-    public List<String> getItemKeys() {
-        return config().getItemKeys();
+    public Set<String> getItemKeys() {
+        return itemRepository.getItemKeys();
     }
 
     @Override
@@ -590,10 +592,10 @@ public class ItemService implements IItemService {
     public Component reload() {
         try {
             cooldownRepository.reload();
-        } catch (Throwable ignored) {
-            log.warn("Failed to reload cooldowns: {}", ignored.getMessage());
+        } catch (Throwable msg) {
+            log.warn("Failed to reload cooldowns: {}", msg.getMessage());
         }
-        boolean result = configRepository.reload();
+        boolean result = configRepository.reload() && itemRepository.reloadItems();
         return result ? lang().getReloadSuccessfully().bake() : lang().getReloadUnsuccessfully().bake();
     }
 

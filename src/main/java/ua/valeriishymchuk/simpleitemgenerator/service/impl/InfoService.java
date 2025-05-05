@@ -7,7 +7,7 @@ import lombok.experimental.FieldDefaults;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
-import ua.valeriishymchuk.simpleitemgenerator.entity.ConfigEntity;
+import ua.valeriishymchuk.simpleitemgenerator.entity.MainConfigEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.LangEntity;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IConfigRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IUpdateRepository;
@@ -24,7 +24,7 @@ public class InfoService implements IInfoService {
     SemanticVersion currentVersion;
 
 
-    private ConfigEntity getConfig() {
+    private MainConfigEntity getConfig() {
         return configRepository.getConfig();
     }
 

@@ -1,10 +1,8 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.config;
 
 import io.vavr.control.Option;
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
+import io.vavr.control.Validation;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.loader.ConfigurationLoader;
@@ -22,9 +20,11 @@ import java.util.stream.Stream;
 @AllArgsConstructor
 public class ConfigLoader {
 
+    @Getter
     File folder;
     String extension;
     private IConfigLoaderConfigurator configurator;
+
 
     public <T, C> T applyContext(Class<C> clazz, String key, Function<ContextLoader<C>, T> mapper) {
         validateConfigClass(clazz);
@@ -43,6 +43,14 @@ public class ConfigLoader {
         return loadOrSave(clazz, key, emptyConstructor(clazz).get());
     }
 
+    public <C> Validation<Exception, Option<C>> safeLoad(Class<C> clazz, String key) {
+        try {
+            return Validation.valid(load(clazz, key));
+        } catch (Exception e) {
+            return Validation.invalid(e);
+        }
+    }
+
     @SneakyThrows
     public <C> Option<C> load(Class<C> clazz, String key) {
         validateConfigClass(clazz);
@@ -51,6 +59,11 @@ public class ConfigLoader {
         ConfigurationLoader<?> loader = configurator.configure(file);
         ConfigurationNode rootNode = loader.load();
         return Option.of(rootNode.get(clazz));
+    }
+
+    public boolean exists(String key) {
+        File file = getFile(key);
+        return file.exists() && file.isFile();
     }
 
     public <C> C loadOrDefault(Class<C> clazz, String key, C defaultConfig) {
