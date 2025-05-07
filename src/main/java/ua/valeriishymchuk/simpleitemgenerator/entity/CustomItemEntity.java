@@ -7,10 +7,7 @@ import io.vavr.CheckedFunction0;
 import io.vavr.Tuple2;
 import io.vavr.control.Option;
 import io.vavr.control.Try;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import net.kyori.adventure.nbt.CompoundBinaryTag;
@@ -49,8 +46,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @ConfigSerializable
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
+@NoArgsConstructor
 public class CustomItemEntity {
     public static final Pattern MINIMESSAGE_COMMAND_PLACEHOLDER = Pattern.compile("%minimessage_(?<placeholder>.+)%");
     private static final Pattern PLACEHOLDER_PATTERN = Pattern.compile("%(?<placeholder>\\S+)%");
@@ -80,21 +77,17 @@ public class CustomItemEntity {
     @NonFinal
     transient Option<HeadTexture> headTexture;
 
-    private CustomItemEntity() {
-        this(
-                createNode(),
-                createNode(),
-                null,
-                null,
-                null,
-                null,
-                null,
-                null,
-                null
-        );
+    public CustomItemEntity(ConfigurationNode item, ConfigurationNode usage, CompoundBinaryTag nbt, Boolean isIngredient, Boolean canBePutInInventory, Boolean removeOnDeath, Boolean isPlain, Boolean canMove, Boolean autoUpdate) {
+        this.item = item;
+        this.usage = usage;
+        this.nbt = nbt;
+        this.isIngredient = isIngredient;
+        this.canBePutInInventory = canBePutInInventory;
+        this.removeOnDeath = removeOnDeath;
+        this.isPlain = isPlain;
+        this.canMove = canMove;
+        this.autoUpdate = autoUpdate;
     }
-
-
 
 
     private static ConfigurationNode createNode() {

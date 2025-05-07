@@ -10,8 +10,8 @@ import java.util.Collections;
 import java.util.List;
 import java.util.function.UnaryOperator;
 
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
+@AllArgsConstructor
 @Getter
 @With
 @ToString

@@ -2,10 +2,7 @@ package ua.valeriishymchuk.simpleitemgenerator.entity;
 
 import io.vavr.Function0;
 import io.vavr.control.Option;
-import lombok.AccessLevel;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
@@ -23,16 +20,17 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @ConfigSerializable
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
+@AllArgsConstructor
+@NoArgsConstructor
 public class CustomItemsStorageEntity {
 
     @Getter
     Map<String, CustomItemEntity> items;
 
-    private CustomItemsStorageEntity() {
-        this(new HashMap<>());
-    }
+    //private CustomItemsStorageEntity() {
+    //    this(new HashMap<>());
+    //}
 
     public CustomItemsStorageEntity(Function0<Map<String, CustomItemEntity>> supplier) {
         this(supplier.get());

@@ -267,7 +267,7 @@ public class SIGTesterPlugin extends JavaPlugin implements Listener {
     }
 
     private void ensureDefined(String itemKey) {
-        checkArgument(getSIG().configRepository.getConfig().getItem(itemKey).isDefined(), "Can't access " + itemKey);
+        checkArgument(getSIG().itemRepository.getItem(itemKey).isDefined(), "Can't access " + itemKey);
     }
 
 
@@ -358,9 +358,9 @@ public class SIGTesterPlugin extends JavaPlugin implements Listener {
     @Test
     public void setConfigs() {
         checkArgument(setConfig("config1"), "Failed to set config1");
-        checkArgument(getSIG().configRepository.getConfig().getItem("test-item1").isDefined(), "Can't access test-item1");
+        checkArgument(getSIG().itemRepository.getItem("test-item1").isDefined(), "Can't access test-item1");
         checkArgument(setConfig("config2"), "Failed to set config2");
-        checkArgument(getSIG().configRepository.getConfig().getItem("test-item2").isDefined(), "Can't access test-item2");
+        checkArgument(getSIG().itemRepository.getItem("test-item2").isDefined(), "Can't access test-item2");
     }
 
     @Test
@@ -371,9 +371,9 @@ public class SIGTesterPlugin extends JavaPlugin implements Listener {
     @Test
     public void testGeneral() {
         checkArgument(setConfig("1.8/general"), "Failed to set 1.8/general");
-        CustomItemEntity item = getSIG().configRepository.getConfig().getItem("test-item").getOrNull();
+        CustomItemEntity item = getSIG().itemRepository.getItem("test-item").getOrNull();
         checkArgument(item != null, "Can't access test-item");
-        ItemStack itemStack = getSIG().configRepository.getConfig().bakeItem("test-item", Bukkit.getOnlinePlayers().stream().findFirst()
+        ItemStack itemStack = getSIG().itemRepository.bakeItem("test-item", Bukkit.getOnlinePlayers().stream().findFirst()
                 .orElseThrow(NullPointerException::new)).getOrElseThrow(() -> new RuntimeException("Can't bake test-item"));
         NBT.get(itemStack, nbt -> {
             Integer value = nbt.getInteger("test");

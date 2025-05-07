@@ -25,7 +25,7 @@ import java.util.stream.Collectors;
 
 
 @ConfigSerializable
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@FieldDefaults(level = AccessLevel.PRIVATE)
 public class MainConfigEntity {
 
 
@@ -38,6 +38,8 @@ public class MainConfigEntity {
     boolean checkForUpdates = true;
     @Getter
     boolean sendWelcomeMessage = true;
+    @Getter
+    boolean sendInvalidItemMessage = true;
 
     public static String serializeEnchantment(Enchantment enchantment) {
         if (!FeatureSupport.NAMESPACED_ENCHANTMENTS_SUPPORT) return enchantment.getName();

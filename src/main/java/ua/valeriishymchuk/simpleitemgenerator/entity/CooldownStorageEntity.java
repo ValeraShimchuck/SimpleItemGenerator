@@ -11,7 +11,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @ConfigSerializable
-@FieldDefaults(level = AccessLevel.PUBLIC, makeFinal = true)
+@FieldDefaults(level = AccessLevel.PUBLIC)
 @Getter
 public class CooldownStorageEntity {
 

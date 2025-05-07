@@ -116,9 +116,15 @@ public class ItemRepository {
     public boolean reloadItems() {
         items.clear();
         ItemLoadResultEntity mainConfigLoadResult = configRepository.getConfig().init();
-        Map<String, InvalidConfigurationException> fails = new HashMap<>(mainConfigLoadResult.getInvalidItems());
-        items.putAll(configRepository.getConfig().getItems().getItems());
         List<InvalidConfigurationException> errors = new ArrayList<>();
+        errors.addAll(mainConfigLoadResult.getInvalidItems().values().stream()
+                .map(e -> InvalidConfigurationException
+                        .format(e, "Error in file <white>%s</white>","config.yml"))
+                .collect(Collectors.toList())
+        );
+        items.putAll(configRepository.getConfig().getItems().getItems());
+
+
         Arrays.stream(itemsConfigLoader.getFolder().list())
                 .map(f -> f.split("\\.")[0])
                 .map(key -> Tuple.of(key, itemsConfigLoader.safeLoad(CustomItemsStorageEntity.class, key)))
@@ -135,7 +141,9 @@ public class ItemRepository {
                     String key = t._1;
                     CustomItemsStorageEntity item = t._2;
                     ItemLoadResultEntity loadResult = item.init(key);
-                    fails.putAll(loadResult.getInvalidItems());
+                    errors.addAll(loadResult.getInvalidItems().values().stream()
+                            .map(e -> InvalidConfigurationException.format(e, "Error in file <white>%s</white>","items/" + key + ".yml"))
+                            .collect(Collectors.toList()));
                     loadResult.getValidItems().forEach((itemKey, itemConfig) -> {
                         items.compute(itemKey, (k, v) -> {
                             if (v != null) {
@@ -150,7 +158,6 @@ public class ItemRepository {
                         });
                     });
                 });
-        errors.addAll(fails.values());
         errors.forEach(e -> {
             KyoriHelper.sendMessage(Bukkit.getConsoleSender(), "<red>[SimpleItemGenerator] Found error:</red>");
             errorVisitor.visitError(e);

@@ -1,6 +1,7 @@
 package ua.valeriishymchuk.simpleitemgenerator.entity;
 
 import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -9,8 +10,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.component.RawComponent;
 
 import java.util.Arrays;
 
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
 @Getter
 @ConfigSerializable
 public class LangEntity {

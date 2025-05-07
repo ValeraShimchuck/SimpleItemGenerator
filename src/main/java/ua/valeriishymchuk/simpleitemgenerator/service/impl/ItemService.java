@@ -207,12 +207,17 @@ public class ItemService implements IItemService {
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (customItemId == null) return nop;
         CustomItemEntity customItem = itemRepository.getItem(customItemId).getOrNull();
-        if (customItem == null) return new ItemUsageResultDTO(
-                lang().getInvalidItem().replaceText("%key%", customItemId).bake(),
-                Collections.emptyList(),
-                true,
-                UsageEntity.Consume.NONE
-        );
+        if (customItem == null) {
+            boolean isItemUsage = predicateInput.getButton().isDefined();
+            boolean shouldSendMessage = isItemUsage && config().isSendInvalidItemMessage();
+            Component message = lang().getInvalidItem().replaceText("%key%", customItemId).bake();
+            return new ItemUsageResultDTO(
+                    shouldSendMessage? message : null,
+                    Collections.emptyList(),
+                    true,
+                    UsageEntity.Consume.NONE
+            );
+        }
         List<UsageEntity> usages = customItem.getUsages().stream()
                 .filter(usageFilter -> usageFilter.accepts(predicateInput))
                 .collect(Collectors.toList());

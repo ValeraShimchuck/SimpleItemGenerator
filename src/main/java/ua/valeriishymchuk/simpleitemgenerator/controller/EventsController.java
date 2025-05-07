@@ -7,6 +7,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
@@ -103,7 +104,7 @@ public class EventsController implements Listener {
                         tickerTime.getTick()
                 )
         );
-        handleResult(result, event.getItem(), event.getPlayer(), event);
+        handleResult(result, event.getItem(), event.getPlayer(), event, true);
     }
 
     @EventHandler(priority = EventPriority.HIGHEST)
@@ -140,7 +141,7 @@ public class EventsController implements Listener {
                         tickerTime.getTick(),
                         slot
                 )
-        ), itemStack, player, event);
+        ), itemStack, player, event, false);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
@@ -166,7 +167,7 @@ public class EventsController implements Listener {
                         tickerTime.getTick()
                 )
         );
-        handleResult(result, event.getPlayer().getItemInHand(), event.getPlayer(), event);
+        handleResult(result, event.getPlayer().getItemInHand(), event.getPlayer(), event, false);
     }
 
     @EventHandler(priority = EventPriority.HIGH)
@@ -184,14 +185,16 @@ public class EventsController implements Listener {
                         tickerTime.getTick()
                 )
         );
-        handleResult(result, player.getItemInHand(), player, event);
+        handleResult(result, player.getItemInHand(), player, event, false);
         if (isCancelled) {
             event.setCancelled(true);
         }
     }
 
-    private void handleResult(ItemUsageResultDTO result, ItemStack item, Player player, Cancellable event) {
-        event.setCancelled(result.isShouldCancel() || event.isCancelled());
+    private void handleResult(ItemUsageResultDTO result, ItemStack item, Player player, Cancellable event, boolean omitEventCancellation) {
+        if (!event.isCancelled()) {
+            event.setCancelled(result.isShouldCancel() || (event.isCancelled() && !omitEventCancellation));
+        }
         result.getCommands().forEach(commands -> {
             CommandSender sender = commands.isExecuteAsConsole() ? Bukkit.getConsoleSender() : player;
             Bukkit.dispatchCommand(sender, commands.getCommand());
