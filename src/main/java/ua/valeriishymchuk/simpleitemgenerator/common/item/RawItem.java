@@ -8,10 +8,7 @@ import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import io.vavr.API;
 import io.vavr.control.Option;
 import io.vavr.control.Try;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.SneakyThrows;
-import lombok.With;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 import net.kyori.adventure.key.Key;
 import org.bukkit.DyeColor;
@@ -26,6 +23,7 @@ import org.jetbrains.annotations.Nullable;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import org.spongepowered.configurate.objectmapping.meta.Setting;
+import ua.valeriishymchuk.simpleitemgenerator.api.SimpleItemGenerator;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
@@ -38,13 +36,14 @@ import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
+import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 @ConfigSerializable
-@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-@RequiredArgsConstructor
+@FieldDefaults(level = AccessLevel.PRIVATE)
+@AllArgsConstructor
 @With
 public class RawItem implements Cloneable {
 
@@ -63,6 +62,23 @@ public class RawItem implements Cloneable {
     List<ConfigurationNode> attributes;
     @Nullable ConfigurationNode color;
     @Nullable ConfigurationNode potion;
+    @Nullable Integer durability;
+
+    private RawItem() {
+        this(
+                null,
+                null,
+                Collections.emptyList(),
+                null,
+                null,
+                Collections.emptyList(),
+                Collections.emptyMap(),
+                Collections.emptyList(),
+                null,
+                null,
+                null
+        );
+    }
 
     private List<PotionEffect> getPotionEffects() throws InvalidConfigurationException {
         int i = -1;
@@ -293,21 +309,6 @@ public class RawItem implements Cloneable {
                 .withLore(lore.stream().map(s -> s.replace(placeholder, value)).collect(Collectors.toList()));
     }
 
-    private RawItem() {
-        this(
-                null,
-                null,
-                Collections.emptyList(),
-                null,
-                null,
-                Collections.emptyList(),
-                Collections.emptyMap(),
-                Collections.emptyList(),
-                null,
-                null
-        );
-    }
-
     public List<ItemFlag> getFlags() throws InvalidConfigurationException {
         if (itemFlags == null || itemFlags.isEmpty()) return Collections.emptyList();
         List<ItemFlag> flags = new ArrayList<>();
@@ -396,6 +397,10 @@ public class RawItem implements Cloneable {
             if (cmd != null) {
                 item = applyModernCmd(item, cmd);
             }
+        }
+        if (durability != null) {
+            int damage = item.getType().getMaxDurability() - durability;
+            item.setDurability((short) damage);
         }
         ItemMeta meta = item.getItemMeta();
         if (name != null) ReflectedRepresentations.ItemMeta.setDisplayName(meta, KyoriHelper.parseMiniMessage(name));

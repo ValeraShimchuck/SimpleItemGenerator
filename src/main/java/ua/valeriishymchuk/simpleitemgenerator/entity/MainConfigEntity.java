@@ -101,6 +101,7 @@ public class MainConfigEntity {
                 io.vavr.collection.HashMap.of(serializeEnchantment(Enchantment.LUCK), 1).toJavaMap(),
                 Collections.emptyList(),
                 null,
+                null,
                 null
         );
         if (FeatureSupport.CMD_SUPPORT) {

@@ -171,6 +171,7 @@ public class CustomItemEntity {
                         .toJavaMap(),
                 Collections.emptyList(),
                 null, // TODO add serializers later
+                null,
                 null
         );
         Integer cmd = ReflectedRepresentations.ItemMeta.tryGetCustomModelData(meta).getOrNull();
