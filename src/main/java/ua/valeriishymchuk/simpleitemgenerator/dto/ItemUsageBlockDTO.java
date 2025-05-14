@@ -12,6 +12,7 @@ import org.bukkit.event.block.Action;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.PredicateInput;
+import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.SlotPredicate;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
@@ -24,7 +25,7 @@ public class ItemUsageBlockDTO {
     @Nullable Block clickedBlock;
     @Getter(AccessLevel.NONE)
     @Nullable BlockFace clickedFace;
-    int slot;
+    SlotPredicate.Input slot;
     long currentTick;
 
     public Option<Block> getClickedBlock() {

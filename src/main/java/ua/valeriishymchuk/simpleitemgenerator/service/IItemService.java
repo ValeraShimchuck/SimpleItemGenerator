@@ -15,6 +15,7 @@ public interface IItemService {
     ItemUsageResultDTO dropItem(ItemUsageGeneralDTO itemUsageGeneralDTO);
     ItemUsageResultDTO useItemAt(ItemUsageEntityDTO itemUsageEntityDTO);
     ItemUsageResultDTO tickItem(ItemUsageGeneralDTO itemUsageGeneralDTO);
+    ItemUsageResultDTO moveItem(SlotChangeDTO slotChanges, int selectedHotbarSlot);
     boolean canBePutInInventory(ItemStack item);
     boolean canBeMoved(ItemStack itemStack);
     boolean shouldRemoveOnDeath(ItemStack item);

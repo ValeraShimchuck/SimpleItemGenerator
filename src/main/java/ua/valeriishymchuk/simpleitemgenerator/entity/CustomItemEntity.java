@@ -15,6 +15,7 @@ import net.kyori.adventure.text.Component;
 import org.apache.commons.lang.math.IntRange;
 import org.apache.commons.lang.math.LongRange;
 import org.bukkit.Material;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
@@ -37,6 +38,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.time.TimeTokenParser;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.Predicate;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickAt;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickButton;
+import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.SlotPredicate;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -628,11 +630,13 @@ public class CustomItemEntity {
                 return null;
             }, "time");
 
-            List<Integer> slots = wrapErrorSupply(() -> {
+            SlotPredicate slots = wrapErrorSupply(() -> {
                 ConfigurationNode slotNode = node.node("slot");
                 if (slotNode.isList()) {
-                    return slotNode.getList(String.class).stream().flatMap(s -> parseSlots(s).stream())
-                            .distinct().collect(Collectors.toList());
+                    return SlotPredicate.union(
+                            slotNode.getList(String.class).stream().map(this::parseSlots)
+                                    .distinct().collect(Collectors.toList())
+                    );
                 } else if (!slotNode.isNull() && !slotNode.isMap()) {
                     return parseSlots(slotNode.getString());
                 }
@@ -652,7 +656,7 @@ public class CustomItemEntity {
         List<String> permissions = null;
         Map<String, Boolean> flags = null;
         List<Integer> ticks = null;
-        List<Integer> slots = null;
+        SlotPredicate slots = null;
         switch (predicateType) {
             case AT:
                 clickAt = parseClickAt(value);
@@ -691,26 +695,46 @@ public class CustomItemEntity {
         }
     }
 
-
-    private List<Integer> parseSlots(String raw) {
-        return Arrays.stream(raw.split(","))
-                .map(String::trim)
-                .flatMap(element -> {
-                    String[] split = element.split("-");
-                    if (split.length == 1) {
-                        String first = split[0];
-                        return Try.ofSupplier(() -> Collections.singletonList(Integer.parseInt(first)))
-                                .recover(t -> parseEquipmentSlot(first)).get().stream();
-                    } else {
-                        int start = parseInt(split[0]);
-                        int end = parseInt(split[1]);
-                        return Arrays.stream(new IntRange(start, end).toArray())
-                                .boxed();
-                    }
-                }).collect(Collectors.toList());
+    private SlotPredicate parseSlot(String raw) {
+        String[] split = raw.split("-");
+        String first = split[0];
+        boolean isNegate = first.startsWith("!");
+        String slot = isNegate ? first.substring(1) : first;
+        if (split.length == 1) {
+            return Try.ofSupplier(() -> SlotPredicate.slot(isNegate, Integer.parseInt(slot)))
+                    .recover(t -> SlotPredicate.negate(parseEquipmentSlot(slot))).get();
+        } else {
+            int start = parseInt(slot);
+            int end = parseInt(split[1]);
+            return SlotPredicate.range(isNegate, start, end);
+        }
     }
 
-    private List<Integer> parseEquipmentSlot(String raw) {
+    private SlotPredicate parseSlots(String raw) {
+        String[] split = raw.split(",");
+        return SlotPredicate.union(
+                Arrays.stream(split)
+                        .map(this::parseSlot)
+                        .collect(Collectors.toList())
+        );
+        //return Arrays.stream(raw.split(","))
+                //        .map(String::trim)
+                //        .flatMap(element -> {
+            //            String[] split = element.split("-");
+            //            if (split.length == 1) {
+                //                String first = split[0];
+                //                return Try.ofSupplier(() -> Collections.singletonList(Integer.parseInt(first)))
+                        //                        .recover(t -> parseEquipmentSlot(first)).get().stream();
+                //            } else {
+                //                int start = parseInt(split[0]);
+                //                int end = parseInt(split[1]);
+                //                return Arrays.stream(new IntRange(start, end).toArray())
+                        //                        .boxed();
+                //            }
+            //        }).collect(Collectors.toList());
+    }
+
+    private SlotPredicate parseEquipmentSlot(String raw) {
         String upper = raw.toUpperCase();
         return Try.ofSupplier(() -> SlotGroup.valueOf(upper))
                 .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
@@ -720,7 +744,7 @@ public class CustomItemEntity {
                                     .map(SlotGroup::name)
                     );
                     return InvalidConfigurationException.unknownOption("equipment slot", raw, suggestions);
-                })).map(SlotGroup::getSlots).get();
+                })).map(SlotGroup::getSlotPredicate).get();
     }
 
     private List<Integer> parseTime(String raw) {
@@ -747,26 +771,19 @@ public class CustomItemEntity {
     @Getter
     @RequiredArgsConstructor
     private enum SlotGroup {
-        HAND(-1),
-        OFF_HAND(40),
-        ANY_HAND(-1, 40),
-        ANY(io.vavr.collection.List.range(0, 41)),
-        HEAD(39),
-        CHEST(38),
-        LEGS(37),
-        FEET(36),
-        ARMOR(io.vavr.collection.List.range(36, 40)),
-        HOTBAR(io.vavr.collection.List.range(0, 8)),
+        HAND(SlotPredicate.equipment(EquipmentSlot.HAND)),
+        OFF_HAND(SlotPredicate.equipment(EquipmentSlot.valueOf("OFF_HAND"))),
+        ANY_HAND(SlotPredicate.union(HAND.slotPredicate, OFF_HAND.slotPredicate)),
+        ANY(SlotPredicate.any()),
+        HEAD(SlotPredicate.equipment(EquipmentSlot.HEAD)),
+        CHEST(SlotPredicate.equipment(EquipmentSlot.CHEST)),
+        LEGS(SlotPredicate.equipment(EquipmentSlot.LEGS)),
+        FEET(SlotPredicate.equipment(EquipmentSlot.FEET)),
+        ARMOR(SlotPredicate.union(HEAD.slotPredicate, CHEST.slotPredicate, LEGS.slotPredicate, FEET.slotPredicate)),
+        HOTBAR(SlotPredicate.range(0, 8)),
         ;
-        List<Integer> slots;
+        SlotPredicate slotPredicate;
 
-        SlotGroup(int... slots) {
-            this(Arrays.stream(slots).boxed().collect(Collectors.toList()));
-        }
-
-        SlotGroup(io.vavr.collection.List<Integer> slots) {
-            this(slots.toJavaList());
-        }
 
     }
 

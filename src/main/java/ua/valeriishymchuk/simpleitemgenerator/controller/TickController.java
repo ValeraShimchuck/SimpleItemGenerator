@@ -17,7 +17,9 @@ import org.bukkit.inventory.ItemStack;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.scheduler.BukkitTaskScheduler;
+import ua.valeriishymchuk.simpleitemgenerator.common.slot.EquipmentToSlotConverter;
 import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickTimer;
+import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.SlotPredicate;
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageGeneralDTO;
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageResultDTO;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
@@ -70,7 +72,7 @@ public class TickController {
                         player,
                         item,
                         tickerTime.getTick(),
-                        i
+                        new SlotPredicate.Input(i, EquipmentToSlotConverter.convert(i, player).getOrNull())
                 ));
                 handleResult(result, item, player);
             }

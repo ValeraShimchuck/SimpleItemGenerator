@@ -7,6 +7,7 @@ import lombok.experimental.FieldDefaults;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
+import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.SlotPredicate;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
@@ -16,6 +17,6 @@ public class ItemUsageEntityDTO {
     boolean isRightClicked;
     Entity clicked;
     ItemStack item;
-    int slot;
+    SlotPredicate.Input slot;
     long currentTick;
 }

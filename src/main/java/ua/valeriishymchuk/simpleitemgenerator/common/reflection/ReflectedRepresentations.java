@@ -35,15 +35,15 @@ public class ReflectedRepresentations {
     public static class PlayerInteractEvent {
         public static final Class<org.bukkit.event.player.PlayerInteractEvent> CLASS = org.bukkit.event.player.PlayerInteractEvent.class;
 
-        public static int getClickedItemSlot(org.bukkit.event.player.PlayerInteractEvent event) {
+        public static EquipmentSlot getClickedItemSlot(org.bukkit.event.player.PlayerInteractEvent event) {
             try {
                 Method m = CLASS.getMethod("getHand");
                 EquipmentSlot hand = (EquipmentSlot) m.invoke(event);
-                if (hand == null) return event.getPlayer().getInventory().getHeldItemSlot();
-                if (hand.name().equals("OFF_HAND")) return 40;
-                return event.getPlayer().getInventory().getHeldItemSlot();
+                if (hand == null) return EquipmentSlot.HAND;
+                if (hand.name().equals("OFF_HAND")) return hand;
+                return hand;
             } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-                return event.getPlayer().getInventory().getHeldItemSlot();
+                return EquipmentSlot.HAND;
             }
         }
 

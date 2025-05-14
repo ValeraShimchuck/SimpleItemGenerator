@@ -13,6 +13,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.support.WorldGuardSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickAt;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickButton;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.PredicateInput;
+import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.SlotPredicate;
 
 import java.util.Collections;
 import java.util.List;
@@ -33,7 +34,8 @@ public class Predicate {
     @Nullable Amount amount;
     @Nullable List<String> permissions;
     @Nullable List<Integer> timeTick;
-    @Nullable List<Integer> slots;
+    @Nullable SlotPredicate slots;
+
 
 
     @Override
@@ -52,7 +54,7 @@ public class Predicate {
         return Option.of(button);
     }
 
-    public List<Integer> getSlots() { return Option.of(slots).getOrElse(Collections.emptyList()); }
+    public Option<SlotPredicate> getSlots() { return Option.of(slots); }
 
     public Option<ClickAt> getAt() {
         return Option.of(at);
@@ -90,7 +92,7 @@ public class Predicate {
                         .map(button -> button == side1).getOrElse(false)).getOrElse(true) &&
                 //isEmptyOrAnyMatch(getTimeTick(), tick -> input.getCurrentTick() % tick == 0) &&
                 checkTime(input) &&
-                isEmptyOrAnyMatch(getSlots(), slot -> slot == input.getSlot() || (slot == -1 && input.getPlayer().getInventory().getHeldItemSlot() == input.getSlot())) &&
+                getSlots().map(slots1 -> slots1.matches(input.getSlot())).getOrElse(true) &&
                 getAt().map(at1 -> at1 == input.getClickAt()).getOrElse(true) &&
                 getAmount().map(amount1 -> amount1.test(input.getAmount())).getOrElse(true) &&
                 getPermissions().stream().allMatch(s -> input.getPlayer().hasPermission(s)) &&

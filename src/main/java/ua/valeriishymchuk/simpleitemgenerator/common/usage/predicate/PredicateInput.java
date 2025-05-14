@@ -23,7 +23,7 @@ public class PredicateInput {
     ClickAt clickAt;
     Amount amount;
     long currentTick;
-    int slot;
+    SlotPredicate.Input slot;
 
     public Option<Location> getLocation() {
         return Option.of(location);

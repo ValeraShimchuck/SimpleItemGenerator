@@ -4,10 +4,11 @@ import io.vavr.Tuple;
 import io.vavr.Tuple2;
 import io.vavr.control.Option;
 import lombok.AccessLevel;
+import lombok.Data;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.bukkit.Bukkit;
-import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
@@ -16,19 +17,17 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.*;
 import org.bukkit.event.player.*;
-import org.bukkit.inventory.CraftingInventory;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.PlayerInventory;
+import org.bukkit.inventory.*;
+import ua.valeriishymchuk.simpleitemgenerator.common.item.ItemCopy;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.scheduler.BukkitTaskScheduler;
+import ua.valeriishymchuk.simpleitemgenerator.common.slot.EquipmentToSlotConverter;
 import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickTimer;
+import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.SlotPredicate;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
-import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageBlockDTO;
-import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageEntityDTO;
-import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageGeneralDTO;
-import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageResultDTO;
+import ua.valeriishymchuk.simpleitemgenerator.dto.*;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
@@ -71,6 +70,180 @@ public class EventsController implements Listener {
         }, 40L);
     }
 
+    private ItemCopy[] getInventorySnapshot(InventoryView inventory) {
+        Inventory topInventory = inventory.getTopInventory();
+        Inventory bottomInventory = inventory.getBottomInventory();
+        int topSize = topInventory.getSize();
+        int bottomSize = bottomInventory.getSize();
+        boolean hasOffhand = FeatureSupport.MODERN_COMBAT;
+        int offsize = 4 + (hasOffhand ? 1 : 0);
+        ItemCopy[] snapshot = new ItemCopy[topSize + bottomSize + offsize];
+
+
+        for (int i = 0; i < bottomSize; i++) {
+            ItemStack item = bottomInventory.getItem(i);
+            snapshot[i] = ItemCopy.from(item);
+        }
+
+
+        snapshot[bottomSize] = ItemCopy.from(((Player) inventory.getBottomInventory().getHolder()).getInventory().getBoots());
+        snapshot[bottomSize + 1] = ItemCopy.from(((Player) inventory.getBottomInventory().getHolder()).getInventory().getLeggings());
+        snapshot[bottomSize + 2] = ItemCopy.from(((Player) inventory.getBottomInventory().getHolder()).getInventory().getChestplate());
+        snapshot[bottomSize + 3] = ItemCopy.from(((Player) inventory.getBottomInventory().getHolder()).getInventory().getHelmet());
+        if (hasOffhand)
+            snapshot[bottomSize + 4] = ItemCopy.from(((Player) inventory.getBottomInventory().getHolder()).getInventory().getItem(40));
+
+        for (int i = 0; i < topSize; i++) {
+            ItemStack item = topInventory.getItem(i);
+            snapshot[i + bottomSize + offsize] = ItemCopy.from(item);
+        }
+
+
+        return snapshot;
+    }
+
+
+    private static boolean isAir(ItemStack item) {
+        return item == null || item.getType().name().endsWith("AIR");
+    }
+
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    private void onItemClick(InventoryClickEvent event) {
+        ItemCopy[] inventorySnapshot = getInventorySnapshot(event.getView());
+        int offSlotsPointer = event.getView().countSlots();
+        scheduler.runTask(() -> {
+            ItemCopy[] newInventorySnapshot = getInventorySnapshot(event.getView());
+            List<SlotChangeDTO> removals = new ArrayList<>();
+            List<SlotChangeDTO> additions = new ArrayList<>();
+            for (int i = 0; i < inventorySnapshot.length; i++) {
+                ItemCopy item = inventorySnapshot[i];
+                ItemCopy newStack = newInventorySnapshot[i];
+                if (Objects.equals(item, newStack)) continue;
+                if (item != null && newStack != null && item.getClone().isSimilar(newStack.getClone())) {
+                    continue; // no change
+                }
+                if (newStack != null) {
+                    additions.add(new SlotChangeDTO(true, i, newStack));
+                }
+                if (item != null) {
+                    removals.add(new SlotChangeDTO(false, i, item));
+                }
+            }
+            List<SlotChangeDTO> changes = new ArrayList<>(removals);
+            changes.addAll(additions);
+            changes.forEach(change -> {
+                ItemUsageResultDTO result = itemService.moveItem(change, event.getWhoClicked().getInventory().getHeldItemSlot());
+                handleResult(
+                        result,
+                        change.getItemStack().getRealItem(),
+                        (Player) event.getWhoClicked(),
+                        new DummyEvent(),
+                        false
+                );
+            });
+        });
+
+    }
+
+
+    private static class DummyEvent implements Cancellable {
+
+        @Override
+        public boolean isCancelled() {
+            return false;
+        }
+
+        @Override
+        public void setCancelled(boolean b) {
+
+        }
+    }
+
+    @Data
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    @RequiredArgsConstructor
+    private static class ItemMovement {
+        int prevSlot;
+        int prevSlotNewAmount;
+        io.vavr.collection.List<NewItemInfo> newItemInfos;
+
+        @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+        @RequiredArgsConstructor
+        @Getter
+        private static class NewItemInfo {
+            int newSlot;
+            int newSlotNewAmount;
+            boolean existedBefore;
+        }
+    }
+
+    //private ItemMovement getItemMovement(InventoryClickEvent event) {
+    //    int currentSlot = event.getSlot();
+    //    switch (event.getAction()) {
+    //        case MOVE_TO_OTHER_INVENTORY:
+    //            if (event.getInventory() instanceof PlayerInventory) {
+    //                boolean isHotbarClick = currentSlot >= 0 && currentSlot < 9;
+    //                if (isHotbarClick) {
+    //                    return findFirstAvailableSlot(event.getCursor(), event.getView().getTopInventory(), currentSlot, 9, 36);
+    //                } else {
+    //                    return findFirstAvailableSlot(event.getCursor(), event.getView().getTopInventory(), currentSlot, 0, 9);
+    //                }
+    //            }
+    //            break;
+    //    }
+    //}
+
+    private ItemMovement findFirstAvailableSlot(ItemStack item, Inventory inventory,int prevSlot, int startSlot, int endSlot) {
+        int amount = item.getAmount();
+        int stackSize = item.getMaxStackSize();
+        List<ItemMovement.NewItemInfo> newItemInfos = new ArrayList<>();
+        for (int i = startSlot; i < endSlot; i++) {
+            ItemStack existingItem = inventory.getItem(i);
+            if (existingItem == null || existingItem.getType().name().endsWith("AIR")) {
+                return new ItemMovement(
+                        prevSlot,
+                        0,
+                        io.vavr.collection.List.of(
+                                Collections.singleton(new ItemMovement.NewItemInfo(i, existingItem.getAmount() + amount, true)),
+                                newItemInfos
+                        ).flatMap(c -> c)
+                );
+            } else if(!existingItem.isSimilar(item)) {
+                continue;
+            } else if (existingItem.getAmount() + amount <= stackSize) {
+                return new ItemMovement(
+                        prevSlot,
+                        0,
+                        io.vavr.collection.List.of(
+                                Collections.singleton(new ItemMovement.NewItemInfo(i, existingItem.getAmount() + amount, true)),
+                                newItemInfos
+                        ).flatMap(c -> c)
+                );
+            } else {
+                int availableAmount = stackSize - existingItem.getAmount();
+                amount -= availableAmount;
+                newItemInfos.add(new ItemMovement.NewItemInfo(i, stackSize, true));
+                if (amount == 0) {
+                    return new ItemMovement(
+                            prevSlot,
+                            0,
+                            io.vavr.collection.List.of(
+                                    newItemInfos
+                            ).flatMap(c -> c)
+                    );
+                }
+            }
+        }
+        return new ItemMovement(
+                prevSlot,
+                amount,
+                io.vavr.collection.List.of(
+                        newItemInfos
+                ).flatMap(c -> c)
+        );
+    }
+
     @EventHandler(priority = EventPriority.HIGH)
     private void onUsage(PlayerInteractEvent event) {
         if (event.useItemInHand() == Event.Result.DENY) return;
@@ -93,6 +266,8 @@ public class EventsController implements Listener {
             }
             map.put(event.getItem().hashCode(), currentTick);
         }
+        EquipmentSlot equipmentSlot = ReflectedRepresentations.PlayerInteractEvent.getClickedItemSlot(event);
+        int currentMainHandSlot = event.getPlayer().getInventory().getHeldItemSlot();
         ItemUsageResultDTO result = itemService.useItem(
                 new ItemUsageBlockDTO(
                         event.getPlayer(),
@@ -100,7 +275,7 @@ public class EventsController implements Listener {
                         event.getItem(),
                         event.getClickedBlock(),
                         event.getBlockFace(),
-                        ReflectedRepresentations.PlayerInteractEvent.getClickedItemSlot(event),
+                        new SlotPredicate.Input(EquipmentToSlotConverter.convert(equipmentSlot, currentMainHandSlot), equipmentSlot),
                         tickerTime.getTick()
                 )
         );
@@ -134,12 +309,16 @@ public class EventsController implements Listener {
         if (tuple != null && tuple._1() == tickerTime.getTick()) {
             slot = tuple._2();
         } else slot = player.getInventory().getHeldItemSlot();
+        boolean isHeldItem = slot == player.getInventory().getHeldItemSlot();
         handleResult(itemService.dropItem(
                 new ItemUsageGeneralDTO(
                         player,
                         itemStack,
                         tickerTime.getTick(),
-                        slot
+                        new SlotPredicate.Input(
+                                slot,
+                                EquipmentToSlotConverter.convert(slot, player).getOrNull()
+                        )
                 )
         ), itemStack, player, event, false);
     }
@@ -163,7 +342,7 @@ public class EventsController implements Listener {
                         true,
                         event.getRightClicked(),
                         event.getPlayer().getItemInHand(),
-                        clickedSlot,
+                        new SlotPredicate.Input(clickedSlot, EquipmentToSlotConverter.convert(clickedSlot, event.getPlayer()).getOrNull()),
                         tickerTime.getTick()
                 )
         );
@@ -181,7 +360,7 @@ public class EventsController implements Listener {
                         false,
                         event.getEntity(),
                         player.getItemInHand(),
-                        player.getInventory().getHeldItemSlot(),
+                        new SlotPredicate.Input(player.getInventory().getHeldItemSlot(), EquipmentSlot.HAND),
                         tickerTime.getTick()
                 )
         );
