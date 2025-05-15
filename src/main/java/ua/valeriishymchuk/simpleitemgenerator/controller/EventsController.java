@@ -35,6 +35,8 @@ import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static ua.valeriishymchuk.simpleitemgenerator.common.item.ItemCopy.isAir;
+
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class EventsController implements Listener {
 
@@ -53,6 +55,7 @@ public class EventsController implements Listener {
         this.tickerTime = tickerTime;
         this.scheduler = scheduler;
     }
+
 
 
     @EventHandler
@@ -102,99 +105,36 @@ public class EventsController implements Listener {
         return snapshot;
     }
 
-
-    private static boolean isAir(ItemStack item) {
-        return item == null || item.getType().name().endsWith("AIR");
-    }
-
-
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    //@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     private void onItemClick(InventoryClickEvent event) {
-        ItemCopy[] inventorySnapshot = getInventorySnapshot(event.getView());
-        int offSlotsPointer = event.getView().countSlots();
-        scheduler.runTask(() -> {
-            ItemCopy[] newInventorySnapshot = getInventorySnapshot(event.getView());
-            List<SlotChangeDTO> removals = new ArrayList<>();
-            List<SlotChangeDTO> additions = new ArrayList<>();
-            for (int i = 0; i < inventorySnapshot.length; i++) {
-                ItemCopy item = inventorySnapshot[i];
-                ItemCopy newStack = newInventorySnapshot[i];
-                if (Objects.equals(item, newStack)) continue;
-                if (item != null && newStack != null && item.getClone().isSimilar(newStack.getClone())) {
-                    continue; // no change
-                }
-                if (newStack != null) {
-                    additions.add(new SlotChangeDTO(true, i, newStack));
-                }
-                if (item != null) {
-                    removals.add(new SlotChangeDTO(false, i, item));
-                }
-            }
-            List<SlotChangeDTO> changes = new ArrayList<>(removals);
-            changes.addAll(additions);
-            changes.forEach(change -> {
-                ItemUsageResultDTO result = itemService.moveItem(change, event.getWhoClicked().getInventory().getHeldItemSlot());
-                handleResult(
-                        result,
-                        change.getItemStack().getRealItem(),
-                        (Player) event.getWhoClicked(),
-                        new DummyEvent(),
-                        false
-                );
-            });
-        });
+        if (!(event.getClickedInventory() instanceof PlayerInventory) &&
+                event.getAction() != InventoryAction.MOVE_TO_OTHER_INVENTORY &&
+                event.getAction() != InventoryAction.HOTBAR_SWAP
+        ) return;
+        boolean isClickedSlotEmptied;
+        if (isAir(event.getCurrentItem())) {
+            isClickedSlotEmptied = false;
+        } else if (event.getAction() == InventoryAction.PICKUP_ALL ||
+                event.getAction() == InventoryAction.SWAP_WITH_CURSOR
+        ) {
+            isClickedSlotEmptied = true;
+        } else if ((event.getAction() == InventoryAction.PICKUP_ONE ||
+                event.getAction() == InventoryAction.PICKUP_HALF)
+                && event.getCurrentItem().getAmount() == 1) {
+            isClickedSlotEmptied = true;
+        } else {
+            isClickedSlotEmptied = event.getAction() == InventoryAction.MOVE_TO_OTHER_INVENTORY ||
+                    event.getAction() == InventoryAction.HOTBAR_SWAP;
+        }
+
+        Map<Integer, ItemStack> movedSlots = new HashMap<>();
+
+        Player player = (Player) event.getWhoClicked();
+
 
     }
 
-
-    private static class DummyEvent implements Cancellable {
-
-        @Override
-        public boolean isCancelled() {
-            return false;
-        }
-
-        @Override
-        public void setCancelled(boolean b) {
-
-        }
-    }
-
-    @Data
-    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-    @RequiredArgsConstructor
-    private static class ItemMovement {
-        int prevSlot;
-        int prevSlotNewAmount;
-        io.vavr.collection.List<NewItemInfo> newItemInfos;
-
-        @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
-        @RequiredArgsConstructor
-        @Getter
-        private static class NewItemInfo {
-            int newSlot;
-            int newSlotNewAmount;
-            boolean existedBefore;
-        }
-    }
-
-    //private ItemMovement getItemMovement(InventoryClickEvent event) {
-    //    int currentSlot = event.getSlot();
-    //    switch (event.getAction()) {
-    //        case MOVE_TO_OTHER_INVENTORY:
-    //            if (event.getInventory() instanceof PlayerInventory) {
-    //                boolean isHotbarClick = currentSlot >= 0 && currentSlot < 9;
-    //                if (isHotbarClick) {
-    //                    return findFirstAvailableSlot(event.getCursor(), event.getView().getTopInventory(), currentSlot, 9, 36);
-    //                } else {
-    //                    return findFirstAvailableSlot(event.getCursor(), event.getView().getTopInventory(), currentSlot, 0, 9);
-    //                }
-    //            }
-    //            break;
-    //    }
-    //}
-
-    private ItemMovement findFirstAvailableSlot(ItemStack item, Inventory inventory,int prevSlot, int startSlot, int endSlot) {
+    private ItemMovement findFirstAvailableSlot(ItemStack item, Inventory inventory, int prevSlot, int startSlot, int endSlot) {
         int amount = item.getAmount();
         int stackSize = item.getMaxStackSize();
         List<ItemMovement.NewItemInfo> newItemInfos = new ArrayList<>();
@@ -209,7 +149,7 @@ public class EventsController implements Listener {
                                 newItemInfos
                         ).flatMap(c -> c)
                 );
-            } else if(!existingItem.isSimilar(item)) {
+            } else if (!existingItem.isSimilar(item)) {
                 continue;
             } else if (existingItem.getAmount() + amount <= stackSize) {
                 return new ItemMovement(
@@ -247,7 +187,7 @@ public class EventsController implements Listener {
     @EventHandler(priority = EventPriority.HIGH)
     private void onUsage(PlayerInteractEvent event) {
         if (event.useItemInHand() == Event.Result.DENY) return;
-        if ( event.getAction() == Action.PHYSICAL) return;
+        if (event.getAction() == Action.PHYSICAL) return;
         long currentTick = tickerTime.getTick();
         Long lastDropTick = this.lastDropTick.get(event.getPlayer());
         Long lastPlayerClickTick = this.lastPlayerClickTick.get(event.getPlayer());
@@ -255,17 +195,6 @@ public class EventsController implements Listener {
         if (lastPlayerClickTick != null && currentTick == lastPlayerClickTick) return;
         Option<String> customItemOpt = Option.of(event.getItem())
                 .flatMap(NBTCustomItem::getCustomItemId);
-        if (customItemOpt.isDefined()) {
-            Map<Integer, Long> map = lastUsedItemTicks.computeIfAbsent(event.getPlayer(), p -> new HashMap<>());
-            Long lastUsedItemTick = map.get(event.getItem().hashCode());
-            long ticksSinceLastUse = currentTick - (lastUsedItemTick != null ? lastUsedItemTick : 0);
-            boolean shouldCancel = ticksSinceLastUse == 0 || (event.getAction() == Action.LEFT_CLICK_BLOCK && ticksSinceLastUse < 2);
-            if (lastUsedItemTick != null && shouldCancel) {
-                event.setCancelled(true);
-                return;
-            }
-            map.put(event.getItem().hashCode(), currentTick);
-        }
         EquipmentSlot equipmentSlot = ReflectedRepresentations.PlayerInteractEvent.getClickedItemSlot(event);
         int currentMainHandSlot = event.getPlayer().getInventory().getHeldItemSlot();
         ItemUsageResultDTO result = itemService.useItem(
@@ -281,6 +210,22 @@ public class EventsController implements Listener {
         );
         handleResult(result, event.getItem(), event.getPlayer(), event, true);
     }
+
+    //private ItemMovement getItemMovement(InventoryClickEvent event) {
+    //    int currentSlot = event.getSlot();
+    //    switch (event.getAction()) {
+    //        case MOVE_TO_OTHER_INVENTORY:
+    //            if (event.getInventory() instanceof PlayerInventory) {
+    //                boolean isHotbarClick = currentSlot >= 0 && currentSlot < 9;
+    //                if (isHotbarClick) {
+    //                    return findFirstAvailableSlot(event.getCursor(), event.getView().getTopInventory(), currentSlot, 9, 36);
+    //                } else {
+    //                    return findFirstAvailableSlot(event.getCursor(), event.getView().getTopInventory(), currentSlot, 0, 9);
+    //                }
+    //            }
+    //            break;
+    //    }
+    //}
 
     @EventHandler(priority = EventPriority.HIGHEST)
     private void onWorkbench(PrepareItemCraftEvent event) {
@@ -481,6 +426,37 @@ public class EventsController implements Listener {
             if (!isPlayerInventory) {
                 event.setCancelled(true);
             }
+        }
+    }
+
+    private static class DummyEvent implements Cancellable {
+
+        @Override
+        public boolean isCancelled() {
+            return false;
+        }
+
+        @Override
+        public void setCancelled(boolean b) {
+
+        }
+    }
+
+    @Data
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    @RequiredArgsConstructor
+    private static class ItemMovement {
+        int prevSlot;
+        int prevSlotNewAmount;
+        io.vavr.collection.List<NewItemInfo> newItemInfos;
+
+        @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+        @RequiredArgsConstructor
+        @Getter
+        private static class NewItemInfo {
+            int newSlot;
+            int newSlotNewAmount;
+            boolean existedBefore;
         }
     }
 

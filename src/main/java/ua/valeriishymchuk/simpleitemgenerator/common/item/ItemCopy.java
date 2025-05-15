@@ -17,7 +17,7 @@ public class ItemCopy {
     ItemStack clone;
 
     public static ItemCopy from(ItemStack item) {
-        if (EventsController.isAir(item)) return null;
+        if (isAir(item)) return null;
         return new ItemCopy(item, item.clone());
     }
 
@@ -32,5 +32,9 @@ public class ItemCopy {
     @Override
     public int hashCode() {
         return Objects.hash(realItem);
+    }
+
+    public static boolean isAir(ItemStack item) {
+        return item == null || item.getType().name().endsWith("AIR");
     }
 }
