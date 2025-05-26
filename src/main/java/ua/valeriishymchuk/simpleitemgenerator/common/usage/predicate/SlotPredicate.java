@@ -4,6 +4,7 @@ import io.vavr.control.Option;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 import org.bukkit.inventory.EquipmentSlot;
 import org.jetbrains.annotations.Nullable;
@@ -84,6 +85,7 @@ public abstract class SlotPredicate {
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
     @RequiredArgsConstructor
     @Getter
+    @ToString
     public static class Input {
         int clickedSlot;
         @Getter(AccessLevel.NONE)

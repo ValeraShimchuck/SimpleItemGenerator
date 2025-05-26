@@ -7,6 +7,7 @@ import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.Nullable;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 
+import java.util.Collections;
 import java.util.List;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -27,4 +28,14 @@ public class ItemUsageResultDTO {
     public Option<Component> getMessage() {
         return Option.of(message);
     }
+
+    public static final ItemUsageResultDTO EMPTY = new ItemUsageResultDTO(
+            null,
+            Collections.emptyList(),
+            false,
+            UsageEntity.Consume.NONE
+    );
+
+    public static final ItemUsageResultDTO CANCELLED = EMPTY.withShouldCancel(true);
+
 }

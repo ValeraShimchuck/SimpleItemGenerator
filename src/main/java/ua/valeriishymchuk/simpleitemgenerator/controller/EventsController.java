@@ -8,6 +8,7 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -34,6 +35,8 @@ import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 import static ua.valeriishymchuk.simpleitemgenerator.common.item.ItemCopy.isAir;
 
@@ -55,7 +58,6 @@ public class EventsController implements Listener {
         this.tickerTime = tickerTime;
         this.scheduler = scheduler;
     }
-
 
 
     @EventHandler
@@ -105,7 +107,7 @@ public class EventsController implements Listener {
         return snapshot;
     }
 
-    //@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     private void onItemClick(InventoryClickEvent event) {
         if (!(event.getClickedInventory() instanceof PlayerInventory) &&
                 event.getAction() != InventoryAction.MOVE_TO_OTHER_INVENTORY &&
@@ -131,7 +133,146 @@ public class EventsController implements Listener {
 
         Player player = (Player) event.getWhoClicked();
 
+        InventoryAction action = event.getAction();
+        switch (action) {
+            case MOVE_TO_OTHER_INVENTORY:
+                handleMoveToOtherInventory(event, movedSlots, player);
+                break;
+            case HOTBAR_SWAP:
+                handleHotbarSwap(event, movedSlots, player);
+                break;
+            case SWAP_WITH_CURSOR:
+                handleSwapWithCursor(event, movedSlots);
+                break;
+            case PLACE_ONE:
+            case PLACE_SOME:
+            case PLACE_ALL:
+                handlePlaceActions(event, movedSlots);
+                break;
+        }
+        Map<ItemUsageResultDTO, ItemStack> results = new HashMap<>();
+        if (isClickedSlotEmptied) {
+            results.put(itemService.moveItem(player, new SlotChangeDTO(
+                            false,
+                            new SlotPredicate.Input(event.getSlot(), EquipmentToSlotConverter.convert(event.getSlot(), player).getOrNull()),
+                            tickerTime.getTick(),
+                            ItemCopy.from(event.getCurrentItem())
+                    ), player.getInventory().getHeldItemSlot()),
+                    event.getCurrentItem()
+            );
+        }
 
+
+        movedSlots.forEach((slot, item) -> {
+            if (item.isSimilar(event.getClickedInventory().getItem(slot))) return;
+            results.put(itemService.moveItem(player,new SlotChangeDTO(
+                            true,
+                            new SlotPredicate.Input(event.getSlot(), EquipmentToSlotConverter.convert(event.getSlot(), player).getOrNull()),
+                            tickerTime.getTick(),
+                            ItemCopy.from(item)
+                    ), player.getInventory().getHeldItemSlot()),
+                    item
+            );
+        });
+
+        if (results.isEmpty()) return;
+
+        boolean isAnyCancelled = results.keySet().stream().anyMatch(ItemUsageResultDTO::isShouldCancel);
+
+        if (isAnyCancelled) {
+            results.keySet().stream()
+                    .filter(usage -> !usage.isShouldCancel())
+                    .forEach(results::remove);
+        }
+
+        results.forEach((usage, item) ->
+                handleResult(usage, item, player, event, false));
+
+        //results.stream().reduce((left, right) -> {
+        //    Component message = left.getMessage().map(leftMsg -> right.getMessage()
+        //            .map(rightMsg -> leftMsg.appendNewline()
+        //                    .append(rightMsg)
+        //            ).getOrElse(leftMsg)).orElse(right.getMessage()).getOrNull();
+        //    return new ItemUsageResultDTO(
+        //            message,
+        //            Stream.of(left.getCommands(), right.getCommands())
+        //                    .flatMap(Collection::stream).collect(Collectors.toList()),
+        //            isAnyCancelled,
+        //            left.getConsume()
+        //    )
+        //});
+
+    }
+
+    private void handleMoveToOtherInventory(InventoryClickEvent event, Map<Integer, ItemStack> movedSlots, Player player) {
+        // Determine the destination inventory (opposite of the clicked inventory)
+        Inventory destination = event.getClickedInventory() instanceof PlayerInventory
+                ? event.getView().getTopInventory()
+                : player.getInventory();
+
+        ItemStack movedItem = event.getCurrentItem().clone();
+        if (isAir(movedItem)) return;
+
+        // Clone destination contents to simulate the move
+        ItemStack[] originalContents = destination.getContents().clone();
+        Inventory tempInv = Bukkit.createInventory(
+                null,
+                (int) Math.ceil(((double) destination.getSize()) / 9) * 9
+        );
+        tempInv.setContents(originalContents.clone());
+
+        // Simulate adding the item
+        tempInv.addItem(movedItem);
+
+        // Find slots that were filled
+        for (int slot = 0; slot < originalContents.length; slot++) {
+            ItemStack original = originalContents[slot];
+            ItemStack updated = tempInv.getItem(slot);
+            if (isAir(original) && !isAir(updated)) {
+                movedSlots.put(slot, updated.clone());
+            }
+        }
+    }
+
+    private void handleHotbarSwap(InventoryClickEvent event, Map<Integer, ItemStack> movedSlots, Player player) {
+        int hotbarSlot = event.getHotbarButton();
+        if (hotbarSlot == -1) hotbarSlot = 40;
+        ItemStack hotbarItem = player.getInventory().getItem(hotbarSlot);
+        int clickedSlot = event.getSlot();
+        Inventory clickedInventory = event.getClickedInventory();
+
+        if (isAir(clickedInventory.getItem(clickedSlot)) && !isAir(hotbarItem)) {
+            movedSlots.put(clickedSlot, hotbarItem.clone());
+        }
+    }
+
+
+    private void handleSwapWithCursor(InventoryClickEvent event, Map<Integer, ItemStack> movedSlots) {
+        ItemStack cursorItem = event.getCursor();
+        int clickedSlot = event.getSlot();
+        Inventory clickedInventory = event.getClickedInventory();
+
+        if (isAir(clickedInventory.getItem(clickedSlot)) && !isAir(cursorItem)) {
+            movedSlots.put(clickedSlot, cursorItem.clone());
+        }
+    }
+
+    private void handlePlaceActions(InventoryClickEvent event, Map<Integer, ItemStack> movedSlots) {
+        int clickedSlot = event.getSlot();
+        Inventory clickedInventory = event.getClickedInventory();
+        ItemStack originalItem = clickedInventory.getItem(clickedSlot);
+        ItemStack cursorItem = event.getCursor();
+
+        if (isAir(originalItem) && !isAir(cursorItem)) {
+            ItemStack newItem = cursorItem.clone();
+            if (event.getAction() == InventoryAction.PLACE_ONE) {
+                newItem.setAmount(1);
+            } else {
+                int maxStack = newItem.getMaxStackSize();
+                newItem.setAmount(Math.min(cursorItem.getAmount(), maxStack));
+            }
+            movedSlots.put(clickedSlot, newItem);
+        }
     }
 
     private ItemMovement findFirstAvailableSlot(ItemStack item, Inventory inventory, int prevSlot, int startSlot, int endSlot) {

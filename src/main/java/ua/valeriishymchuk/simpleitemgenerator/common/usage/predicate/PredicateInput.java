@@ -1,10 +1,7 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate;
 
 import io.vavr.control.Option;
-import lombok.AccessLevel;
-import lombok.Data;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.bukkit.Location;
 import org.bukkit.entity.Player;
@@ -13,6 +10,7 @@ import org.jetbrains.annotations.Nullable;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
 @Getter
+@ToString
 public class PredicateInput {
 
     Player player;
@@ -24,6 +22,7 @@ public class PredicateInput {
     Amount amount;
     long currentTick;
     SlotPredicate.Input slot;
+    Trigger trigger;
 
     public Option<Location> getLocation() {
         return Option.of(location);
@@ -36,9 +35,18 @@ public class PredicateInput {
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
     @Getter
     @RequiredArgsConstructor
+    @ToString
     public static class Amount {
         int totalAmount;
         int stackAmount;
+    }
+
+    public enum Trigger {
+        TICK,
+        INVENTORY_CLICK,
+        ENTITY_CLICK,
+        WORLD_CLICK,
+        DROP_ITEM
     }
 
 }

@@ -21,16 +21,17 @@ import org.joml.Vector3i;
 import ua.valeriishymchuk.simpleitemgenerator.common.component.RawComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.cooldown.CooldownType;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
+import ua.valeriishymchuk.simpleitemgenerator.common.placeholders.PlaceholdersHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.IRayTraceResult;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceBlockResult;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceEntityResult;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.regex.RegexUtils;
-import ua.valeriishymchuk.simpleitemgenerator.common.support.PapiSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickAt;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickButton;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.PredicateInput;
+import ua.valeriishymchuk.simpleitemgenerator.domain.CooldownQueryDomain;
 import ua.valeriishymchuk.simpleitemgenerator.dto.*;
 import ua.valeriishymchuk.simpleitemgenerator.entity.MainConfigEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.CustomItemEntity;
@@ -47,12 +48,14 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+import static ua.valeriishymchuk.simpleitemgenerator.common.placeholders.PlaceholdersHelper.placeholdersFor;
+import static ua.valeriishymchuk.simpleitemgenerator.common.placeholders.PlaceholdersHelper.replacePlayer;
+
 @Log4j2
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
 public class ItemService implements IItemService {
 
-    private static final Pattern TIME_PATTERN = Pattern.compile("%time_(?<timeunit>[a-z])(\\.(?<precision>\\d+)f)?%");
 
     IConfigRepository configRepository;
     ItemRepository itemRepository;
@@ -93,7 +96,11 @@ public class ItemService implements IItemService {
         );
         if (itemUsageBlockDTO.getAction() == Action.PHYSICAL) return nop;
         Map<String, String> placeholders = new HashMap<>();
-        if (isBlock) placeholders.putAll(placeholdersFor(itemUsageBlockDTO.getClickedBlock().get(), itemUsageBlockDTO.getClickedFace().get()));
+        if (isBlock)
+            placeholders.putAll(placeholdersFor(
+                    itemUsageBlockDTO.getClickedBlock().get(),
+                    itemUsageBlockDTO.getClickedFace().get())
+            );
         PredicateInput predicateInput = new PredicateInput(
                 itemUsageBlockDTO.getPlayer(),
                 isBlock ? itemUsageBlockDTO.getClickedBlock().get().getLocation() : null,
@@ -101,93 +108,38 @@ public class ItemService implements IItemService {
                 isBlock ? ClickAt.BLOCK : ClickAt.AIR,
                 new PredicateInput.Amount(
                         getTotalItems(itemUsageBlockDTO.getItem(), itemUsageBlockDTO.getPlayer()),
-                        itemUsageBlockDTO.getItem() == null? 0 : itemUsageBlockDTO.getItem().getAmount()
+                        itemUsageBlockDTO.getItem() == null ? 0 : itemUsageBlockDTO.getItem().getAmount()
                 ),
                 itemUsageBlockDTO.getCurrentTick(),
-                itemUsageBlockDTO.getSlot()
+                itemUsageBlockDTO.getSlot(),
+                PredicateInput.Trigger.WORLD_CLICK
         );
         return useItem0(itemUsageBlockDTO.getPlayer(), itemUsageBlockDTO.getItem(), predicateInput, placeholders);
 
-    }
-
-    private Map<String, String> placeholdersFor(Block block, BlockFace blockFace) {
-        Map<String, String> placeholders = new HashMap<>();
-        placeholders.put("%target_x%", block.getX() + "");
-        placeholders.put("%target_y%", block.getY() + "");
-        placeholders.put("%target_z%", block.getZ() + "");
-        Vector3i placedVector = new Vector3i(block.getX(), block.getY(), block.getZ());
-        placedVector.add(new Vector3i(blockFace.getModX(), blockFace.getModY(), blockFace.getModZ()));
-        placeholders.put("%place_x%", placedVector.x() + "");
-        placeholders.put("%place_y%", placedVector.y() + "");
-        placeholders.put("%place_z%", placedVector.z() + "");
-        return placeholders;
-    }
-
-    private Map<String, String> placeholdersFor(Player player) {
-        Map<String, String> placeholders = new HashMap<>(placeholdersFor((Entity) player));
-        placeholders.put("%player_target%", player.getName());
-        return placeholders;
-    }
-
-    private Map<String, String> placeholdersFor(Entity entity) {
-        Map<String, String> placeholders = new HashMap<>();
-        placeholders.put("%target_x%", entity.getLocation().getX() + "");
-        placeholders.put("%target_y%", entity.getLocation().getY() + "");
-        placeholders.put("%target_z%", entity.getLocation().getZ() + "");
-        return placeholders;
     }
 
     @Override
     public ItemUsageResultDTO dropItem(ItemUsageGeneralDTO itemUsageGeneralDTO) {
         Player player = itemUsageGeneralDTO.getPlayer();
         ItemStack item = itemUsageGeneralDTO.getItemStack();
-        int playerReach = 3;
-        IRayTraceResult result = RayTraceHelper.rayTrace(
-                player,
-                Arrays.stream(Material.values()).filter(material -> material.isBlock() && (
-                                material.name().endsWith("AIR") ||
-                                        material.name().endsWith("WATER") ||
-                                        material.name().endsWith("LAVA"))
-                        )
-                        .collect(Collectors.toSet()),
-                playerReach,
-                playerReach + 1
-        );
-        Map<String, String> placeholders = new HashMap<>();
-        ClickAt clickAt;
-        Location useLoc = null;
-        if (result.hitBlock()) {
-            RayTraceBlockResult castesResult = (RayTraceBlockResult) result;
-            clickAt = ClickAt.BLOCK;
-            useLoc = castesResult.getHitBlock().getLocation();
-            placeholders.putAll(placeholdersFor(castesResult.getHitBlock(), castesResult.getSide()));
-        } else if (result.hitEntity()) {
-            RayTraceEntityResult castesResult = (RayTraceEntityResult) result;
-            useLoc = castesResult.getEntity().getLocation();
-            if (castesResult.getEntity() instanceof Player) {
-                placeholders.putAll(placeholdersFor((Player) castesResult.getEntity()));
-                clickAt = ClickAt.PLAYER;
-            } else {
-                placeholders.putAll(placeholdersFor(castesResult.getEntity()));
-                clickAt = ClickAt.ENTITY;
-            }
-        } else clickAt = ClickAt.AIR;
+        RaytraceResultDomain raytraceResult = raytrace(itemUsageGeneralDTO.getPlayer());
         ItemUsageResultDTO usageResult = useItem0(
                 player,
                 item,
                 new PredicateInput(
                         player,
-                        useLoc,
+                        raytraceResult.useLoc,
                         ClickButton.DROP,
-                        clickAt,
+                        raytraceResult.clickAt,
                         new PredicateInput.Amount(
                                 getTotalItems(item, player),
-                                item == null? 0 : item.getAmount()
+                                item == null ? 0 : item.getAmount()
                         ),
                         itemUsageGeneralDTO.getCurrentTick(),
-                        itemUsageGeneralDTO.getSlot()
+                        itemUsageGeneralDTO.getSlot(),
+                        PredicateInput.Trigger.DROP_ITEM
                 ),
-                placeholders
+                raytraceResult.placeholders
         );
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (usageResult.isShouldCancel() && player.getGameMode() == GameMode.CREATIVE && customItemId != null) {
@@ -196,13 +148,151 @@ public class ItemService implements IItemService {
         return usageResult;
     }
 
-    private ItemUsageResultDTO useItem0(Player player, ItemStack item, PredicateInput predicateInput, Map<String, String> placeholders) {
-        ItemUsageResultDTO nop = new ItemUsageResultDTO(
+    private ItemUsageResultDTO mergeUsages(ItemUsageResultDTO acc, ItemUsageResultDTO usage, boolean isPlainItem) {
+        UsageEntity.Consume consume;
+        boolean isAccNone = acc.getConsume().isNone();
+        boolean anyNone = acc.getConsume().isNone() || usage.getConsume().isNone();
+        if (anyNone) {
+            consume = isAccNone ? usage.getConsume() : acc.getConsume();
+        } else {
+            boolean isBothAmount = acc.getConsume().isAmount() && usage.getConsume().isAmount();
+            if (isBothAmount) {
+                consume = new UsageEntity.Consume(
+                        UsageEntity.ConsumeType.AMOUNT,
+                        acc.getConsume().getAmount() + usage.getConsume().getAmount()
+                );
+            } else {
+                if (acc.getConsume().getConsumeType() == usage.getConsume().getConsumeType()) {
+                    consume = acc.getConsume();
+                } else {
+                    List<UsageEntity.ConsumeType> typesHierarchy = Arrays.asList(
+                            UsageEntity.ConsumeType.STACK,
+                            UsageEntity.ConsumeType.ALL
+                    );
+                    int accIndex = typesHierarchy.indexOf(acc.getConsume().getConsumeType());
+                    int eIndex = typesHierarchy.indexOf(usage.getConsume().getConsumeType());
+                    if (accIndex > eIndex) {
+                        consume = acc.getConsume();
+                    } else consume = usage.getConsume();
+                }
+            }
+        }
+        return new ItemUsageResultDTO(
                 null,
-                Collections.emptyList(),
-                false,
-                UsageEntity.Consume.NONE
+                Stream.of(acc, usage).map(ItemUsageResultDTO::getCommands)
+                        .flatMap(List::stream).collect(Collectors.toList()),
+                (acc.isShouldCancel() || usage.isShouldCancel()) && !isPlainItem,
+                consume
         );
+    }
+
+    private CooldownQueryDomain queryPerItem(ItemStack item, UsageEntity usage, int id) {
+        NBTCustomItem.Cooldown cooldown = NBTCustomItem
+                .queryCooldown(item, usage.getCooldownMillis(), usage.getCooldownFreezeTimeMillis(), id);
+        boolean isOnCooldown = cooldown.isDefault();
+        boolean isFreeze = cooldown.isFrozen();
+        Long remainingCooldownTime;
+        if (isOnCooldown) {
+            remainingCooldownTime = cooldown.getRemainingMillis();
+        } else remainingCooldownTime = null;
+        return new CooldownQueryDomain(isOnCooldown, isFreeze, remainingCooldownTime, null);
+    }
+
+    private CooldownQueryDomain queryGlobal(String customItemId, UsageEntity usage, int id) {
+        Option<Long> lastUsage = cooldownRepository.lastUsageGlobal(customItemId, id, false);
+        boolean isOnCooldown = lastUsage
+                .map(l -> l + usage.getCooldownMillis() > System.currentTimeMillis()).getOrElse(false);
+        boolean isFreeze;
+        Long remainingCooldownTime;
+        if (isOnCooldown) {
+            isFreeze = cooldownRepository.lastUsageGlobal(customItemId, id, true)
+                    .map(l -> l + usage.getCooldownFreezeTimeMillis() > System.currentTimeMillis()).getOrElse(false);
+            if (!isFreeze) {
+                cooldownRepository.updateGlobal(customItemId, id, true);
+            }
+            remainingCooldownTime = lastUsage.getOrElse(0L) + usage.getCooldownMillis() - System.currentTimeMillis();
+        } else {
+            remainingCooldownTime = null;
+            isFreeze = false;
+            cooldownRepository.updateGlobal(customItemId, id, false);
+            cooldownRepository.updateGlobal(customItemId, id, true);
+        }
+        return new CooldownQueryDomain(isOnCooldown, isFreeze, remainingCooldownTime, lastUsage.getOrNull());
+    }
+
+    private CooldownQueryDomain queryPerPlayer(String customItemId, Player player, UsageEntity usage, int id) {
+        Option<Long> lastUsage = cooldownRepository.lastUsagePerPlayer(customItemId, player.getUniqueId(), id, false);
+        boolean isOnCooldown = lastUsage
+                .map(l -> l + usage.getCooldownMillis() > System.currentTimeMillis()).getOrElse(false);
+        boolean isFreeze;
+        Long remainingCooldownTime;
+        if (isOnCooldown) {
+            isFreeze = cooldownRepository.lastUsagePerPlayer(customItemId, player.getUniqueId(), id, true)
+                    .map(l -> l + usage.getCooldownFreezeTimeMillis() > System.currentTimeMillis()).getOrElse(false);
+            if (!isFreeze) {
+                cooldownRepository.updatePerPlayer(customItemId, player.getUniqueId(), id, true);
+            }
+            remainingCooldownTime = lastUsage.getOrElse(0L) + usage.getCooldownMillis() - System.currentTimeMillis();
+        } else {
+            isFreeze = false;
+            cooldownRepository.updatePerPlayer(customItemId, player.getUniqueId(), id, false);
+            cooldownRepository.updatePerPlayer(customItemId, player.getUniqueId(), id, true);
+            remainingCooldownTime = null;
+        }
+        return new CooldownQueryDomain(isOnCooldown, isFreeze, remainingCooldownTime, lastUsage.getOrNull());
+    }
+
+    private CooldownQueryDomain getAndUpdateCooldown(ItemStack item, UsageEntity usage, Player player) {
+        String customItemId = NBTCustomItem.getCustomItemId(item).get();
+        CustomItemEntity customItem = itemRepository.getItem(customItemId).get();
+        int id = customItem.getUsages().indexOf(usage);
+        CooldownType cooldownType = usage.getCooldownType();
+        CooldownQueryDomain cooldownQueryDomain;
+        switch (cooldownType) {
+            case PER_ITEM:
+                cooldownQueryDomain = queryPerItem(item, usage, id);
+                break;
+            case GLOBAL:
+                cooldownQueryDomain = queryGlobal(customItemId, usage, id);
+                break;
+            case PER_PLAYER:
+                cooldownQueryDomain = queryPerPlayer(customItemId, player, usage, id);
+                break;
+            default:
+                throw new IllegalStateException("Unexpected value: " + cooldownType);
+        }
+        return cooldownQueryDomain;
+    }
+
+    private ItemUsageResultDTO applyCooldown(
+            UsageEntity usage,
+            ItemStack item,
+            Player player,
+            PredicateInput predicateInput,
+            Map<String, String> placeholders
+    ) {
+        String customItemId = NBTCustomItem.getCustomItemId(item).get();
+        CustomItemEntity customItem = itemRepository.getItem(customItemId).get();
+        CooldownQueryDomain cooldownQueryDomain = getAndUpdateCooldown(item, usage, player);
+        if (cooldownQueryDomain.isFreeze()) return ItemUsageResultDTO.CANCELLED;
+        if (cooldownQueryDomain.isOnCooldown()) {
+            return usage.prepareCooldownCommands(cooldownQueryDomain, player, placeholders);
+        }
+        boolean shouldCancel = false;
+        boolean isInventoryClick = predicateInput.getTrigger() == PredicateInput.Trigger.INVENTORY_CLICK;
+        if (!customItem.isPlainItem() && !isInventoryClick) {
+            shouldCancel = true;
+        } else if (usage.isCancel()) {
+            shouldCancel = true;
+        }
+        return ItemUsageResultDTO.CANCELLED
+                .withCommands(usage.prepareCommands(player, placeholders))
+                .withShouldCancel(shouldCancel)
+                .withConsume(usage.getConsume());
+    }
+
+    private ItemUsageResultDTO useItem0(Player player, ItemStack item, PredicateInput predicateInput, Map<String, String> placeholders) {
+        ItemUsageResultDTO nop = ItemUsageResultDTO.EMPTY;
         if (item == null || !NBTCustomItem.hasCustomItemId(item)) return nop;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (customItemId == null) return nop;
@@ -211,137 +301,17 @@ public class ItemService implements IItemService {
             boolean isItemUsage = predicateInput.getButton().isDefined();
             boolean shouldSendMessage = isItemUsage && config().isSendInvalidItemMessage();
             Component message = lang().getInvalidItem().replaceText("%key%", customItemId).bake();
-            return new ItemUsageResultDTO(
-                    shouldSendMessage? message : null,
-                    Collections.emptyList(),
-                    true,
-                    UsageEntity.Consume.NONE
-            );
+            return ItemUsageResultDTO.EMPTY
+                    .withMessage(shouldSendMessage ? message : null)
+                    .withShouldCancel(true);
         }
         List<UsageEntity> usages = customItem.getUsages().stream()
                 .filter(usageFilter -> usageFilter.accepts(predicateInput))
                 .collect(Collectors.toList());
-        return usages.stream().map(usage -> {
-            int id = customItem.getUsages().indexOf(usage);
-            CooldownType cooldownType = usage.getCooldownType();
-            boolean isOnCooldown;
-            boolean isFreeze;
-            Long remainingCooldownTime;
-            Option<Long> lastUsage;
-            switch (cooldownType) {
-                case PER_ITEM:
-                    NBTCustomItem.Cooldown cooldown = NBTCustomItem
-                            .queryCooldown(item, usage.getCooldownMillis(), usage.getCooldownFreezeTimeMillis(), id);
-                    isOnCooldown = cooldown.isDefault();
-                    isFreeze = cooldown.isFrozen();
-                    if (isOnCooldown) {
-                        remainingCooldownTime = cooldown.getRemainingMillis();
-                    } else remainingCooldownTime = null;
-                    break;
-                case GLOBAL:
-                    lastUsage = cooldownRepository.lastUsageGlobal(customItemId, id, false);
-                    isOnCooldown = lastUsage
-                            .map(l -> l + usage.getCooldownMillis() > System.currentTimeMillis()).getOrElse(false);
-                    if (isOnCooldown) {
-                        isFreeze = cooldownRepository.lastUsageGlobal(customItemId, id, true)
-                                .map(l -> l + usage.getCooldownFreezeTimeMillis() > System.currentTimeMillis()).getOrElse(false);
-                        if (!isFreeze) {
-                            cooldownRepository.updateGlobal(customItemId, id, true);
-                        }
-                        remainingCooldownTime = lastUsage.getOrElse(0L) + usage.getCooldownMillis() - System.currentTimeMillis();
-                    } else {
-                        remainingCooldownTime = null;
-                        isFreeze = false;
-                        cooldownRepository.updateGlobal(customItemId, id, false);
-                        cooldownRepository.updateGlobal(customItemId, id, true);
-                    }
-                    break;
-                case PER_PLAYER:
-                    lastUsage = cooldownRepository.lastUsagePerPlayer(customItemId, player.getUniqueId(), id, false);
-                    isOnCooldown = lastUsage
-                            .map(l -> l + usage.getCooldownMillis() > System.currentTimeMillis()).getOrElse(false);
-                    if (isOnCooldown) {
-                        isFreeze = cooldownRepository.lastUsagePerPlayer(customItemId, player.getUniqueId(), id, true)
-                                .map(l -> l + usage.getCooldownFreezeTimeMillis() > System.currentTimeMillis()).getOrElse(false);
-                        if (!isFreeze) {
-                            cooldownRepository.updatePerPlayer(customItemId, player.getUniqueId(), id, true);
-                        }
-                        remainingCooldownTime = lastUsage.getOrElse(0L) + usage.getCooldownMillis() - System.currentTimeMillis() ;
-                    } else {
-                        isFreeze = false;
-                        cooldownRepository.updatePerPlayer(customItemId, player.getUniqueId(), id, false);
-                        cooldownRepository.updatePerPlayer(customItemId, player.getUniqueId(), id, true);
-                        remainingCooldownTime = null;
-                    }
-                    break;
-                default:
-                    throw new IllegalStateException("Unexpected value: " + cooldownType);
-
-            }
-            if (isFreeze) return new ItemUsageResultDTO(
-                    null,
-                    Collections.emptyList(),
-                    true,
-                    UsageEntity.Consume.NONE
-            );
-            if (isOnCooldown) return new ItemUsageResultDTO(
-                    null,
-                    usage.getOnCooldown().stream().map(it -> prepareCooldown(remainingCooldownTime, player, it, placeholders))
-                            .collect(Collectors.toList()),
-                    true,
-                    UsageEntity.Consume.NONE
-            );
-            return new ItemUsageResultDTO(
-                    null,
-                    usage.getCommands().stream()
-                            .map(command -> prepare(command, player, placeholders))
-                            .collect(Collectors.toList()),
-                    usage.isCancel()  && !customItem.isPlainItem(),
-                    usage.getConsume()
-            );
-        }).reduce((acc, e) -> {
-
-            UsageEntity.Consume consume;
-            boolean isAccNone = acc.getConsume().isNone();
-            boolean anyNone = acc.getConsume().isNone() || e.getConsume().isNone();
-            if (anyNone) {
-                consume = isAccNone ? e.getConsume() : acc.getConsume();
-            } else {
-                boolean isBothAmount = acc.getConsume().isAmount() && e.getConsume().isAmount();
-                if (isBothAmount) {
-                    consume = new UsageEntity.Consume(
-                            UsageEntity.ConsumeType.AMOUNT,
-                            acc.getConsume().getAmount() + e.getConsume().getAmount()
-                    );
-                } else {
-                    if (acc.getConsume().getConsumeType() == e.getConsume().getConsumeType()) {
-                        consume = acc.getConsume();
-                    } else {
-                        List<UsageEntity.ConsumeType> typesHierarchy = Arrays.asList(
-                                UsageEntity.ConsumeType.STACK,
-                                UsageEntity.ConsumeType.ALL
-                        );
-                        int accIndex = typesHierarchy.indexOf(acc.getConsume().getConsumeType());
-                        int eIndex = typesHierarchy.indexOf(e.getConsume().getConsumeType());
-                        if (accIndex > eIndex) {
-                            consume = acc.getConsume();
-                        } else consume = e.getConsume();
-                    }
-                }
-            }
-            return new ItemUsageResultDTO(
-                    null,
-                    Stream.of(acc, e).map(ItemUsageResultDTO::getCommands)
-                            .flatMap(List::stream).collect(Collectors.toList()),
-                    (acc.isShouldCancel() || e.isShouldCancel()) && !customItem.isPlainItem(),
-                    consume
-            );
-        }).orElse(new ItemUsageResultDTO(
-                null,
-                Collections.emptyList(),
-                !customItem.isPlainItem(),
-                UsageEntity.Consume.NONE
-        ));
+        return usages.stream().
+                map(usage -> applyCooldown(usage, item, player, predicateInput, placeholders))
+                .reduce((acc, e) -> mergeUsages(acc, e, customItem.isPlainItem()))
+                .orElse(ItemUsageResultDTO.EMPTY.withShouldCancel(!customItem.isPlainItem()));
     }
 
     private CommandExecutionDTO prepare(UsageEntity.Command command, Player player, Map<String, String> placeholders) {
@@ -350,43 +320,6 @@ public class ItemService implements IItemService {
         placeholders.forEach((placeholder, value) -> strAtomic.set(strAtomic.get().replace(placeholder, value)));
         return new CommandExecutionDTO(command.isExecuteAsConsole(), strAtomic.get());
     }
-
-    private CommandExecutionDTO prepareCooldown(long milliseconds, Player player, UsageEntity.Command command, Map<String, String> placeholders) {
-        CommandExecutionDTO halfPreparedDto = prepare(command, player, placeholders);
-        String rawCommand = halfPreparedDto.getCommand();
-        String finalCommand = RegexUtils.replaceAll(TIME_PATTERN.matcher(rawCommand), matcher -> {
-            String timeUnit = matcher.group("timeunit").toLowerCase();
-            int precision = Option.of(matcher.group("precision")).map(Integer::parseInt).getOrElse(0);
-            double value;
-            switch (timeUnit) {
-                case "s":
-                    value = milliseconds / 1000.0;
-                    break;
-                case "m":
-                    value = milliseconds / 1000.0 / 60.0;
-                    break;
-                case "h":
-                    value = milliseconds / 1000.0 / 60.0 / 60.0;
-                    break;
-                case "t":
-                    value = milliseconds / 50.0;
-                    break;
-                default:
-                    throw new IllegalStateException("Unknown time unit: " + timeUnit);
-            }
-            return String.format(Locale.ROOT, "%." + precision + "f", value);
-        });
-        return new CommandExecutionDTO(halfPreparedDto.isExecuteAsConsole(), finalCommand);
-    }
-
-    private String replacePlayer(String text, Player player) {
-        return PapiSupport.tryParse(player, text)
-                .replace("%player%", player.getName())
-                .replace("%player_x%", player.getLocation().getX() + "")
-                .replace("%player_y%", player.getLocation().getY() + "")
-                .replace("%player_z%", player.getLocation().getZ() + "");
-    }
-
 
     @Override
     public ItemUsageResultDTO useItemAt(ItemUsageEntityDTO itemUsageEntityDTO) {
@@ -397,24 +330,22 @@ public class ItemService implements IItemService {
         boolean isPlayer = clicked instanceof Player;
         PredicateInput clickType = new PredicateInput(
                 player,
-                clicked == null ? null : clicked.getLocation(),
+                clicked.getLocation(),
                 isRightClicked ? ClickButton.RIGHT : ClickButton.LEFT,
                 isPlayer ? ClickAt.PLAYER : ClickAt.ENTITY,
                 new PredicateInput.Amount(
                         getTotalItems(item, player),
-                        item == null? 0 : item.getAmount()
+                        item == null ? 0 : item.getAmount()
                 ),
                 itemUsageEntityDTO.getCurrentTick(),
-                itemUsageEntityDTO.getSlot()
+                itemUsageEntityDTO.getSlot(),
+                PredicateInput.Trigger.ENTITY_CLICK
         );
         Map<String, String> placeholders = isPlayer ? placeholdersFor((Player) clicked) : placeholdersFor(clicked);
         return useItem0(player, item, clickType, placeholders);
     }
 
-    @Override
-    public ItemUsageResultDTO tickItem(ItemUsageGeneralDTO itemUsageGeneralDTO) {
-        Player player = itemUsageGeneralDTO.getPlayer();
-        ItemStack item = itemUsageGeneralDTO.getItemStack();
+    public RaytraceResultDomain raytrace(Player player) {
         int playerReach = 3;
         IRayTraceResult result = RayTraceHelper.rayTrace(
                 player,
@@ -446,22 +377,60 @@ public class ItemService implements IItemService {
                 clickAt = ClickAt.ENTITY;
             }
         } else clickAt = ClickAt.AIR;
+        return new RaytraceResultDomain(
+                clickAt,
+                useLoc,
+                placeholders
+        );
+    }
+
+    @Override
+    public ItemUsageResultDTO tickItem(ItemUsageGeneralDTO itemUsageGeneralDTO) {
+        Player player = itemUsageGeneralDTO.getPlayer();
+        ItemStack item = itemUsageGeneralDTO.getItemStack();
+        RaytraceResultDomain raytraceResultDomain = raytrace(player);
         return useItem0(
                 player,
                 item,
                 new PredicateInput(
                         player,
-                        useLoc,
+                        raytraceResultDomain.useLoc,
                         null,
-                        clickAt,
+                        raytraceResultDomain.clickAt,
                         new PredicateInput.Amount(
                                 getTotalItems(item, player),
-                                item == null? 0 : item.getAmount()
+                                item == null ? 0 : item.getAmount()
                         ),
                         itemUsageGeneralDTO.getCurrentTick(),
-                        itemUsageGeneralDTO.getSlot()
+                        itemUsageGeneralDTO.getSlot(),
+                        PredicateInput.Trigger.TICK
                 ),
-                placeholders
+                raytraceResultDomain.placeholders
+        );
+    }
+
+    @Override
+    public ItemUsageResultDTO moveItem(Player player, SlotChangeDTO slotChanges, int selectedHotbarSlot) {
+        System.out.println("Got movement: " + slotChanges.getSlot() + " " + slotChanges.isOccupied());
+        ItemStack item = slotChanges.getItemStack().getRealItem();
+        RaytraceResultDomain raytraceResultDomain = raytrace(player);
+        return useItem0(
+                player,
+                item,
+                new PredicateInput(
+                        player,
+                        raytraceResultDomain.useLoc,
+                        null,
+                        raytraceResultDomain.clickAt,
+                        new PredicateInput.Amount(
+                                getTotalItems(item, player),
+                                item == null ? 0 : item.getAmount()
+                        ),
+                        slotChanges.getTick(),
+                        slotChanges.getSlot(),
+                        PredicateInput.Trigger.INVENTORY_CLICK
+                ),
+                raytraceResultDomain.placeholders
         );
     }
 
@@ -612,5 +581,13 @@ public class ItemService implements IItemService {
     @Override
     public void cooldownAutoSave() {
         cooldownRepository.save();
+    }
+
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    @RequiredArgsConstructor
+    private static class RaytraceResultDomain {
+        ClickAt clickAt;
+        Location useLoc;
+        Map<String, String> placeholders;
     }
 }
