@@ -2,29 +2,27 @@ package ua.valeriishymchuk.simpleitemgenerator.common.usage;
 
 import io.vavr.collection.HashMap;
 import io.vavr.control.Option;
-import lombok.AccessLevel;
-import lombok.RequiredArgsConstructor;
-import lombok.ToString;
-import lombok.With;
+import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.bukkit.Location;
 import org.jetbrains.annotations.Nullable;
+import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.WorldGuardSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickAt;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickButton;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.PredicateInput;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.SlotPredicate;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
 @ToString
 @With
 public class Predicate {
+
+    private static final boolean DEBUG = true;
+    private static final boolean SLOT_DEBUG = false;
 
     @Nullable
     ClickButton button;
@@ -35,6 +33,7 @@ public class Predicate {
     @Nullable List<String> permissions;
     @Nullable List<Integer> timeTick;
     @Nullable SlotPredicate slots;
+    @Nullable SlotPredicate prevSlots;
 
 
 
@@ -55,6 +54,7 @@ public class Predicate {
     }
 
     public Option<SlotPredicate> getSlots() { return Option.of(slots); }
+    public Option<SlotPredicate> getPrevSlots() { return Option.of(prevSlots); }
 
     public Option<ClickAt> getAt() {
         return Option.of(at);
@@ -80,26 +80,85 @@ public class Predicate {
     }
 
     private boolean checkTime(PredicateInput input) {
-        if (getTimeTick().isEmpty() && input.getButton().isEmpty()) return false;
+        if (getTimeTick().isEmpty() && input.getTrigger() == PredicateInput.Trigger.TICK) return false;
         return isEmptyOrAnyMatch(getTimeTick(), tick -> input.getCurrentTick() % tick == 0);
     }
 
-    public boolean test(PredicateInput input) {
+    private static void printDebug(String msg) {
+        if (DEBUG) System.out.println(msg);
+    }
+
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    @RequiredArgsConstructor
+    @Getter
+    public static class TestResult {
+        boolean testResult;
+        List<PipelineDebug> debugs;
+    }
+
+    public TestResult test(PredicateInput input) {
         Location location = input.getLocation().getOrElse(input.getPlayer().getLocation());
-        boolean tickPass = !getTimeTick().isEmpty() || input.getButton().isDefined();
-        if (!tickPass) return false;
-        return getButton().map(side1 -> input.getButton()
-                        .map(button -> button == side1).getOrElse(false)).getOrElse(true) &&
-                //isEmptyOrAnyMatch(getTimeTick(), tick -> input.getCurrentTick() % tick == 0) &&
-                checkTime(input) &&
-                getSlots().map(slots1 -> slots1.matches(input.getSlot())).getOrElse(true) &&
-                getAt().map(at1 -> at1 == input.getClickAt()).getOrElse(true) &&
-                getAmount().map(amount1 -> amount1.test(input.getAmount())).getOrElse(true) &&
-                getPermissions().stream().allMatch(s -> input.getPlayer().hasPermission(s)) &&
-                HashMap.ofAll(getStateFlags()).forAll(t -> {
-                    return WorldGuardSupport.checkState(input.getPlayer(), location, t._1)
-                            .get() == t._2;
-                });
+        boolean tickPass = getTimeTick().isEmpty() && input.getTrigger() == PredicateInput.Trigger.TICK;
+        if (tickPass) return new TestResult(
+                false,
+                Collections.singletonList(
+                        PipelineDebug.root("Tick predicate is empty and its triggered by tick, skip...")
+                )
+        );
+        List<PipelineDebug> pipelineDebugs = new ArrayList<>();
+        boolean buttonMatch = getButton().map(side1 -> input.getButton()
+                .map(button -> button == side1).getOrElse(false)).getOrElse(true);
+        if (getButton().isDefined())
+            pipelineDebugs.add(PipelineDebug.root("Button match - " + buttonMatch));
+        boolean timeMatch = checkTime(input);
+        if (!getTimeTick().isEmpty())
+            pipelineDebugs.add(PipelineDebug.root("Time match - " + timeMatch));
+        boolean matchSlots = getSlots().map(slots1 -> {
+            if (!input.getSlot().isOccupied()) return false;
+            SlotPredicate.PredicateResult result = slots1.matches(input.getSlot());
+            PipelineDebug slotMatchPipelineDebug = PipelineDebug.root(
+                    "Slots match - " + result.isResult()
+            );
+            pipelineDebugs.add(slotMatchPipelineDebug.appendAllAndReturnSelf(result.getPipelineDebugs()));
+            return result.isResult();
+        }).getOrElse(true);
+
+        boolean matchPrevSlots = getPrevSlots().map(slots1 -> {
+            if (input.getSlot().isOccupied()) return false;
+            SlotPredicate.PredicateResult result = slots1.matches(input.getSlot());
+            PipelineDebug slotMatchPipelineDebug = PipelineDebug.root(
+                    "Previous slots match - " + result.isResult()
+            );
+            pipelineDebugs.add(slotMatchPipelineDebug.appendAllAndReturnSelf(result.getPipelineDebugs()));
+            return result.isResult();
+        }).getOrElse(true);
+        boolean matchAt = getAt().map(at1 -> at1 == input.getClickAt()).getOrElse(true);
+        if (getAt().isDefined())
+            pipelineDebugs.add(PipelineDebug.root("Match at - " + matchAt));
+        boolean matchAmount = getAmount().map(amount1 -> amount1.test(input.getAmount())).getOrElse(true);
+        if (getAmount().isDefined())
+            pipelineDebugs.add(PipelineDebug.root("Amount match - " + matchAmount));
+        boolean matchPermission = getPermissions().stream().allMatch(s -> input.getPlayer().hasPermission(s));
+        if (!getPermissions().isEmpty())
+            pipelineDebugs.add(PipelineDebug.root("Permission match - " + matchPermission));
+        boolean matchWg = HashMap.ofAll(getStateFlags()).forAll(t -> {
+            return WorldGuardSupport.checkState(input.getPlayer(), location, t._1)
+                    .get() == t._2;
+        });
+        if (!getStateFlags().isEmpty())
+            pipelineDebugs.add(PipelineDebug.root("WG match - " + matchWg));
+        boolean testResult = buttonMatch &&
+                timeMatch &&
+                matchSlots &&
+                matchAt &&
+                matchAmount &&
+                matchPermission &&
+                matchWg &&
+                matchPrevSlots;
+        return new TestResult(
+                testResult,
+                pipelineDebugs
+        );
     }
 
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)

@@ -5,6 +5,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import org.bukkit.entity.Player;
 import ua.valeriishymchuk.simpleitemgenerator.common.cooldown.CooldownType;
+import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
 import ua.valeriishymchuk.simpleitemgenerator.common.regex.RegexUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.Predicate;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.PredicateInput;
@@ -12,10 +13,7 @@ import ua.valeriishymchuk.simpleitemgenerator.domain.CooldownQueryDomain;
 import ua.valeriishymchuk.simpleitemgenerator.dto.CommandExecutionDTO;
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageResultDTO;
 
-import java.util.Collections;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.UnaryOperator;
 import java.util.regex.Pattern;
@@ -78,22 +76,36 @@ public class UsageEntity {
         return ItemUsageResultDTO.CANCELLED.withCommands(commands);
     }
 
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    @RequiredArgsConstructor
+    @Getter
+    public static class AcceptResult {
+        boolean isAccepted;
+        List<PipelineDebug> pipelineDebugs;
+    }
 
-    public boolean accepts(PredicateInput input) {
+    public AcceptResult accepts(PredicateInput input) {
         if (predicates.isEmpty()
                 && input.getTrigger() != PredicateInput.Trigger.TICK
-                && input.getTrigger() != PredicateInput.Trigger.INVENTORY_CLICK
-        ) return true;
-        boolean shouldLog = input.getTrigger() == PredicateInput.Trigger.INVENTORY_CLICK && !predicates.isEmpty();
-        if (shouldLog) System.out.println("Predicate input: " + input);
+        ) return new AcceptResult(
+                true,
+                Collections.singletonList(PipelineDebug.root("Predicates are empty, so its true"))
+        ) ;
+        //boolean shouldLog = input.getTrigger() == PredicateInput.Trigger.INVENTORY_CLICK && !predicates.isEmpty();
         //if (predicates.isEmpty() && input.getButton().isDefined()) return true;
-        if (shouldLog) System.out.println("Testing predicates");
-        return predicates.stream().anyMatch(t -> {
-            boolean result = t.test(input);
-            if (shouldLog) System.out.println("__________________________________________________________________");
-            if (shouldLog) System.out.println("Predicate result: " + result + " predicate: " + t);
-            return result;
+        List<PipelineDebug> debugs = new ArrayList<>();
+        boolean isAccepted = predicates.stream().anyMatch(t -> {
+            Predicate.TestResult result = t.test(input);
+            debugs.add(PipelineDebug
+                    .root("Predicate (" + result.isTestResult() + ") - " + predicates.indexOf(t))
+                    .appendAllAndReturnSelf(result.getDebugs())
+            );
+            return result.isTestResult();
         });
+        return new AcceptResult(
+                isAccepted,
+                debugs
+        );
     }
 
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)

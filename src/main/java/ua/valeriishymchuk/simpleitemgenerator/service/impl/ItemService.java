@@ -20,6 +20,7 @@ import org.jetbrains.annotations.Nullable;
 import org.joml.Vector3i;
 import ua.valeriishymchuk.simpleitemgenerator.common.component.RawComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.cooldown.CooldownType;
+import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.placeholders.PlaceholdersHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.IRayTraceResult;
@@ -40,7 +41,6 @@ import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IConfigRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.ICooldownRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ItemRepository;
-import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
@@ -54,7 +54,7 @@ import static ua.valeriishymchuk.simpleitemgenerator.common.placeholders.Placeho
 @Log4j2
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
-public class ItemService implements IItemService {
+public class ItemService {
 
 
     IConfigRepository configRepository;
@@ -83,8 +83,7 @@ public class ItemService implements IItemService {
                 ).mapToInt(ItemStack::getAmount).sum();
     }
 
-    @Override
-    public ItemUsageResultDTO useItem(ItemUsageBlockDTO itemUsageBlockDTO) {
+    public ItemUsageResultDTO useItem(ItemUsageBlockDTO itemUsageBlockDTO, PipelineDebug pipelineDebug) {
         boolean isBlock = itemUsageBlockDTO.getClickedBlock().isDefined();
         boolean isLeftClick = itemUsageBlockDTO.getAction() == Action.LEFT_CLICK_AIR ||
                 itemUsageBlockDTO.getAction() == Action.LEFT_CLICK_BLOCK;
@@ -92,7 +91,8 @@ public class ItemService implements IItemService {
                 null,
                 Collections.emptyList(),
                 false,
-                UsageEntity.Consume.NONE
+                UsageEntity.Consume.NONE,
+                pipelineDebug
         );
         if (itemUsageBlockDTO.getAction() == Action.PHYSICAL) return nop;
         Map<String, String> placeholders = new HashMap<>();
@@ -114,12 +114,17 @@ public class ItemService implements IItemService {
                 itemUsageBlockDTO.getSlot(),
                 PredicateInput.Trigger.WORLD_CLICK
         );
-        return useItem0(itemUsageBlockDTO.getPlayer(), itemUsageBlockDTO.getItem(), predicateInput, placeholders);
+        return useItem0(
+                itemUsageBlockDTO.getPlayer(),
+                itemUsageBlockDTO.getItem(),
+                predicateInput,
+                placeholders,
+                pipelineDebug
+        );
 
     }
 
-    @Override
-    public ItemUsageResultDTO dropItem(ItemUsageGeneralDTO itemUsageGeneralDTO) {
+    public ItemUsageResultDTO dropItem(ItemUsageGeneralDTO itemUsageGeneralDTO, PipelineDebug pipelineDebug) {
         Player player = itemUsageGeneralDTO.getPlayer();
         ItemStack item = itemUsageGeneralDTO.getItemStack();
         RaytraceResultDomain raytraceResult = raytrace(itemUsageGeneralDTO.getPlayer());
@@ -139,7 +144,8 @@ public class ItemService implements IItemService {
                         itemUsageGeneralDTO.getSlot(),
                         PredicateInput.Trigger.DROP_ITEM
                 ),
-                raytraceResult.placeholders
+                raytraceResult.placeholders,
+                pipelineDebug
         );
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (usageResult.isShouldCancel() && player.getGameMode() == GameMode.CREATIVE && customItemId != null) {
@@ -148,7 +154,7 @@ public class ItemService implements IItemService {
         return usageResult;
     }
 
-    private ItemUsageResultDTO mergeUsages(ItemUsageResultDTO acc, ItemUsageResultDTO usage, boolean isPlainItem) {
+    private ItemUsageResultDTO mergeUsages(ItemUsageResultDTO acc, ItemUsageResultDTO usage, boolean isPlainItem, PipelineDebug pipelineDebug) {
         UsageEntity.Consume consume;
         boolean isAccNone = acc.getConsume().isNone();
         boolean anyNone = acc.getConsume().isNone() || usage.getConsume().isNone();
@@ -182,7 +188,8 @@ public class ItemService implements IItemService {
                 Stream.of(acc, usage).map(ItemUsageResultDTO::getCommands)
                         .flatMap(List::stream).collect(Collectors.toList()),
                 (acc.isShouldCancel() || usage.isShouldCancel()) && !isPlainItem,
-                consume
+                consume,
+                pipelineDebug
         );
     }
 
@@ -291,27 +298,48 @@ public class ItemService implements IItemService {
                 .withConsume(usage.getConsume());
     }
 
-    private ItemUsageResultDTO useItem0(Player player, ItemStack item, PredicateInput predicateInput, Map<String, String> placeholders) {
-        ItemUsageResultDTO nop = ItemUsageResultDTO.EMPTY;
+    private ItemUsageResultDTO useItem0(
+            Player player,
+            ItemStack item,
+            PredicateInput predicateInput,
+            Map<String, String> placeholders,
+            PipelineDebug pipelineDebug
+    ) {
+        ItemUsageResultDTO nop = ItemUsageResultDTO.EMPTY
+                .withPipelineDebug(pipelineDebug);
         if (item == null || !NBTCustomItem.hasCustomItemId(item)) return nop;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (customItemId == null) return nop;
+        PipelineDebug prependedDebug = PipelineDebug.prepend(pipelineDebug, customItemId);
         CustomItemEntity customItem = itemRepository.getItem(customItemId).getOrNull();
         if (customItem == null) {
-            boolean isItemUsage = predicateInput.getButton().isDefined();
+            prependedDebug.append("Can't find custom item in config");
+            boolean isItemUsage = predicateInput.getTrigger() != PredicateInput.Trigger.TICK
+                    && predicateInput.getTrigger() != PredicateInput.Trigger.INVENTORY_CLICK;
             boolean shouldSendMessage = isItemUsage && config().isSendInvalidItemMessage();
             Component message = lang().getInvalidItem().replaceText("%key%", customItemId).bake();
             return ItemUsageResultDTO.EMPTY
                     .withMessage(shouldSendMessage ? message : null)
-                    .withShouldCancel(true);
+                    .withShouldCancel(true)
+                    .withPipelineDebug(prependedDebug);
         }
         List<UsageEntity> usages = customItem.getUsages().stream()
-                .filter(usageFilter -> usageFilter.accepts(predicateInput))
+                .filter(usageFilter -> {
+                    UsageEntity.AcceptResult result = usageFilter.accepts(predicateInput);
+                    prependedDebug.append(
+                                    "Usage result (" + result.isAccepted() + ") - "
+                                            + customItem.getUsages().indexOf(usageFilter)
+                            )
+                            .appendAllAndReturnSelf(result.getPipelineDebugs());
+                    return result.isAccepted();
+                })
                 .collect(Collectors.toList());
         return usages.stream().
                 map(usage -> applyCooldown(usage, item, player, predicateInput, placeholders))
-                .reduce((acc, e) -> mergeUsages(acc, e, customItem.isPlainItem()))
-                .orElse(ItemUsageResultDTO.EMPTY.withShouldCancel(!customItem.isPlainItem()));
+                .reduce((acc, e) -> mergeUsages(acc, e, customItem.isPlainItem(), prependedDebug))
+                .orElseGet(() -> ItemUsageResultDTO.EMPTY
+                        .withShouldCancel(!customItem.isPlainItem())
+                        .withPipelineDebug(prependedDebug.appendAndReturnSelf("Usages weren't found")));
     }
 
     private CommandExecutionDTO prepare(UsageEntity.Command command, Player player, Map<String, String> placeholders) {
@@ -321,8 +349,7 @@ public class ItemService implements IItemService {
         return new CommandExecutionDTO(command.isExecuteAsConsole(), strAtomic.get());
     }
 
-    @Override
-    public ItemUsageResultDTO useItemAt(ItemUsageEntityDTO itemUsageEntityDTO) {
+    public ItemUsageResultDTO useItemAt(ItemUsageEntityDTO itemUsageEntityDTO, PipelineDebug pipelineDebug) {
         Entity clicked = itemUsageEntityDTO.getClicked();
         ItemStack item = itemUsageEntityDTO.getItem();
         Player player = itemUsageEntityDTO.getPlayer();
@@ -342,7 +369,7 @@ public class ItemService implements IItemService {
                 PredicateInput.Trigger.ENTITY_CLICK
         );
         Map<String, String> placeholders = isPlayer ? placeholdersFor((Player) clicked) : placeholdersFor(clicked);
-        return useItem0(player, item, clickType, placeholders);
+        return useItem0(player, item, clickType, placeholders, pipelineDebug);
     }
 
     public RaytraceResultDomain raytrace(Player player) {
@@ -384,8 +411,7 @@ public class ItemService implements IItemService {
         );
     }
 
-    @Override
-    public ItemUsageResultDTO tickItem(ItemUsageGeneralDTO itemUsageGeneralDTO) {
+    public ItemUsageResultDTO tickItem(ItemUsageGeneralDTO itemUsageGeneralDTO, PipelineDebug pipelineDebug) {
         Player player = itemUsageGeneralDTO.getPlayer();
         ItemStack item = itemUsageGeneralDTO.getItemStack();
         RaytraceResultDomain raytraceResultDomain = raytrace(player);
@@ -405,13 +431,12 @@ public class ItemService implements IItemService {
                         itemUsageGeneralDTO.getSlot(),
                         PredicateInput.Trigger.TICK
                 ),
-                raytraceResultDomain.placeholders
+                raytraceResultDomain.placeholders,
+                pipelineDebug
         );
     }
 
-    @Override
-    public ItemUsageResultDTO moveItem(Player player, SlotChangeDTO slotChanges, int selectedHotbarSlot) {
-        System.out.println("Got movement: " + slotChanges.getSlot() + " " + slotChanges.isOccupied());
+    public ItemUsageResultDTO moveItem(Player player, SlotChangeDTO slotChanges, PipelineDebug pipelineDebug) {
         ItemStack item = slotChanges.getItemStack().getRealItem();
         RaytraceResultDomain raytraceResultDomain = raytrace(player);
         return useItem0(
@@ -430,11 +455,11 @@ public class ItemService implements IItemService {
                         slotChanges.getSlot(),
                         PredicateInput.Trigger.INVENTORY_CLICK
                 ),
-                raytraceResultDomain.placeholders
+                raytraceResultDomain.placeholders,
+                pipelineDebug
         );
     }
 
-    @Override
     public boolean canBePutInInventory(ItemStack item) {
         if (item == null || !NBTCustomItem.hasCustomItemId(item)) return true;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
@@ -444,7 +469,6 @@ public class ItemService implements IItemService {
         return customItem.canBePutInInventory();
     }
 
-    @Override
     public boolean canBeMoved(ItemStack itemStack) {
         if (itemStack == null || itemStack.getType().name().endsWith("AIR")) return true;
         String customItemId = NBTCustomItem.getCustomItemId(itemStack).getOrNull();
@@ -454,7 +478,6 @@ public class ItemService implements IItemService {
         return customItem.canMove();
     }
 
-    @Override
     public boolean shouldRemoveOnDeath(ItemStack item) {
         if (item == null || item.getType().name().endsWith("AIR")) return false;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
@@ -464,7 +487,6 @@ public class ItemService implements IItemService {
         return customItem.removeOnDeath();
     }
 
-    @Override
     public boolean areEqual(ItemStack item, ItemStack item2) {
         if (item == null || item2 == null) return false;
         String customItemId1 = NBTCustomItem.getCustomItemId(item).getOrNull();
@@ -473,12 +495,10 @@ public class ItemService implements IItemService {
         return Objects.equals(customItemId1, customItemId2);
     }
 
-    @Override
     public void updateItem(ItemStack itemStack, @Nullable Player player) {
         itemRepository.updateItem(itemStack, player);
     }
 
-    @Override
     public boolean canBeUsedInCraft(ItemStack item) {
         if (item == null || !NBTCustomItem.hasCustomItemId(item)) return true;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
@@ -488,7 +508,10 @@ public class ItemService implements IItemService {
         return customItem.isIngredient();
     }
 
-    @Override
+    public GiveItemDTO giveItem(String key, @Nullable Player player) {
+        return giveItem(key, player, null);
+    }
+
     public GiveItemDTO giveItem(String key, @Nullable Player player, Integer slot) {
         if (player == null) return new GiveItemDTO(
                 lang().getSenderNotPlayer().bake(),
@@ -508,7 +531,6 @@ public class ItemService implements IItemService {
         );
     }
 
-    @Override
     public WithdrawItemDTO withdrawItem(String key, @Nullable Player player, int amount) {
         if (player == null) return new WithdrawItemDTO(
                 lang().getSenderNotPlayer().bake(),
@@ -552,17 +574,14 @@ public class ItemService implements IItemService {
         );
     }
 
-    @Override
     public Set<String> getItemKeys() {
         return itemRepository.getItemKeys();
     }
 
-    @Override
     public long getUpdatePeriodTicks() {
         return config().getPlaceholderUpdatePeriod() / 50;
     }
 
-    @Override
     public Component reload() {
         try {
             cooldownRepository.reload();
@@ -573,12 +592,10 @@ public class ItemService implements IItemService {
         return result ? lang().getReloadSuccessfully().bake() : lang().getReloadUnsuccessfully().bake();
     }
 
-    @Override
     public Component playerNotFound(String input) {
         return lang().getInvalidPlayer().replaceText("%player%", input).bake();
     }
 
-    @Override
     public void cooldownAutoSave() {
         cooldownRepository.save();
     }

@@ -8,9 +8,11 @@ import lombok.ToString;
 import lombok.experimental.FieldDefaults;
 import org.bukkit.inventory.EquipmentSlot;
 import org.jetbrains.annotations.Nullable;
+import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -18,14 +20,13 @@ import java.util.List;
 @Getter
 public abstract class SlotPredicate {
 
+    private static final boolean DEBUG = false;
+
     boolean negate;
 
-    public boolean matches(Input input) {
-        return _matches(input) ^ negate;
+    private static void printDebug(String msg) {
+        if (DEBUG) System.out.println(msg);
     }
-
-    protected abstract boolean _matches(Input input);
-
 
     public static SlotPredicate slot(boolean negate, int slot) {
         return new StaticSlotPredicate(negate, slot);
@@ -77,8 +78,35 @@ public abstract class SlotPredicate {
         return new WrapperPredicate(!predicate.isNegate(), predicate);
     }
 
-    public static Input input(int clickedSlot, @Nullable EquipmentSlot equipmentSlot) {
-        return new Input(clickedSlot, equipmentSlot);
+    public static Input input(int clickedSlot, @Nullable EquipmentSlot equipmentSlot, boolean isOccupied) {
+        return new Input(clickedSlot, equipmentSlot, isOccupied);
+    }
+
+    public PredicateResult matches(Input input) {
+        PredicateResult basicMatch = _matches(input);
+        List<PipelineDebug> debugs = new ArrayList<>();
+        if (negate) {
+            debugs.add(
+                    PipelineDebug.root("Negating result, was " + basicMatch.result + " became " + (!basicMatch.result))
+                            .appendAllAndReturnSelf(basicMatch.pipelineDebugs)
+            );
+        } else {
+            debugs.addAll(basicMatch.pipelineDebugs);
+        }
+        return new PredicateResult(
+                basicMatch.result ^ negate,
+                debugs
+        );
+    }
+
+    protected abstract PredicateResult _matches(Input input);
+
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    @RequiredArgsConstructor
+    @Getter
+    public static class PredicateResult {
+        boolean result;
+        List<PipelineDebug> pipelineDebugs;
     }
 
 
@@ -91,6 +119,7 @@ public abstract class SlotPredicate {
         @Getter(AccessLevel.NONE)
         @Nullable
         EquipmentSlot equipmentSlot;
+        boolean isOccupied;
 
         public Option<EquipmentSlot> getEquipmentSlot() {
             return Option.of(equipmentSlot);
@@ -107,8 +136,12 @@ public abstract class SlotPredicate {
         }
 
         @Override
-        protected boolean _matches(Input input) {
-            return predicate.matches(input);
+        protected PredicateResult _matches(Input input) {
+            PredicateResult result = predicate.matches(input);
+            return new PredicateResult(
+                    result.result,
+                    result.pipelineDebugs
+            );
         }
     }
 
@@ -120,9 +153,15 @@ public abstract class SlotPredicate {
         private AnySlotPredicate() {
             super(false);
         }
+
         @Override
-        protected boolean _matches(Input input) {
-            return true;
+        protected PredicateResult _matches(Input input) {
+            return new PredicateResult(
+                    true,
+                    Collections.singletonList(
+                            PipelineDebug.root("Any slot - true")
+                    )
+            );
         }
     }
 
@@ -137,8 +176,15 @@ public abstract class SlotPredicate {
         }
 
         @Override
-        public boolean _matches(Input input) {
-            return input.clickedSlot == slot;
+        public PredicateResult _matches(Input input) {
+            return new PredicateResult(
+                    input.clickedSlot == slot,
+                    Collections.singletonList(
+                            PipelineDebug.root("Static slot, clicked slot " + input.clickedSlot
+                                    + " configured slot " + slot + " result: " + (input.clickedSlot == slot)
+                            )
+                    )
+            );
         }
     }
 
@@ -155,8 +201,19 @@ public abstract class SlotPredicate {
         }
 
         @Override
-        public boolean _matches(Input input) {
-            return (input.clickedSlot >= start && input.clickedSlot <= end);
+        public PredicateResult _matches(Input input) {
+            boolean result = input.clickedSlot >= start && input.clickedSlot <= end;
+            return new PredicateResult (
+                    result,
+                    Collections.singletonList(
+                            PipelineDebug.root(
+                                    "Slot range, "
+                                            + start + " <= "
+                                            + input.clickedSlot + " <= "
+                                            + end + ", result: " + result
+                            )
+                    )
+            );
         }
     }
 
@@ -171,8 +228,19 @@ public abstract class SlotPredicate {
         }
 
         @Override
-        public boolean _matches(Input input) {
-            return input.getEquipmentSlot().map(slot -> slot == this.slot).getOrElse(false);
+        public PredicateResult _matches(Input input) {
+            boolean result = input.getEquipmentSlot().map(slot -> slot == this.slot)
+                    .getOrElse(false);
+            return new PredicateResult(
+                    result,
+                    Collections.singletonList(
+                            PipelineDebug.root(
+                                    "Equipment slot predicate, input " + input.getEquipmentSlot()
+                                            .map(Enum::name)
+                                            .getOrElse("null") + ", configured " + slot + " result " + result
+                            )
+                    )
+            );
         }
     }
 
@@ -187,18 +255,50 @@ public abstract class SlotPredicate {
         }
 
         @Override
-        public boolean _matches(Input input) {
+        public PredicateResult _matches(Input input) {
             boolean anyMatch = false;
             boolean anyNonNegateMatch = false;
+            List<PipelineDebug> pipelineDebugs = new ArrayList<>();
             for (SlotPredicate predicate : predicates) {
-                if (predicate.isNegate() && !predicate.matches(input)) return false;
+                int indexOf = predicates.indexOf(predicate);
+                PredicateResult predicateResult = predicate.matches(input);
+                if (predicate.isNegate() && !predicateResult.result) return new PredicateResult(
+                        false,
+                        Collections.singletonList(
+                                PipelineDebug.root(
+                                        "Predicate is negated and its result is not true - " + indexOf
+                                ).appendAllAndReturnSelf(predicateResult.pipelineDebugs)
+                        )
+                );
                 if (!predicate.isNegate()) {
-                    if (predicate.matches(input)) anyMatch = true;
+                    if (predicateResult.result) anyMatch = true;
                     anyNonNegateMatch = true;
+                    pipelineDebugs.add(PipelineDebug.root(
+                            "Found match: " + predicateResult.result + " anyMatch: " + anyMatch
+                    ).appendAllAndReturnSelf(predicateResult.getPipelineDebugs()));
+                } else {
+                    pipelineDebugs.add(PipelineDebug.root(
+                            "Negate predicate, skipping it, data so far anyMatch: " + anyMatch
+                                    + " nonNegateMatch: " + anyNonNegateMatch
+                    ).appendAllAndReturnSelf(predicateResult.getPipelineDebugs()));
                 }
             }
-            if (!anyMatch && !anyNonNegateMatch) return true;
-            return anyMatch;
+            if (!anyMatch && !anyNonNegateMatch) {
+                pipelineDebugs.add(PipelineDebug.root(
+                        "No match, also there is no negates, so its true"
+                ));
+                return new PredicateResult(
+                        true,
+                        pipelineDebugs
+                );
+            }
+            pipelineDebugs.add(PipelineDebug.root(
+                    "Unification is done, result " + anyMatch
+            ));
+            return new PredicateResult(
+                    anyMatch,
+                    pipelineDebugs
+            );
         }
     }
 

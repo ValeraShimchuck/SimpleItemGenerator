@@ -5,6 +5,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.Nullable;
+import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 
 import java.util.Collections;
@@ -24,6 +25,8 @@ public class ItemUsageResultDTO {
     boolean shouldCancel;
     @Getter
     UsageEntity.Consume consume;
+    @Getter
+    PipelineDebug pipelineDebug;
 
     public Option<Component> getMessage() {
         return Option.of(message);
@@ -33,9 +36,11 @@ public class ItemUsageResultDTO {
             null,
             Collections.emptyList(),
             false,
-            UsageEntity.Consume.NONE
+            UsageEntity.Consume.NONE,
+            PipelineDebug.root("EMPTY")
     );
 
-    public static final ItemUsageResultDTO CANCELLED = EMPTY.withShouldCancel(true);
+    public static final ItemUsageResultDTO CANCELLED = EMPTY.withShouldCancel(true)
+            .withPipelineDebug(PipelineDebug.root("CANCELED"));
 
 }

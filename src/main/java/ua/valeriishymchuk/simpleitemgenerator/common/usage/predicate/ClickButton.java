@@ -8,7 +8,7 @@ public enum ClickButton {
     DROP;
 
     public Predicate asType() {
-        return new Predicate(this, null, null, null, null, null, null);
+        return new Predicate(this, null, null, null, null, null, null, null);
     }
 
 }

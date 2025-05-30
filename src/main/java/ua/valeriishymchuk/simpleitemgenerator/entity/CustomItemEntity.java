@@ -643,7 +643,21 @@ public class CustomItemEntity {
                 return null;
             }, "slot");
 
-            return new Predicate(clickButton, clickAt, flags, amount, permissions, ticks, slots);
+
+            SlotPredicate prevSlots = wrapErrorSupply(() -> {
+                ConfigurationNode slotNode = node.node("prev_slot");
+                if (slotNode.isList()) {
+                    return SlotPredicate.union(
+                            slotNode.getList(String.class).stream().map(this::parseSlots)
+                                    .distinct().collect(Collectors.toList())
+                    );
+                } else if (!slotNode.isNull() && !slotNode.isMap()) {
+                    return parseSlots(slotNode.getString());
+                }
+                return null;
+            }, "prev_slot");
+
+            return new Predicate(clickButton, clickAt, flags, amount, permissions, ticks, slots, prevSlots);
         }
         Matcher matcher = SINGLE_PREDICATE_PATTERN.matcher(node.getString());
         if (!matcher.find())
@@ -657,6 +671,7 @@ public class CustomItemEntity {
         Map<String, Boolean> flags = null;
         List<Integer> ticks = null;
         SlotPredicate slots = null;
+        SlotPredicate prevSlots = null;
         switch (predicateType) {
             case AT:
                 clickAt = parseClickAt(value);
@@ -683,8 +698,11 @@ public class CustomItemEntity {
             case SLOT:
                 slots = parseSlots(value);
                 break;
+            case PREV_SLOT:
+                prevSlots = parseSlots(value);
+                break;
         }
-        return new Predicate(clickButton, clickAt, flags, amount, permissions, ticks, slots);
+        return new Predicate(clickButton, clickAt, flags, amount, permissions, ticks, slots, prevSlots);
     }
 
     private <T> T wrapErrorSupply(CheckedFunction0<T> action, String path) {
@@ -702,7 +720,10 @@ public class CustomItemEntity {
         String slot = isNegate ? first.substring(1) : first;
         if (split.length == 1) {
             return Try.ofSupplier(() -> SlotPredicate.slot(isNegate, Integer.parseInt(slot)))
-                    .recover(t -> SlotPredicate.negate(parseEquipmentSlot(slot))).get();
+                    .recover(t -> {
+                        SlotPredicate equipmentSlot = parseEquipmentSlot(slot);
+                        return isNegate ? SlotPredicate.negate(equipmentSlot) : equipmentSlot;
+                    } ).get();
         } else {
             int start = parseInt(slot);
             int end = parseInt(split[1]);
@@ -795,7 +816,8 @@ public class CustomItemEntity {
         PERMISSION,
         STATE_FLAG,
         TIME,
-        SLOT;
+        SLOT,
+        PREV_SLOT;
 
         public static PredicateType fromString(String raw) {
             String upper = raw.toUpperCase();

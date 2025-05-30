@@ -26,7 +26,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.dto.GiveItemDTO;
 import ua.valeriishymchuk.simpleitemgenerator.dto.WithdrawItemDTO;
 import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
-import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
+import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
 
 import java.util.Arrays;
 import java.util.Map;
@@ -41,7 +41,7 @@ public class CommandsController {
     private static final String COMMAND_PERMISSION_PREPEND = COMMAND_PERMISSION + ".";
 
 
-    IItemService itemService;
+    ItemService itemService;
     IInfoService infoService;
 
     private enum OccupiedSlotHandling {

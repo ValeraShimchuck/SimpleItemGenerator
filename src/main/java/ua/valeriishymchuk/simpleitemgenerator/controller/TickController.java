@@ -14,6 +14,7 @@ import org.bukkit.event.Cancellable;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
+import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.scheduler.BukkitTaskScheduler;
@@ -23,7 +24,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.SlotPredica
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageGeneralDTO;
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageResultDTO;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
-import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
+import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
 
 import java.util.Arrays;
 import java.util.HashSet;
@@ -36,7 +37,7 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class TickController {
 
-    IItemService itemService;
+    ItemService itemService;
     BukkitTaskScheduler taskScheduler;
     TickTimer tickerTime;
 
@@ -72,14 +73,22 @@ public class TickController {
                         player,
                         item,
                         tickerTime.getTick(),
-                        new SlotPredicate.Input(i, EquipmentToSlotConverter.convert(i, player).getOrNull())
-                ));
+                        new SlotPredicate.Input(
+                                i,
+                                EquipmentToSlotConverter.convert(i, player).getOrNull(),
+                                true
+                        )
+                ),
+                        PipelineDebug.root("Ticking", PipelineDebug.Tag.TICK));
                 handleResult(result, item, player);
             }
         });
     }
 
     private void handleResult(ItemUsageResultDTO result, ItemStack item, Player player) {
+        if (false) {
+            result.getPipelineDebug().print();
+        }
         result.getCommands().forEach(commands -> {
             CommandSender sender = commands.isExecuteAsConsole() ? Bukkit.getConsoleSender() : player;
             Bukkit.dispatchCommand(sender, commands.getCommand());

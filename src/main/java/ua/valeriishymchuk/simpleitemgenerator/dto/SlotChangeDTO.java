@@ -13,7 +13,6 @@ import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.SlotPredica
 @Getter
 @ToString
 public class SlotChangeDTO {
-    boolean isOccupied;
     SlotPredicate.Input slot;
     long tick;
     ItemCopy itemStack;

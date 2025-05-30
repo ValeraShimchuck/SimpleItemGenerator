@@ -9,6 +9,6 @@ public enum ClickAt {
     BLOCK;
 
     public Predicate asType() {
-        return new Predicate(null, this, null, null, null, null, null);
+        return new Predicate(null, this, null, null, null, null, null, null);
     }
 }

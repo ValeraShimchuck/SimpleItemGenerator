@@ -54,7 +54,6 @@ import ua.valeriishymchuk.simpleitemgenerator.repository.impl.CooldownRepository
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ItemRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.UpdateRepository;
 import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
-import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
 import ua.valeriishymchuk.simpleitemgenerator.service.impl.InfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
 
@@ -80,7 +79,7 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
     BukkitTaskScheduler taskScheduler = new BukkitTaskScheduler(this);
     ConfigLoader configLoader;
     ConfigLoader itemsConfigLoader;
-    IItemService itemService;
+    ItemService itemService;
     IInfoService infoService;
     public ItemRepository itemRepository;
     ICooldownRepository cooldownRepository = null;

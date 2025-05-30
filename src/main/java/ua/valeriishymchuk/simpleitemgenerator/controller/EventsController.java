@@ -19,6 +19,7 @@ import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.*;
 import org.bukkit.event.player.*;
 import org.bukkit.inventory.*;
+import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.ItemCopy;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
@@ -31,7 +32,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.dto.*;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
-import ua.valeriishymchuk.simpleitemgenerator.service.IItemService;
+import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -43,7 +44,7 @@ import static ua.valeriishymchuk.simpleitemgenerator.common.item.ItemCopy.isAir;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class EventsController implements Listener {
 
-    IItemService itemService;
+    ItemService itemService;
     IInfoService infoService;
     TickTimer tickerTime;
     BukkitTaskScheduler scheduler;
@@ -52,7 +53,7 @@ public class EventsController implements Listener {
     Map<Player, Map<Integer, Long>> lastUsedItemTicks = new WeakHashMap<>();
     Map<Player, Tuple2<Long, Integer>> playerTickSlotMap = new WeakHashMap<>();
 
-    public EventsController(IItemService itemService, IInfoService infoService, TickTimer tickerTime, BukkitTaskScheduler scheduler) {
+    public EventsController(ItemService itemService, IInfoService infoService, TickTimer tickerTime, BukkitTaskScheduler scheduler) {
         this.itemService = itemService;
         this.infoService = infoService;
         this.tickerTime = tickerTime;
@@ -153,24 +154,33 @@ public class EventsController implements Listener {
         Map<ItemUsageResultDTO, ItemStack> results = new HashMap<>();
         if (isClickedSlotEmptied) {
             results.put(itemService.moveItem(player, new SlotChangeDTO(
-                            false,
-                            new SlotPredicate.Input(event.getSlot(), EquipmentToSlotConverter.convert(event.getSlot(), player).getOrNull()),
+                            new SlotPredicate.Input(
+                                    event.getSlot(),
+                                    EquipmentToSlotConverter.convert(event.getSlot(), player).getOrNull(),
+                                    false
+                            ),
                             tickerTime.getTick(),
                             ItemCopy.from(event.getCurrentItem())
-                    ), player.getInventory().getHeldItemSlot()),
+                    ), PipelineDebug.root("Move item From " + event.getSlot(), PipelineDebug.Tag.INVENTORY)
+
+                    ),
                     event.getCurrentItem()
             );
         }
 
 
+
         movedSlots.forEach((slot, item) -> {
             if (item.isSimilar(event.getClickedInventory().getItem(slot))) return;
             results.put(itemService.moveItem(player,new SlotChangeDTO(
-                            true,
-                            new SlotPredicate.Input(event.getSlot(), EquipmentToSlotConverter.convert(event.getSlot(), player).getOrNull()),
+                            new SlotPredicate.Input(
+                                    slot,
+                                    EquipmentToSlotConverter.convert(slot, player).getOrNull(),
+                                    true
+                            ),
                             tickerTime.getTick(),
                             ItemCopy.from(item)
-                    ), player.getInventory().getHeldItemSlot()),
+                    ), PipelineDebug.root("Move item To " + slot, PipelineDebug.Tag.INVENTORY)),
                     item
             );
         });
@@ -178,9 +188,8 @@ public class EventsController implements Listener {
         if (results.isEmpty()) return;
 
         boolean isAnyCancelled = results.keySet().stream().anyMatch(ItemUsageResultDTO::isShouldCancel);
-
         if (isAnyCancelled) {
-            results.keySet().stream()
+            new HashSet<>(results.keySet()).stream()
                     .filter(usage -> !usage.isShouldCancel())
                     .forEach(results::remove);
         }
@@ -345,9 +354,10 @@ public class EventsController implements Listener {
                         event.getItem(),
                         event.getClickedBlock(),
                         event.getBlockFace(),
-                        new SlotPredicate.Input(EquipmentToSlotConverter.convert(equipmentSlot, currentMainHandSlot), equipmentSlot),
+                        new SlotPredicate.Input(EquipmentToSlotConverter.convert(equipmentSlot, currentMainHandSlot), equipmentSlot, true),
                         tickerTime.getTick()
-                )
+                ),
+                PipelineDebug.root("PlayerInteractEvent " + event.getAction())
         );
         handleResult(result, event.getItem(), event.getPlayer(), event, true);
     }
@@ -403,9 +413,11 @@ public class EventsController implements Listener {
                         tickerTime.getTick(),
                         new SlotPredicate.Input(
                                 slot,
-                                EquipmentToSlotConverter.convert(slot, player).getOrNull()
+                                EquipmentToSlotConverter.convert(slot, player).getOrNull(),
+                                true
                         )
-                )
+                ),
+                PipelineDebug.root("PlayerDropItemEvent")
         ), itemStack, player, event, false);
     }
 
@@ -428,9 +440,14 @@ public class EventsController implements Listener {
                         true,
                         event.getRightClicked(),
                         event.getPlayer().getItemInHand(),
-                        new SlotPredicate.Input(clickedSlot, EquipmentToSlotConverter.convert(clickedSlot, event.getPlayer()).getOrNull()),
+                        new SlotPredicate.Input(
+                                clickedSlot,
+                                EquipmentToSlotConverter.convert(clickedSlot, event.getPlayer()).getOrNull(),
+                                true
+                        ),
                         tickerTime.getTick()
-                )
+                ),
+                PipelineDebug.root("PlayerInteractAtEntityEvent")
         );
         handleResult(result, event.getPlayer().getItemInHand(), event.getPlayer(), event, false);
     }
@@ -446,9 +463,14 @@ public class EventsController implements Listener {
                         false,
                         event.getEntity(),
                         player.getItemInHand(),
-                        new SlotPredicate.Input(player.getInventory().getHeldItemSlot(), EquipmentSlot.HAND),
+                        new SlotPredicate.Input(
+                                player.getInventory().getHeldItemSlot(),
+                                EquipmentSlot.HAND,
+                                true
+                        ),
                         tickerTime.getTick()
-                )
+                ),
+                PipelineDebug.root("EntityDamageByEntityEvent")
         );
         handleResult(result, player.getItemInHand(), player, event, false);
         if (isCancelled) {
@@ -457,6 +479,9 @@ public class EventsController implements Listener {
     }
 
     private void handleResult(ItemUsageResultDTO result, ItemStack item, Player player, Cancellable event, boolean omitEventCancellation) {
+        if (true) {
+            result.getPipelineDebug().print();
+        }
         if (!event.isCancelled()) {
             event.setCancelled(result.isShouldCancel() || (event.isCancelled() && !omitEventCancellation));
         }
