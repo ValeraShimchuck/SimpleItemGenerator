@@ -92,10 +92,6 @@ public class CommandsController {
                             .orElse(() -> Option.when(ctx.getSender() instanceof Player, () -> ((Player) ctx.getSender())));
                     GiveItemDTO result = itemService.giveItem(key, playerOpt.getOrNull());
                     KyoriHelper.sendMessage(ctx.getSender(), result.getMessage());
-                    //playerOpt.flatMap(player ->  result.getItemStack().map(item -> Tuple.of(player, item)))
-                    //        .peek(t -> t._2.setAmount(amount))
-                    //        .map(tuple -> tuple._1.getInventory().addItem(tuple._2))
-                    //        .peek(items -> dropItems(items, playerOpt.get().getLocation()));
                     playerOpt.peek(p -> addItemToInventory(result.getItemStack(), amount, p));
                 }));
 

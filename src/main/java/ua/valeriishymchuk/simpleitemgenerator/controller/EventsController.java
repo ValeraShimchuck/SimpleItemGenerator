@@ -8,9 +8,11 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import net.kyori.adventure.text.Component;
+import net.minecraft.server.v1_8_R1.SlotResult;
 import org.bukkit.Bukkit;
+import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
+import org.bukkit.enchantments.EnchantmentTarget;
 import org.bukkit.entity.Player;
 import org.bukkit.event.*;
 import org.bukkit.event.block.Action;
@@ -36,8 +38,8 @@ import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 import static ua.valeriishymchuk.simpleitemgenerator.common.item.ItemCopy.isAir;
 
@@ -196,51 +198,158 @@ public class EventsController implements Listener {
 
         results.forEach((usage, item) ->
                 handleResult(usage, item, player, event, false));
-
-        //results.stream().reduce((left, right) -> {
-        //    Component message = left.getMessage().map(leftMsg -> right.getMessage()
-        //            .map(rightMsg -> leftMsg.appendNewline()
-        //                    .append(rightMsg)
-        //            ).getOrElse(leftMsg)).orElse(right.getMessage()).getOrNull();
-        //    return new ItemUsageResultDTO(
-        //            message,
-        //            Stream.of(left.getCommands(), right.getCommands())
-        //                    .flatMap(Collection::stream).collect(Collectors.toList()),
-        //            isAnyCancelled,
-        //            left.getConsume()
-        //    )
-        //});
-
     }
 
+    private static final io.vavr.collection.Map<Integer, Set<Material>> FIT_MATERIALS = io.vavr.collection.HashMap.of(
+            40, Arrays.stream(Material.values())
+                    .filter(m -> m.name().equals("SHIELD"))
+                    .collect(Collectors.toSet()),
+            39, Arrays.stream(Material.values())
+                    .filter(m -> EnchantmentTarget.ARMOR_HEAD.includes(m) ||
+                            (FeatureSupport.NAMESPACED_KEYS_SUPPORT && m.name().equals("CARVED_PUMPKIN")) ||
+                                    (!FeatureSupport.NAMESPACED_KEYS_SUPPORT && m.name().equals("PUMPKIN")) ||
+                            m.name().equals("SKULL_ITEM") || m.name().endsWith("HEAD")
+                    ).collect(Collectors.toSet()),
+            38, Arrays.stream(Material.values())
+                    .filter(EnchantmentTarget.ARMOR_TORSO::includes).collect(Collectors.toSet()),
+            37, Arrays.stream(Material.values())
+                    .filter(EnchantmentTarget.ARMOR_LEGS::includes).collect(Collectors.toSet()),
+            36, Arrays.stream(Material.values())
+                    .filter(EnchantmentTarget.ARMOR_FEET::includes).collect(Collectors.toSet())
+    );
+
     private void handleMoveToOtherInventory(InventoryClickEvent event, Map<Integer, ItemStack> movedSlots, Player player) {
-        // Determine the destination inventory (opposite of the clicked inventory)
         Inventory destination = event.getClickedInventory() instanceof PlayerInventory
                 ? event.getView().getTopInventory()
                 : player.getInventory();
-
         ItemStack movedItem = event.getCurrentItem().clone();
         if (isAir(movedItem)) return;
+        if (Objects.requireNonNull(event.getView().getType()) == InventoryType.CRAFTING) {
+            Set<Integer> blackListedSlots = new HashSet<>();
+            blackListedSlots.add(36);
+            blackListedSlots.add(37);
+            blackListedSlots.add(38);
+            blackListedSlots.add(39);
+            if (FeatureSupport.MODERN_COMBAT) blackListedSlots.add(40);
+            List<Integer> slots =new ArrayList<>();
+            slots.addAll(blackListedSlots);
+            FIT_MATERIALS.filterValues(t -> t.contains(movedItem.getType())).keySet()
+                    .forEach(blackListedSlots::remove);
+            boolean isHotbar = event.getSlot() < 9;
 
-        // Clone destination contents to simulate the move
-        ItemStack[] originalContents = destination.getContents().clone();
-        Inventory tempInv = Bukkit.createInventory(
-                null,
-                (int) Math.ceil(((double) destination.getSize()) / 9) * 9
-        );
-        tempInv.setContents(originalContents.clone());
-
-        // Simulate adding the item
-        tempInv.addItem(movedItem);
-
-        // Find slots that were filled
-        for (int slot = 0; slot < originalContents.length; slot++) {
-            ItemStack original = originalContents[slot];
-            ItemStack updated = tempInv.getItem(slot);
-            if (isAir(original) && !isAir(updated)) {
-                movedSlots.put(slot, updated.clone());
+            if (isHotbar) {
+                for (int i = 35; i >= 9; i--) {
+                    slots.add(i);
+                }
+            } else if (blackListedSlots.contains(event.getSlot())) {
+                for (int i = 35; i >= 0; i--) {
+                    slots.add(i);
+                }
+            } else {
+                for (int i = 0; i < 9; i++) {
+                    slots.add(i);
+                }
             }
+            ShiftClickResult.calculateShiftClick(
+                    event.getCurrentItem(),
+                    player.getInventory(),
+                    slots,
+                    blackListedSlots,
+                    !blackListedSlots.contains(event.getSlot())
+            ).slotStatuses.forEach((slot, status) -> {
+                if (status.wasBefore) return;
+                movedItem.setAmount(status.itemsAdded);
+                movedSlots.put(slot, movedItem);
+            });
+        } else {
+            List<Integer> slots;
+            if (event.getClickedInventory() == event.getView().getTopInventory()) {
+                slots = io.vavr.collection.List.range(0, event.getClickedInventory().getSize()).asJavaMutable();
+            } else {
+                slots = new ArrayList<>();
+                for (int layer = 0; layer < 4; layer++) {
+                    for (int i = 8; i >= 0; i--) {
+                        slots.add(layer * 9 + i);
+                    }
+                }
+            }
+
+            ShiftClickResult.calculateShiftClick(
+                    event.getCurrentItem(),
+                    destination,
+                    slots,
+                    new HashSet<>(),
+                    false
+            ).slotStatuses.forEach((slot, slotStatus) -> {
+                if (slotStatus.wasBefore) return;
+                movedItem.setAmount(slotStatus.itemsAdded);
+                movedSlots.put(slot, movedItem);
+            });
         }
+        System.out.println("Handling movement to the other inventory");
+        System.out.println("Destination " + destination + " slot: " + event.getSlot() + " \nact: " + event.getAction() +
+                "\nclick: " + event.getClick()
+                + "\nisPlayerInventory: " + (event.getView().getType() == InventoryType.CRAFTING) +
+                "\ntype: " + (event.getView().getType())
+                + "\nmoved-slots: " + movedSlots.entrySet().stream()
+                .map(e -> e.getKey() + " "  + e.getValue().getType())
+                .collect(Collectors.joining("\n"))
+        );
+
+    }
+
+    @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+    @RequiredArgsConstructor
+    private static class ShiftClickResult {
+        int remaining;
+        Map<Integer, SlotStatus> slotStatuses;
+
+        @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+        @RequiredArgsConstructor
+        private static class SlotStatus {
+            boolean wasBefore;
+            int itemsAdded;
+        }
+
+        public static ShiftClickResult calculateShiftClick(
+                ItemStack item,
+                Inventory destination,
+                Iterable<Integer> slotSequence,
+                Set<Integer> blacklistedSlots,
+                boolean startFromEnd
+        ) {
+            int firstEmpty = -1;
+            int remaining = item.getAmount();
+            System.out.println(destination + " " + destination.getSize() + " bl: " + blacklistedSlots);
+            Map<Integer, SlotStatus> slotStatusMap = new HashMap<>();
+            for (int i : slotSequence) {
+                System.out.println("Checking slot: " + i + " " + startFromEnd);
+                if (blacklistedSlots.contains(i)) continue;
+                System.out.println("pass1");
+                ItemStack itemFromInventory = destination.getItem(i);
+                if (firstEmpty == -1 && isAir(itemFromInventory)) {
+                    firstEmpty = i;
+                }
+                if (!item.isSimilar(itemFromInventory)) continue;
+                int slotMaxStackSize = itemFromInventory.getMaxStackSize();
+                int slotAvailable = itemFromInventory.getAmount();
+                int available = slotMaxStackSize - slotAvailable;
+                if (available <= 0) continue;
+                int addedItems = Math.min(remaining, available);
+                remaining -= addedItems;
+                slotStatusMap.put(i, new SlotStatus(true, addedItems));
+                if (remaining <= 0) break;
+            }
+            if (firstEmpty >= 0 && remaining > 0) {
+                slotStatusMap.put(firstEmpty, new SlotStatus(false, remaining));
+                remaining = 0;
+            }
+            return new ShiftClickResult(
+                    remaining,
+                    slotStatusMap
+            );
+        }
+
     }
 
     private void handleHotbarSwap(InventoryClickEvent event, Map<Integer, ItemStack> movedSlots, Player player) {
