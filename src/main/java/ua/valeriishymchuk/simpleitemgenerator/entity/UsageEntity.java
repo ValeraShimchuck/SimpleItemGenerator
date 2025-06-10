@@ -64,7 +64,8 @@ public class UsageEntity {
     public ItemUsageResultDTO prepareCooldownCommands(
             CooldownQueryDomain queryDomain,
             Player player,
-            Map<String, String> placeholders
+            Map<String, String> placeholders,
+            PipelineDebug pipelineDebug
     ) {
         List<CommandExecutionDTO> commands = this.getOnCooldown().stream()
                 .map(it -> it.prepareCooldown(
@@ -73,7 +74,8 @@ public class UsageEntity {
                         placeholders
                 ))
                 .collect(Collectors.toList());
-        return ItemUsageResultDTO.CANCELLED.withCommands(commands);
+        return ItemUsageResultDTO.CANCELLED.withCommands(commands)
+                .withPipelineDebug(pipelineDebug.appendAndReturnSelf("Preparing cooldown commands"));
     }
 
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)

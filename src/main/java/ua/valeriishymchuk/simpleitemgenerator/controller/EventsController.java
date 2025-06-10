@@ -8,7 +8,6 @@ import lombok.Data;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import net.minecraft.server.v1_8_R1.SlotResult;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
@@ -38,13 +37,14 @@ import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 import static ua.valeriishymchuk.simpleitemgenerator.common.item.ItemCopy.isAir;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class EventsController implements Listener {
+
+    private static final boolean DEBUG = false;
 
     ItemService itemService;
     IInfoService infoService;
@@ -110,7 +110,7 @@ public class EventsController implements Listener {
         return snapshot;
     }
 
-    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    //@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     private void onItemClick(InventoryClickEvent event) {
         if (!(event.getClickedInventory() instanceof PlayerInventory) &&
                 event.getAction() != InventoryAction.MOVE_TO_OTHER_INVENTORY &&
@@ -588,7 +588,7 @@ public class EventsController implements Listener {
     }
 
     private void handleResult(ItemUsageResultDTO result, ItemStack item, Player player, Cancellable event, boolean omitEventCancellation) {
-        if (true) {
+        if (DEBUG) {
             result.getPipelineDebug().print();
         }
         if (!event.isCancelled()) {

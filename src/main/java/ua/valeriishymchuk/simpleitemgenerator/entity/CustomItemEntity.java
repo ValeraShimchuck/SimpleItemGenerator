@@ -78,6 +78,8 @@ public class CustomItemEntity {
     transient Boolean hasPlaceholders;
     @NonFinal
     transient Option<HeadTexture> headTexture;
+    @NonFinal
+    transient Boolean hasTick;
 
     public CustomItemEntity(ConfigurationNode item, ConfigurationNode usage, CompoundBinaryTag nbt, Boolean isIngredient, Boolean canBePutInInventory, Boolean removeOnDeath, Boolean isPlain, Boolean canMove, Boolean autoUpdate) {
         this.item = item;
@@ -95,6 +97,18 @@ public class CustomItemEntity {
     private static ConfigurationNode createNode() {
         return DefaultLoader.yaml().createNode();
         //return createNode(ConfigurationOptions.defaults());
+    }
+
+    public boolean hasTick() {
+        if (this.hasTick == null) this.hasTick = hasTick0();
+        return this.hasTick;
+    }
+
+    public boolean hasTick0() {
+        return getUsages()
+                .stream()
+                .flatMap(e -> e.getPredicates().stream())
+                .anyMatch(p -> !p.getTimeTick().isEmpty());
     }
 
     public Option<HeadTexture> getHeadTexture() {
@@ -351,7 +365,7 @@ public class CustomItemEntity {
                             Collections.emptyList(),
                             0,
                             0,
-                            true,
+                            false,
                             UsageEntity.Consume.NONE,
                             Collections.emptyList(),
                             Collections.emptyList(),

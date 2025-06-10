@@ -46,7 +46,7 @@ public class PipelineDebug {
     }
 
     public void print(Tag... excludeTags) {
-        System.out.println(get(excludeTags));
+        System.out.println("[PIPELINE] " + get(excludeTags));
     }
 
     // should be something like that

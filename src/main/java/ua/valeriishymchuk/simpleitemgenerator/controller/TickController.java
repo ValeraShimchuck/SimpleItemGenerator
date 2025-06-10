@@ -37,6 +37,8 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class TickController {
 
+    private static final boolean DEBUG = false;
+
     ItemService itemService;
     BukkitTaskScheduler taskScheduler;
     TickTimer tickerTime;
@@ -86,7 +88,7 @@ public class TickController {
     }
 
     private void handleResult(ItemUsageResultDTO result, ItemStack item, Player player) {
-        if (false) {
+        if (DEBUG) {
             result.getPipelineDebug().print();
         }
         result.getCommands().forEach(commands -> {

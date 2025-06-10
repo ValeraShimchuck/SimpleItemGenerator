@@ -276,26 +276,34 @@ public class ItemService {
             ItemStack item,
             Player player,
             PredicateInput predicateInput,
-            Map<String, String> placeholders
+            Map<String, String> placeholders,
+            PipelineDebug pipelineDebug
     ) {
+        PipelineDebug subPipeline = pipelineDebug.append("Cooldown");
         String customItemId = NBTCustomItem.getCustomItemId(item).get();
         CustomItemEntity customItem = itemRepository.getItem(customItemId).get();
         CooldownQueryDomain cooldownQueryDomain = getAndUpdateCooldown(item, usage, player);
-        if (cooldownQueryDomain.isFreeze()) return ItemUsageResultDTO.CANCELLED;
+        int id = customItem.getUsages().indexOf(usage);
+        if (cooldownQueryDomain.isFreeze()) return ItemUsageResultDTO.CANCELLED
+                .withPipelineDebug(subPipeline.appendAndReturnSelf("Cancelled by freeze " + id));
         if (cooldownQueryDomain.isOnCooldown()) {
-            return usage.prepareCooldownCommands(cooldownQueryDomain, player, placeholders);
+            return usage.prepareCooldownCommands(cooldownQueryDomain, player, placeholders, subPipeline);
         }
         boolean shouldCancel = false;
         boolean isInventoryClick = predicateInput.getTrigger() == PredicateInput.Trigger.INVENTORY_CLICK;
         if (!customItem.isPlainItem() && !isInventoryClick) {
+            subPipeline.append("Not plain item and not inventory click");
             shouldCancel = true;
-        } else if (usage.isCancel()) {
+        } else if (usage.isCancel() /* && !customItem.isPlainItem() */) {
+            subPipeline.append("Usage is cancelled");
             shouldCancel = true;
         }
+        subPipeline.appendAndReturnSelf("Cooldown, is cancelled " + shouldCancel + " id: "  + id);
         return ItemUsageResultDTO.CANCELLED
                 .withCommands(usage.prepareCommands(player, placeholders))
                 .withShouldCancel(shouldCancel)
-                .withConsume(usage.getConsume());
+                .withConsume(usage.getConsume())
+                .withPipelineDebug(pipelineDebug);
     }
 
     private ItemUsageResultDTO useItem0(
@@ -335,7 +343,7 @@ public class ItemService {
                 })
                 .collect(Collectors.toList());
         return usages.stream().
-                map(usage -> applyCooldown(usage, item, player, predicateInput, placeholders))
+                map(usage -> applyCooldown(usage, item, player, predicateInput, placeholders, prependedDebug))
                 .reduce((acc, e) -> mergeUsages(acc, e, customItem.isPlainItem(), prependedDebug))
                 .orElseGet(() -> ItemUsageResultDTO.EMPTY
                         .withShouldCancel(!customItem.isPlainItem())
@@ -414,6 +422,20 @@ public class ItemService {
     public ItemUsageResultDTO tickItem(ItemUsageGeneralDTO itemUsageGeneralDTO, PipelineDebug pipelineDebug) {
         Player player = itemUsageGeneralDTO.getPlayer();
         ItemStack item = itemUsageGeneralDTO.getItemStack();
+        ItemUsageResultDTO nop = ItemUsageResultDTO.EMPTY
+                .withPipelineDebug(pipelineDebug);
+        if (item == null || !NBTCustomItem.hasCustomItemId(item)) return nop;
+        String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
+        if (customItemId == null) return nop;
+        PipelineDebug prependedDebug = PipelineDebug.prepend(pipelineDebug, customItemId);
+        CustomItemEntity customItem = itemRepository.getItem(customItemId).getOrNull();
+        if (customItem == null) {
+            prependedDebug.append("Can't find custom item in config[tick]");
+            return ItemUsageResultDTO.EMPTY
+                    .withShouldCancel(true)
+                    .withPipelineDebug(prependedDebug);
+        }
+        if (!customItem.hasTick()) return nop;
         RaytraceResultDomain raytraceResultDomain = raytrace(player);
         return useItem0(
                 player,
