@@ -143,32 +143,32 @@ public class TickController {
                 .filter(item -> item.getItemStack().hasItemMeta())
                 .forEach(item -> {
                     ItemStack itemStack = item.getItemStack();
-                    itemService.updateItem(itemStack, null);
-                    item.setItemStack(itemStack);
+                    itemService.updateItem(itemStack, null).peek(item::setItemStack);
                 });
+
         worlds.stream()
                 .flatMap(w -> w.getEntitiesByClass(LivingEntity.class).stream())
                 .filter(e -> !(e instanceof Player))
                 .forEach(e -> {
                     EntityEquipment equipment = e.getEquipment();
                     Option.of(equipment.getBoots()).filter(ItemStack::hasItemMeta)
-                            .peek(item -> itemService.updateItem(item, null))
+                            .flatMap(item -> itemService.updateItem(item, null))
                             .peek(equipment::setBoots);
                     Option.of(equipment.getLeggings()).filter(ItemStack::hasItemMeta)
-                            .peek(item -> itemService.updateItem(item, null))
+                            .flatMap(item -> itemService.updateItem(item, null))
                             .peek(equipment::setLeggings);
                     Option.of(equipment.getChestplate()).filter(ItemStack::hasItemMeta)
-                            .peek(item -> itemService.updateItem(item, null))
+                            .flatMap(item -> itemService.updateItem(item, null))
                             .peek(equipment::setChestplate);
                     Option.of(equipment.getHelmet()).filter(ItemStack::hasItemMeta)
-                            .peek(item -> itemService.updateItem(item, null))
+                            .flatMap(item -> itemService.updateItem(item, null))
                             .peek(equipment::setHelmet);
                     Option.of(equipment.getItemInHand()).filter(ItemStack::hasItemMeta)
-                            .peek(item -> itemService.updateItem(item, null))
+                            .flatMap(item -> itemService.updateItem(item, null))
                             .peek(equipment::setItemInHand);
                     ReflectedRepresentations.EntityEquipment.getItemInOffhand(equipment)
                             .filter(ItemStack::hasItemMeta)
-                            .peek(item -> itemService.updateItem(item, null))
+                            .flatMap(item -> itemService.updateItem(item, null))
                             .peek(i -> ReflectedRepresentations.EntityEquipment.setItemInOffhand(equipment, i));
                 });
     }

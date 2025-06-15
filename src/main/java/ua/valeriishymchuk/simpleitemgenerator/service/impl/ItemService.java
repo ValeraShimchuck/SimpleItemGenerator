@@ -517,8 +517,10 @@ public class ItemService {
         return Objects.equals(customItemId1, customItemId2);
     }
 
-    public void updateItem(ItemStack itemStack, @Nullable Player player) {
-        itemRepository.updateItem(itemStack, player);
+    public Option<ItemStack> updateItem(ItemStack itemStack, @Nullable Player player) {
+        boolean itemHasChanged = itemRepository.updateItem(itemStack, player);
+        if (itemHasChanged) return Option.some(itemStack);
+        return Option.none();
     }
 
     public boolean canBeUsedInCraft(ItemStack item) {

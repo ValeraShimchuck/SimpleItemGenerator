@@ -44,7 +44,36 @@ import static ua.valeriishymchuk.simpleitemgenerator.common.item.ItemCopy.isAir;
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class EventsController implements Listener {
 
+    private static final io.vavr.collection.Map<Integer, Set<Material>> FIT_MATERIALS = io.vavr.collection.HashMap.of(
+            40, Arrays.stream(Material.values())
+                    .filter(m -> m.name().equals("SHIELD"))
+                    .collect(Collectors.toSet()),
+            39, Arrays.stream(Material.values())
+                    .filter(m -> EnchantmentTarget.ARMOR_HEAD.includes(m) ||
+                            (FeatureSupport.NAMESPACED_KEYS_SUPPORT && m.name().equals("CARVED_PUMPKIN")) ||
+                            (!FeatureSupport.NAMESPACED_KEYS_SUPPORT && m.name().equals("PUMPKIN")) ||
+                            m.name().equals("SKULL_ITEM") || m.name().endsWith("HEAD")
+                    ).collect(Collectors.toSet()),
+            38, Arrays.stream(Material.values())
+                    .filter(EnchantmentTarget.ARMOR_TORSO::includes).collect(Collectors.toSet()),
+            37, Arrays.stream(Material.values())
+                    .filter(EnchantmentTarget.ARMOR_LEGS::includes).collect(Collectors.toSet()),
+            36, Arrays.stream(Material.values())
+                    .filter(EnchantmentTarget.ARMOR_FEET::includes).collect(Collectors.toSet())
+    );
     private static final boolean DEBUG = false;
+    private static final Set<Class<?>> DEBUG_EVENTS_TO_INCLUDE = new HashSet<>(Arrays.asList(
+            InventoryClickEvent.class,
+            InventoryDragEvent.class,
+            PlayerDeathEvent.class,
+            PlayerJoinEvent.class,
+            PrepareItemCraftEvent.class,
+            PlayerInteractEvent.class,
+            PlayerDropItemEvent.class,
+            PlayerInteractAtEntityEvent.class,
+            EntityDamageByEntityEvent.class,
+            PlayerPickupItemEvent.class
+    ));
 
     ItemService itemService;
     IInfoService infoService;
@@ -62,9 +91,13 @@ public class EventsController implements Listener {
         this.scheduler = scheduler;
     }
 
+    private static boolean checkDebugExclusion(Event event) {
+        return DEBUG && !DEBUG_EVENTS_TO_INCLUDE.contains(event.getClass());
+    }
 
     @EventHandler
     private void onJoin(PlayerJoinEvent event) {
+        if (checkDebugExclusion(event)) return;
         scheduler.runTaskLater(() -> {
             infoService.getMessage(event.getPlayer()).peek(msg -> KyoriHelper.sendMessage(event.getPlayer(), msg));
             infoService.getNewUpdateMessage(event.getPlayer())
@@ -200,23 +233,7 @@ public class EventsController implements Listener {
                 handleResult(usage, item, player, event, false));
     }
 
-    private static final io.vavr.collection.Map<Integer, Set<Material>> FIT_MATERIALS = io.vavr.collection.HashMap.of(
-            40, Arrays.stream(Material.values())
-                    .filter(m -> m.name().equals("SHIELD"))
-                    .collect(Collectors.toSet()),
-            39, Arrays.stream(Material.values())
-                    .filter(m -> EnchantmentTarget.ARMOR_HEAD.includes(m) ||
-                            (FeatureSupport.NAMESPACED_KEYS_SUPPORT && m.name().equals("CARVED_PUMPKIN")) ||
-                                    (!FeatureSupport.NAMESPACED_KEYS_SUPPORT && m.name().equals("PUMPKIN")) ||
-                            m.name().equals("SKULL_ITEM") || m.name().endsWith("HEAD")
-                    ).collect(Collectors.toSet()),
-            38, Arrays.stream(Material.values())
-                    .filter(EnchantmentTarget.ARMOR_TORSO::includes).collect(Collectors.toSet()),
-            37, Arrays.stream(Material.values())
-                    .filter(EnchantmentTarget.ARMOR_LEGS::includes).collect(Collectors.toSet()),
-            36, Arrays.stream(Material.values())
-                    .filter(EnchantmentTarget.ARMOR_FEET::includes).collect(Collectors.toSet())
-    );
+
 
     private void handleMoveToOtherInventory(InventoryClickEvent event, Map<Integer, ItemStack> movedSlots, Player player) {
         Inventory destination = event.getClickedInventory() instanceof PlayerInventory
@@ -445,6 +462,7 @@ public class EventsController implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     private void onUsage(PlayerInteractEvent event) {
+        if (checkDebugExclusion(event)) return;
         if (event.useItemInHand() == Event.Result.DENY) return;
         if (event.getAction() == Action.PHYSICAL) return;
         long currentTick = tickerTime.getTick();
@@ -471,24 +489,9 @@ public class EventsController implements Listener {
         handleResult(result, event.getItem(), event.getPlayer(), event, true);
     }
 
-    //private ItemMovement getItemMovement(InventoryClickEvent event) {
-    //    int currentSlot = event.getSlot();
-    //    switch (event.getAction()) {
-    //        case MOVE_TO_OTHER_INVENTORY:
-    //            if (event.getInventory() instanceof PlayerInventory) {
-    //                boolean isHotbarClick = currentSlot >= 0 && currentSlot < 9;
-    //                if (isHotbarClick) {
-    //                    return findFirstAvailableSlot(event.getCursor(), event.getView().getTopInventory(), currentSlot, 9, 36);
-    //                } else {
-    //                    return findFirstAvailableSlot(event.getCursor(), event.getView().getTopInventory(), currentSlot, 0, 9);
-    //                }
-    //            }
-    //            break;
-    //    }
-    //}
-
     @EventHandler(priority = EventPriority.HIGHEST)
     private void onWorkbench(PrepareItemCraftEvent event) {
+        if (checkDebugExclusion(event)) return;
         boolean shouldCancel = !Arrays.stream(event.getInventory().getMatrix())
                 .filter(Objects::nonNull)
                 .allMatch(itemService::canBeUsedInCraft);
@@ -499,6 +502,7 @@ public class EventsController implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     private void onPlayerInventoryDrop(InventoryClickEvent event) {
+        if (checkDebugExclusion(event)) return;
         if (event.getClick() == ClickType.CREATIVE || event.getClick() == ClickType.DROP) {
             playerTickSlotMap.put((Player) event.getWhoClicked(), Tuple.of(tickerTime.getTick(), event.getSlot()));
         }
@@ -506,6 +510,7 @@ public class EventsController implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
     private void onDrop(PlayerDropItemEvent event) {
+        if (checkDebugExclusion(event)) return;
         Player player = event.getPlayer();
         lastDropTick.put(player, tickerTime.getTick());
         ItemStack itemStack = event.getItemDrop().getItemStack();
@@ -532,6 +537,7 @@ public class EventsController implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
     private void onInteractAt(PlayerInteractAtEntityEvent event) {
+        if (checkDebugExclusion(event)) return;
         long currentTick = tickerTime.getTick();
         Long lastPlayerClickTickValue = this.lastPlayerClickTick.get(event.getPlayer());
         if (lastPlayerClickTickValue != null && currentTick == lastPlayerClickTickValue) return;
@@ -563,6 +569,7 @@ public class EventsController implements Listener {
 
     @EventHandler(priority = EventPriority.HIGH)
     private void onDamage(EntityDamageByEntityEvent event) {
+        if (checkDebugExclusion(event)) return;
         if (!(event.getDamager() instanceof Player)) return;
         Player player = (Player) event.getDamager();
         boolean isCancelled = event.isCancelled();
@@ -630,6 +637,7 @@ public class EventsController implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
     private void onInventoryDrag(InventoryDragEvent event) {
+        if (checkDebugExclusion(event)) return;
         boolean canBePutInvInventory = event.getNewItems().values().stream()
                 .anyMatch(itemService::canBePutInInventory);
         if (canBePutInvInventory) return;
@@ -640,11 +648,13 @@ public class EventsController implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
     private void onDeath(PlayerDeathEvent event) {
+        if (checkDebugExclusion(event)) return;
         event.getDrops().removeIf(itemService::shouldRemoveOnDeath);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     private void onPickup(PlayerPickupItemEvent event) {
+        if (checkDebugExclusion(event)) return;
         if (event.getRemaining() != 0) return;
         if (!event.getItem().getItemStack().hasItemMeta()) return;
         itemService.updateItem(event.getItem().getItemStack(), event.getPlayer());
@@ -652,13 +662,15 @@ public class EventsController implements Listener {
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.MONITOR)
     private void replaceItemOnDrop(PlayerDropItemEvent event) {
+        if (checkDebugExclusion(event)) return;
         if (!event.getItemDrop().getItemStack().hasItemMeta()) return;
-        itemService.updateItem(event.getItemDrop().getItemStack(), null);
-        event.getItemDrop().setItemStack(event.getItemDrop().getItemStack());
+        itemService.updateItem(event.getItemDrop().getItemStack(), null)
+                .peek(event.getItemDrop()::setItemStack);
     }
 
     @EventHandler(ignoreCancelled = true, priority = EventPriority.HIGH)
     private void onInventoryClick(InventoryClickEvent event) {
+        if (checkDebugExclusion(event)) return;
         ItemStack carriedItem = event.getCursor();
         ItemStack clickedItem = event.getCurrentItem();
         if (!itemService.canBeMoved(clickedItem)) {
@@ -701,19 +713,6 @@ public class EventsController implements Listener {
             if (!isPlayerInventory) {
                 event.setCancelled(true);
             }
-        }
-    }
-
-    private static class DummyEvent implements Cancellable {
-
-        @Override
-        public boolean isCancelled() {
-            return false;
-        }
-
-        @Override
-        public void setCancelled(boolean b) {
-
         }
     }
 

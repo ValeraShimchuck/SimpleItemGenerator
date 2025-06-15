@@ -77,21 +77,21 @@ public class ItemRepository {
     }
 
     @SneakyThrows
-    public void updateItem(ItemStack itemStack, @Nullable Player player) {
+    public boolean updateItem(ItemStack itemStack, @Nullable Player player) {
         String customItemId = NBTCustomItem.getCustomItemId(itemStack).getOrNull();
-        if (customItemId == null) return;
+        if (customItemId == null) return false;
         CustomItemEntity customItem = items.get(customItemId);
-        if (customItem == null) return;
+        if (customItem == null) return false;
         int configItemSignature = customItem.getSignature();
         Integer itemSignature = NBTCustomItem.getSignature(itemStack).getOrNull();
-        if (itemSignature != null & !customItem.autoUpdate()) return;
+        if (itemSignature != null & !customItem.autoUpdate()) return false;
         boolean isSameSignature = itemSignature != null && itemSignature == configItemSignature;
         String lastPlayer = NBTCustomItem.getLastHolder(itemStack).getOrNull();
         String currentPlayer = Option.of(player).map(Player::getName).getOrNull();
         boolean shouldUpdateHeadTexture = customItem.getHeadTexture()
                 .map(t -> t.getValue().contains("%player%")).getOrElse(false)
                 && !Objects.equals(lastPlayer, currentPlayer);
-        if (!customItem.hasPlaceHolders() && isSameSignature && !shouldUpdateHeadTexture) return;
+        if (!customItem.hasPlaceHolders() && isSameSignature && !shouldUpdateHeadTexture) return false;
         ItemStack configItemStack = customItem.getItemStack();
         if (shouldUpdateHeadTexture) {
             customItem.getHeadTexture().get()
@@ -111,6 +111,7 @@ public class ItemRepository {
         );
         itemStack.setItemMeta(configItemMeta);
         NBTCustomItem.setCustomItemId(itemStack, customItemId);
+        return true;
     }
 
     public boolean reloadItems() {
