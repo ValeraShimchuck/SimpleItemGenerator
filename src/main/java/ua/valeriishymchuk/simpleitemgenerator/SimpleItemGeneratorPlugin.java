@@ -124,10 +124,12 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
             return;
         }
         taskScheduler.runTask(() -> {
-            if (!configRepository.doesMainConfigExist() && !itemRepository.hasFolder()) {
+            boolean shouldCreateExample = !configRepository.doesMainConfigExist() &&
+                    itemRepository.hasFolder() &&
+                    itemRepository.getItemKeys().isEmpty();
+            if (shouldCreateExample) {
                 getLogger().info("Can't find items folder, creating one...");
                 itemRepository.createExample();
-
             }
             Stream<Boolean> repositoryLoadStatus = Stream.of(
                     cooldownRepository.reload(),

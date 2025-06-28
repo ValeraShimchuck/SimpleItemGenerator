@@ -78,12 +78,6 @@ public class SIGTesterPlugin extends JavaPlugin implements Listener {
 
     private static boolean isFinished = false;
 
-    //public SIGTesterPlugin() {
-    //    System.setErr(new WrappedPrintStream(System.err, obj -> {
-    //        System.out.println("Got error: " + obj);
-    //    }));
-    //}
-
     private CompletableFuture<String> proceedFuture = null;
 
     @Override
