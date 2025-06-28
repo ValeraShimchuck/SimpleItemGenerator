@@ -116,9 +116,7 @@ public class SIGTesterPlugin extends JavaPlugin implements Listener {
     private BukkitSync sync = new BukkitSync(this);
     private ExecutorService executor = Executors.newSingleThreadExecutor();
 
-    @SneakyThrows
-    @Override
-    public void onEnable() {
+    public void onFirstTick() {
         if (isFinished) return;
         try {
             PacketEvents.getAPI().getEventManager().registerListener(new DebugPacketListener(), PacketListenerPriority.MONITOR);
@@ -142,10 +140,13 @@ public class SIGTesterPlugin extends JavaPlugin implements Listener {
         } catch (Throwable e) {
             e.printStackTrace();
             fail();
-            return;
         }
-        //Bukkit.getScheduler().runTask(this, SIGTesterPlugin::success);
-        //Bukkit.getScheduler().runTaskLater(this, SIGTesterPlugin::success, 20 * 20);
+    }
+
+    @SneakyThrows
+    @Override
+    public void onEnable() {
+        Bukkit.getScheduler().runTask(this, this::onFirstTick);
     }
 
 
