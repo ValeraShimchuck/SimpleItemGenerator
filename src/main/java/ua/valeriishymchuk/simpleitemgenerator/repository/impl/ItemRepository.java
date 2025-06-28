@@ -7,6 +7,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
+import lombok.val;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.entity.Player;
@@ -14,6 +15,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.Nullable;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.ConfigLoader;
+import ua.valeriishymchuk.simpleitemgenerator.common.config.error.ConfigurationError;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
 import ua.valeriishymchuk.simpleitemgenerator.common.error.ErrorVisitor;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
@@ -133,9 +135,15 @@ public class ItemRepository {
                 .map(f -> f.split("\\.")[0])
                 .map(key -> Tuple.of(key, itemsConfigLoader.safeLoad(CustomItemsStorageEntity.class, key)))
                 .filter(t -> {
-                    if (t._2.isValid() && t._2.get().isDefined()) return true;
-                    if (t._2.isInvalid()) {
-                        errors.add(InvalidConfigurationException.format("Error in <white>%s.yml</white>", t._1, t._2.getError()));
+                    final String configFile = t._1;
+                    final Validation<ConfigurationError, Option<CustomItemsStorageEntity>> result = t._2;
+                    if (result.isValid() && result.get().isDefined()) return true;
+                    if (result.isInvalid()) {
+                        errors.add(InvalidConfigurationException.format(
+                                result.getError().asConfigException(),
+                                "Error in <white>%s.yml</white>",
+                                configFile)
+                        );
                         return false;
                     }
                     return false;

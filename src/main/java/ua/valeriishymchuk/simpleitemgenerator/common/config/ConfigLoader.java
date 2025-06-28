@@ -1,5 +1,6 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.config;
 
+import io.vavr.CheckedFunction0;
 import io.vavr.control.Option;
 import io.vavr.control.Validation;
 import lombok.*;
@@ -7,13 +8,13 @@ import lombok.experimental.FieldDefaults;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.loader.ConfigurationLoader;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
+import ua.valeriishymchuk.simpleitemgenerator.common.config.error.ConfigurationError;
 
 import java.io.File;
 import java.lang.reflect.Constructor;
-import java.lang.reflect.InvocationTargetException;
 import java.util.Arrays;
+import java.util.Objects;
 import java.util.function.Function;
-import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -31,34 +32,46 @@ public class ConfigLoader {
         return mapper.apply(new ContextLoader<>(clazz, key));
     }
 
-    public <C> C loadOrSave(Class<C> clazz, String key, C defaultConfig) {
-        return applyContext(clazz, key, c -> c.load().getOrElse(() -> {
-            c.save(defaultConfig);
-            return defaultConfig;
-        }));
+    public <C> Validation<ConfigurationError, C> loadOrSave(Class<C> clazz, String key, C defaultConfig) {
+        return applyContext(clazz, key, c -> {
+            final Validation<ConfigurationError, C> loadResult = c.load();
+            if (loadResult.isValid()) return loadResult;
+            if (loadResult.getError().isFileNotPresent()) {
+                return c.save(defaultConfig).map(v -> defaultConfig);
+            }
+            return loadResult;
+        });
     }
 
-    public <C> C loadOrSave(Class<C> clazz, String key) {
-        validateConfigClass(clazz);
-        return loadOrSave(clazz, key, emptyConstructor(clazz).get());
-    }
-
-    public <C> Validation<Exception, Option<C>> safeLoad(Class<C> clazz, String key) {
+    public <C> Validation<ConfigurationError, C> loadOrSave(Class<C> clazz, String key) {
         try {
-            return Validation.valid(load(clazz, key));
-        } catch (Exception e) {
-            return Validation.invalid(e);
+            validateConfigClass(clazz);
+            return loadOrSave(clazz, key, emptyConstructor(clazz).apply());
+        } catch (Throwable e) {
+            return ConfigurationError.handleValidationException(e);
         }
     }
 
+    public <C> Validation<ConfigurationError, Option<C>> safeLoad(Class<C> clazz, String key) {
+        Validation<ConfigurationError, C> rawResult = load(clazz, key);
+        if (rawResult.isValid()) return Validation.valid(Option.some(rawResult.get()));
+        ConfigurationError err = rawResult.getError();
+        if (err instanceof ConfigurationError.FileNotPresent) return Validation.valid(Option.none());
+        return Validation.invalid(err);
+    }
+
     @SneakyThrows
-    public <C> Option<C> load(Class<C> clazz, String key) {
-        validateConfigClass(clazz);
-        File file = getFile(key);
-        if (!file.exists()) return Option.none();
-        ConfigurationLoader<?> loader = configurator.configure(file);
-        ConfigurationNode rootNode = loader.load();
-        return Option.of(rootNode.get(clazz));
+    public <C> Validation<ConfigurationError, C> load(Class<C> clazz, String key) {
+        try {
+            validateConfigClass(clazz);
+            File file = getFile(key);
+            if (!file.exists()) return Validation.invalid(ConfigurationError.FileNotPresent.INSTANCE);
+            ConfigurationLoader<?> loader = configurator.configure(file);
+            ConfigurationNode rootNode = loader.load();
+            return Validation.valid(Objects.requireNonNull(rootNode.get(clazz)));
+        } catch (Throwable e) {
+            return ConfigurationError.handleValidationException(e);
+        }
     }
 
     public boolean exists(String key) {
@@ -66,31 +79,47 @@ public class ConfigLoader {
         return file.exists() && file.isFile();
     }
 
-    public <C> C loadOrDefault(Class<C> clazz, String key, C defaultConfig) {
-        return load(clazz, key).getOrElse(defaultConfig);
+    public <C> Validation<ConfigurationError, C> loadOrDefault(Class<C> clazz, String key, C defaultConfig) {
+        final Validation<ConfigurationError, C> loadResult = load(clazz, key);
+        if (loadResult.isValid()) return loadResult;
+        if (loadResult.getError().isFileNotPresent()) return Validation.valid(defaultConfig);
+        return loadResult;
     }
 
-    public <C> C loadOrDefault(Class<C> clazz, String key) {
-        validateConfigClass(clazz);
-        return loadOrDefault(clazz, key, emptyConstructor(clazz).get());
+    public <C> Validation<ConfigurationError, C> loadOrDefault(Class<C> clazz, String key) {
+        try {
+            validateConfigClass(clazz);
+            return loadOrDefault(clazz, key, emptyConstructor(clazz).apply());
+        } catch (Throwable e) {
+            return ConfigurationError.handleValidationException(e);
+        }
     }
 
     @SneakyThrows
-    public <C> void save(Class<C> clazz, String key, C config) {
-        validateConfigClass(clazz);
-        File file = getFile(key);
-        ConfigurationLoader<?> loader = configurator.configure(file);
-        ConfigurationNode rootNode = loader.load();
-        rootNode.set(clazz, config);
-        loader.save(rootNode);
+    public <C> Validation<ConfigurationError, Void> save(Class<C> clazz, String key, C config) {
+        try {
+            validateConfigClass(clazz);
+            File file = getFile(key);
+            ConfigurationLoader<?> loader = configurator.configure(file);
+            ConfigurationNode rootNode = loader.load();
+            rootNode.set(clazz, config);
+            loader.save(rootNode);
+            return Validation.valid(null);
+        } catch (Throwable e) {
+            return ConfigurationError.handleValidationException(e);
+        }
     }
 
-    public <C> void saveDefault(Class<C> clazz, String key) {
-        validateConfigClass(clazz);
-        save(clazz, key, emptyConstructor(clazz).get());
+    public <C> Validation<ConfigurationError, Void> saveDefault(Class<C> clazz, String key) {
+        try {
+            validateConfigClass(clazz);
+            return save(clazz, key, emptyConstructor(clazz).apply());
+        } catch (Throwable e) {
+            return ConfigurationError.handleValidationException(e);
+        }
     }
 
-    private <C> Supplier<C> emptyConstructor(Class<C> clazz) {
+    private <C> CheckedFunction0<C> emptyConstructor(Class<C> clazz) {
         Constructor<?> constructor = Stream.of(
                         clazz.getConstructors(),
                         clazz.getDeclaredConstructors()
@@ -98,13 +127,7 @@ public class ConfigLoader {
                 .filter(c -> c.getParameterCount() == 0)
                 .peek(c -> c.setAccessible(true)).findFirst()
                 .get();
-        return () -> {
-            try {
-                return (C) constructor.newInstance();
-            } catch (InstantiationException | IllegalAccessException | InvocationTargetException e) {
-                throw new RuntimeException(e);
-            }
-        };
+        return () -> (C) constructor.newInstance();
     }
 
     private File getFile(String key){
@@ -146,24 +169,24 @@ public class ConfigLoader {
         Class<C> clazz;
         String key;
 
-        public Option<C>  load() {
+        public Validation<ConfigurationError, C>  load() {
             return ConfigLoader.this.load(clazz, key);
         }
 
-        public C loadOrDefault(C defaultConfig) {
+        public Validation<ConfigurationError, C> loadOrDefault(C defaultConfig) {
             return ConfigLoader.this.loadOrDefault(clazz, key, defaultConfig);
         }
 
-        public C loadOrDefault() {
+        public Validation<ConfigurationError, C> loadOrDefault() {
             return ConfigLoader.this.loadOrDefault(clazz, key);
         }
 
-        public void save(C config) {
-            ConfigLoader.this.save(clazz, key, config);
+        public Validation<ConfigurationError, Void> save(C config) {
+            return ConfigLoader.this.save(clazz, key, config);
         }
 
-        public void saveDefault() {
-            ConfigLoader.this.saveDefault(clazz, key);
+        public Validation<ConfigurationError, Void> saveDefault() {
+            return ConfigLoader.this.saveDefault(clazz, key);
         }
 
     }

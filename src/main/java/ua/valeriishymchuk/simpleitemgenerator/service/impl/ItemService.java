@@ -39,7 +39,7 @@ import ua.valeriishymchuk.simpleitemgenerator.entity.CustomItemEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.LangEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IConfigRepository;
-import ua.valeriishymchuk.simpleitemgenerator.repository.ICooldownRepository;
+import ua.valeriishymchuk.simpleitemgenerator.repository.impl.CooldownRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ItemRepository;
 
 import java.util.*;
@@ -59,7 +59,7 @@ public class ItemService {
 
     IConfigRepository configRepository;
     ItemRepository itemRepository;
-    ICooldownRepository cooldownRepository;
+    CooldownRepository cooldownRepository;
 
     private MainConfigEntity config() {
         return configRepository.getConfig();
@@ -607,12 +607,7 @@ public class ItemService {
     }
 
     public Component reload() {
-        try {
-            cooldownRepository.reload();
-        } catch (Throwable msg) {
-            log.warn("Failed to reload cooldowns: {}", msg.getMessage());
-        }
-        boolean result = configRepository.reload() && itemRepository.reloadItems();
+        boolean result = cooldownRepository.reload() && configRepository.reload() && itemRepository.reloadItems();
         return result ? lang().getReloadSuccessfully().bake() : lang().getReloadUnsuccessfully().bake();
     }
 

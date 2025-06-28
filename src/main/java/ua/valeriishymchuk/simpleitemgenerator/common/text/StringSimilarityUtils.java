@@ -15,7 +15,7 @@ public class StringSimilarityUtils {
                                 s, StringSimilarityUtils.jaroDistance(s, input)
                         )
                 )
-                .filter(m -> m.getValue() > 0.8)
+                //.filter(m -> m.getValue() > 0.8)
                 .sorted(Comparator.comparingDouble(entry -> -entry.getValue()))
                 .limit(5)
                 .map(AbstractMap.SimpleEntry::getKey)

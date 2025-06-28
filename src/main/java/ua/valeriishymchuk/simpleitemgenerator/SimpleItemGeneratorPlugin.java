@@ -11,9 +11,11 @@ import cloud.commandframework.minecraft.extras.MinecraftExceptionHandler;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.settings.PacketEventsSettings;
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
+import io.vavr.control.Option;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
+import lombok.val;
 import me.arcaniax.hdb.api.DatabaseLoadEvent;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.audience.MessageType;
@@ -34,6 +36,7 @@ import ua.valeriishymchuk.simpleitemgenerator.api.SimpleItemGenerator;
 import ua.valeriishymchuk.simpleitemgenerator.common.commands.CommandException;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.ConfigLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.builder.ConfigLoaderConfigurationBuilder;
+import ua.valeriishymchuk.simpleitemgenerator.common.config.error.ConfigurationError;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.serializer.nbt.v2.CompoundBinaryTagTypeSerializer;
 import ua.valeriishymchuk.simpleitemgenerator.common.error.ErrorVisitor;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
@@ -47,7 +50,6 @@ import ua.valeriishymchuk.simpleitemgenerator.controller.CommandsController;
 import ua.valeriishymchuk.simpleitemgenerator.controller.EventsController;
 import ua.valeriishymchuk.simpleitemgenerator.controller.TickController;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IConfigRepository;
-import ua.valeriishymchuk.simpleitemgenerator.repository.ICooldownRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IUpdateRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ConfigRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.CooldownRepository;
@@ -57,10 +59,12 @@ import ua.valeriishymchuk.simpleitemgenerator.service.impl.InfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
 
 import java.io.File;
+import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
 import java.util.logging.Level;
+import java.util.stream.Stream;
 
 @FieldDefaults(level = AccessLevel.PRIVATE)
 public final class SimpleItemGeneratorPlugin extends JavaPlugin {
@@ -81,7 +85,7 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
     ItemService itemService;
     InfoService infoService;
     public ItemRepository itemRepository;
-    ICooldownRepository cooldownRepository = null;
+    CooldownRepository cooldownRepository = null;
     boolean isHDBLoaded = false;
 
     @Override
@@ -100,8 +104,7 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
             configRepository = new ConfigRepository(configLoader, errorVisitor);
             itemRepository = new ItemRepository(configRepository, itemsConfigLoader, errorVisitor);
             IUpdateRepository updateRepository = new UpdateRepository();
-            cooldownRepository = new CooldownRepository(cooldownLoader());
-            cooldownRepository.reload();
+            cooldownRepository = new CooldownRepository(cooldownLoader(), errorVisitor);
             SemanticVersion currentVersion = SemanticVersion.parse(getDescription().getVersion());
             infoService = new InfoService(updateRepository, configRepository, currentVersion);
             itemService = new ItemService(configRepository, itemRepository, cooldownRepository);
@@ -126,7 +129,12 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
                 itemRepository.createExample();
 
             }
-            if (!configRepository.reload() || !itemRepository.reloadItems()) {
+            Stream<Boolean> repositoryLoadStatus = Stream.of(
+                    cooldownRepository.reload(),
+                    configRepository.reload(),
+                    itemRepository.reloadItems()
+            );
+            if (!repositoryLoadStatus.allMatch(b -> b)) {
                 getLogger().severe("Failed to load config. Shutting down...");
                 Bukkit.getPluginManager().disablePlugin(this);
                 return;
