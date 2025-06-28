@@ -53,7 +53,6 @@ import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ConfigRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.CooldownRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ItemRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.UpdateRepository;
-import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.impl.InfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
 
@@ -80,7 +79,7 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
     ConfigLoader configLoader;
     ConfigLoader itemsConfigLoader;
     ItemService itemService;
-    IInfoService infoService;
+    InfoService infoService;
     public ItemRepository itemRepository;
     ICooldownRepository cooldownRepository = null;
     boolean isHDBLoaded = false;
@@ -135,7 +134,7 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
             TickTimer tickerTime = new TickTimer(taskScheduler);
             tickerTime.start();
             Bukkit.getPluginManager().registerEvents(new EventsController(itemService, infoService,tickerTime, taskScheduler), this);
-            new TickController(itemService, taskScheduler, tickerTime).start();
+            new TickController(itemService, infoService,taskScheduler, tickerTime).start();
             new API();
             MetricsHelper.init(this);
         });

@@ -5,10 +5,13 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 
 import java.util.*;
+import java.util.logging.Logger;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
 public class PipelineDebug {
+
+    private static final Logger LOGGER = Logger.getLogger("SIG-PIPELINE");
 
     String name;
     List<PipelineDebug> children = new ArrayList<>();
@@ -46,7 +49,7 @@ public class PipelineDebug {
     }
 
     public void print(Tag... excludeTags) {
-        System.out.println("[PIPELINE] " + get(excludeTags));
+        LOGGER.info(get(excludeTags));
     }
 
     // should be something like that

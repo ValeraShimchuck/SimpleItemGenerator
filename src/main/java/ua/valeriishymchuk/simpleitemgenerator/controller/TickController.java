@@ -24,6 +24,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.SlotPredica
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageGeneralDTO;
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageResultDTO;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
+import ua.valeriishymchuk.simpleitemgenerator.service.impl.InfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
 
 import java.util.Arrays;
@@ -37,9 +38,9 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class TickController {
 
-    private static final boolean DEBUG = false;
 
     ItemService itemService;
+    InfoService infoService;
     BukkitTaskScheduler taskScheduler;
     TickTimer tickerTime;
 
@@ -88,7 +89,7 @@ public class TickController {
     }
 
     private void handleResult(ItemUsageResultDTO result, ItemStack item, Player player) {
-        if (DEBUG) {
+        if (infoService.isDebugTick()) {
             result.getPipelineDebug().print();
         }
         result.getCommands().forEach(commands -> {

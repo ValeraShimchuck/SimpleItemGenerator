@@ -23,6 +23,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedReprese
 import ua.valeriishymchuk.simpleitemgenerator.common.support.PapiSupport;
 import ua.valeriishymchuk.simpleitemgenerator.entity.CustomItemEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.CustomItemsStorageEntity;
+import ua.valeriishymchuk.simpleitemgenerator.entity.result.ConfigLoadResultEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.result.ItemLoadResultEntity;
 import ua.valeriishymchuk.simpleitemgenerator.repository.IConfigRepository;
 
@@ -116,13 +117,15 @@ public class ItemRepository {
 
     public boolean reloadItems() {
         items.clear();
-        ItemLoadResultEntity mainConfigLoadResult = configRepository.getConfig().init();
-        List<InvalidConfigurationException> errors = new ArrayList<>();
-        errors.addAll(mainConfigLoadResult.getInvalidItems().values().stream()
+        ConfigLoadResultEntity mainConfigLoadResult = configRepository.getConfig().init();
+        List<InvalidConfigurationException> rawErrors = new ArrayList<>();
+        rawErrors.addAll(mainConfigLoadResult.getItemLoad().getInvalidItems().values());
+        rawErrors.addAll(mainConfigLoadResult.getExceptions());
+        List<InvalidConfigurationException> errors = rawErrors.stream()
                 .map(e -> InvalidConfigurationException
-                        .format(e, "Error in file <white>%s</white>","config.yml"))
-                .collect(Collectors.toList())
-        );
+                        .format(e, "Error in file <white>%s</white>", "config.yml"))
+                .collect(Collectors.toList());
+
         items.putAll(configRepository.getConfig().getItems().getItems());
 
 

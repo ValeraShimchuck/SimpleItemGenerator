@@ -30,19 +30,22 @@ import ua.valeriishymchuk.simpleitemgenerator.common.slot.EquipmentToSlotConvert
 import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickTimer;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.SlotPredicate;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
+import ua.valeriishymchuk.simpleitemgenerator.common.version.SigFeatureTag;
 import ua.valeriishymchuk.simpleitemgenerator.dto.*;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
-import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
+import ua.valeriishymchuk.simpleitemgenerator.service.impl.InfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 import static ua.valeriishymchuk.simpleitemgenerator.common.item.ItemCopy.isAir;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 public class EventsController implements Listener {
+    private static final Logger LOGGER = Logger.getLogger("SIG-" + EventsController.class.getSimpleName());
 
     private static final io.vavr.collection.Map<Integer, Set<Material>> FIT_MATERIALS = io.vavr.collection.HashMap.of(
             40, Arrays.stream(Material.values())
@@ -61,7 +64,7 @@ public class EventsController implements Listener {
             36, Arrays.stream(Material.values())
                     .filter(EnchantmentTarget.ARMOR_FEET::includes).collect(Collectors.toSet())
     );
-    private static final boolean DEBUG = false;
+    //private static final boolean DEBUG = false;
     private static final Set<Class<?>> DEBUG_EVENTS_TO_INCLUDE = new HashSet<>(Arrays.asList(
             InventoryClickEvent.class,
             InventoryDragEvent.class,
@@ -76,23 +79,22 @@ public class EventsController implements Listener {
     ));
 
     ItemService itemService;
-    IInfoService infoService;
+    InfoService infoService;
     TickTimer tickerTime;
     BukkitTaskScheduler scheduler;
     Map<Player, Long> lastDropTick = new WeakHashMap<>();
     Map<Player, Long> lastPlayerClickTick = new WeakHashMap<>();
-    Map<Player, Map<Integer, Long>> lastUsedItemTicks = new WeakHashMap<>();
     Map<Player, Tuple2<Long, Integer>> playerTickSlotMap = new WeakHashMap<>();
 
-    public EventsController(ItemService itemService, IInfoService infoService, TickTimer tickerTime, BukkitTaskScheduler scheduler) {
+    public EventsController(ItemService itemService, InfoService infoService, TickTimer tickerTime, BukkitTaskScheduler scheduler) {
         this.itemService = itemService;
         this.infoService = infoService;
         this.tickerTime = tickerTime;
         this.scheduler = scheduler;
     }
 
-    private static boolean checkDebugExclusion(Event event) {
-        return DEBUG && !DEBUG_EVENTS_TO_INCLUDE.contains(event.getClass());
+    private boolean checkDebugExclusion(Event event) {
+        return infoService.isDebug() && !DEBUG_EVENTS_TO_INCLUDE.contains(event.getClass());
     }
 
     @EventHandler
@@ -143,8 +145,9 @@ public class EventsController implements Listener {
         return snapshot;
     }
 
-    //@EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     private void onItemClick(InventoryClickEvent event) {
+        if (!infoService.getFeatures().contains(SigFeatureTag.ENHANCED_SLOT_PREDICATE)) return;
         if (!(event.getClickedInventory() instanceof PlayerInventory) &&
                 event.getAction() != InventoryAction.MOVE_TO_OTHER_INVENTORY &&
                 event.getAction() != InventoryAction.HOTBAR_SWAP
@@ -272,7 +275,8 @@ public class EventsController implements Listener {
                     player.getInventory(),
                     slots,
                     blackListedSlots,
-                    !blackListedSlots.contains(event.getSlot())
+                    !blackListedSlots.contains(event.getSlot()),
+                    infoService.isDebug()
             ).slotStatuses.forEach((slot, status) -> {
                 if (status.wasBefore) return;
                 movedItem.setAmount(status.itemsAdded);
@@ -296,22 +300,24 @@ public class EventsController implements Listener {
                     destination,
                     slots,
                     new HashSet<>(),
-                    false
+                    false,
+                    infoService.isDebug()
             ).slotStatuses.forEach((slot, slotStatus) -> {
                 if (slotStatus.wasBefore) return;
                 movedItem.setAmount(slotStatus.itemsAdded);
                 movedSlots.put(slot, movedItem);
             });
         }
-        System.out.println("Handling movement to the other inventory");
-        System.out.println("Destination " + destination + " slot: " + event.getSlot() + " \nact: " + event.getAction() +
-                "\nclick: " + event.getClick()
-                + "\nisPlayerInventory: " + (event.getView().getType() == InventoryType.CRAFTING) +
-                "\ntype: " + (event.getView().getType())
-                + "\nmoved-slots: " + movedSlots.entrySet().stream()
-                .map(e -> e.getKey() + " "  + e.getValue().getType())
-                .collect(Collectors.joining("\n"))
-        );
+        if (infoService.isDebug()) {
+            LOGGER.info("Handling movement to the other inventory");
+            LOGGER.info("Destination " + destination + " slot: " + event.getSlot() + " \nact: " + event.getAction() +
+                    "\nclick: " + event.getClick()
+                    + "\nisPlayerInventory: " + (event.getView().getType() == InventoryType.CRAFTING) +
+                    "\ntype: " + (event.getView().getType())
+                    + "\nmoved-slots: " + movedSlots.entrySet().stream()
+                    .map(e -> e.getKey() + " "  + e.getValue().getType())
+                    .collect(Collectors.joining("\n")));
+        }
 
     }
 
@@ -333,16 +339,20 @@ public class EventsController implements Listener {
                 Inventory destination,
                 Iterable<Integer> slotSequence,
                 Set<Integer> blacklistedSlots,
-                boolean startFromEnd
+                boolean startFromEnd,
+                boolean isDebug
         ) {
             int firstEmpty = -1;
             int remaining = item.getAmount();
-            System.out.println(destination + " " + destination.getSize() + " bl: " + blacklistedSlots);
+            if (isDebug)
+                LOGGER.info(destination + " " + destination.getSize() + " bl: " + blacklistedSlots);
             Map<Integer, SlotStatus> slotStatusMap = new HashMap<>();
             for (int i : slotSequence) {
-                System.out.println("Checking slot: " + i + " " + startFromEnd);
+                if (isDebug)
+                    LOGGER.info("Checking slot: " + i + " " + startFromEnd);
                 if (blacklistedSlots.contains(i)) continue;
-                System.out.println("pass1");
+                if (isDebug)
+                    LOGGER.info("pass1");
                 ItemStack itemFromInventory = destination.getItem(i);
                 if (firstEmpty == -1 && isAir(itemFromInventory)) {
                     firstEmpty = i;
@@ -595,7 +605,7 @@ public class EventsController implements Listener {
     }
 
     private void handleResult(ItemUsageResultDTO result, ItemStack item, Player player, Cancellable event, boolean omitEventCancellation) {
-        if (DEBUG) {
+        if (infoService.isDebug()) {
             result.getPipelineDebug().print();
         }
         if (!event.isCancelled()) {

@@ -1,6 +1,7 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.config.exception;
 
 import java.util.List;
+import java.util.function.Function;
 
 public class InvalidConfigurationException extends RuntimeException {
     public InvalidConfigurationException(String message) {
@@ -10,8 +11,19 @@ public class InvalidConfigurationException extends RuntimeException {
         super(message, cause);
     }
 
+
+    public static class Lambda {
+        public static <E extends Throwable> Function<E, InvalidConfigurationException> path(String path) {
+            return e -> InvalidConfigurationException.path(path, e);
+        }
+    }
+
     public static InvalidConfigurationException path(String path, Throwable cause) {
         return new InvalidConfigurationException("Error in <white>[" + path + "]</white>", cause);
+    }
+
+    public static InvalidConfigurationException unhandledException(Throwable cause) {
+        return format(cause, "Unhandled error %s. Please contact the developer of SimpleItemGenerator ", cause.getMessage());
     }
 
     public static InvalidConfigurationException nestedPath(String error, String path0, String... path) {
@@ -43,5 +55,6 @@ public class InvalidConfigurationException extends RuntimeException {
                 (!suggestions.isEmpty() ? "Did you mean: <white>" + suggestions + "</white>" : "")
         );
     }
+
 
 }

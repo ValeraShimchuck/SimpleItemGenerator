@@ -1,13 +1,20 @@
 package ua.valeriishymchuk.simpleitemgenerator.entity;
 
+import io.vavr.CheckedRunnable;
+import io.vavr.Tuple;
+import io.vavr.Tuple2;
+import io.vavr.control.Option;
+import io.vavr.control.Validation;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import org.spongepowered.configurate.objectmapping.meta.Setting;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
+import ua.valeriishymchuk.simpleitemgenerator.common.config.tools.ConfigParsingHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.RawItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
@@ -16,6 +23,8 @@ import ua.valeriishymchuk.simpleitemgenerator.common.time.TimeTokenParser;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickAt;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickButton;
+import ua.valeriishymchuk.simpleitemgenerator.common.version.SigFeatureTag;
+import ua.valeriishymchuk.simpleitemgenerator.entity.result.ConfigLoadResultEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.result.ItemLoadResultEntity;
 
 import java.util.*;
@@ -40,6 +49,46 @@ public class MainConfigEntity {
     boolean sendWelcomeMessage = true;
     @Getter
     boolean sendInvalidItemMessage = true;
+    @Getter
+    boolean debug = false;
+    @Getter
+    boolean tickDebug = false;
+    Map<String, Boolean> features = Collections.emptyMap();
+    transient Set<SigFeatureTag> lazyFeatures = null;
+
+    public Set<SigFeatureTag> getFeatures() {
+        if (lazyFeatures == null) lazyFeatures = getFeatures0();
+        return lazyFeatures;
+    }
+
+    private Set<SigFeatureTag> getFeatures0() throws InvalidConfigurationException {
+        Set<SigFeatureTag> featureTags = new HashSet<>();
+        Arrays.stream(SigFeatureTag.values())
+                .filter(SigFeatureTag::isEnabledByDefault)
+                .forEach(featureTags::add);
+        Map<SigFeatureTag, Boolean> map = features.entrySet().stream()
+                .map(entry -> {
+                    SigFeatureTag sigFeatureTag = parse(entry.getKey())
+                            .mapError(InvalidConfigurationException.Lambda.path("features"))
+                            .getOrElseGet(e -> {
+                                throw e;
+                            });
+                    return Tuple.of(sigFeatureTag, entry.getValue());
+                }).collect(Collectors.toMap(Tuple2::_1, Tuple2::_2));
+        map.entrySet().stream()
+                .filter(entry -> !entry.getValue())
+                .forEach(entry -> featureTags.remove(entry.getKey()));
+        return featureTags;
+    }
+
+    private static Validation<InvalidConfigurationException, SigFeatureTag> parse(String value) {
+        return ConfigParsingHelper.parseEnum(
+                SigFeatureTag.class,
+                value,
+                "feature tag",
+                value
+        );
+    }
 
     public static String serializeEnchantment(Enchantment enchantment) {
         if (!FeatureSupport.NAMESPACED_ENCHANTMENTS_SUPPORT) return enchantment.getName();
@@ -162,8 +211,21 @@ public class MainConfigEntity {
     }
 
     // initializing lazies
-    public ItemLoadResultEntity init() throws InvalidConfigurationException {
-        return items.init();
+    public ConfigLoadResultEntity init() throws InvalidConfigurationException {
+        List<InvalidConfigurationException> configErrors = new ArrayList<>();
+        initSafely(this::getFeatures).peek(configErrors::add);
+        return new ConfigLoadResultEntity(items.init(), configErrors);
+    }
+
+    private Option<InvalidConfigurationException> initSafely(CheckedRunnable function) {
+        try {
+            function.run();
+            return Option.none();
+        } catch (Throwable e) {
+            if (e instanceof InvalidConfigurationException) {
+                return Option.of((InvalidConfigurationException) e);
+            } else return Option.of(InvalidConfigurationException.unhandledException(e));
+        }
     }
 
 }

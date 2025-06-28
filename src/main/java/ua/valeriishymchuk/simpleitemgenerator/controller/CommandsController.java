@@ -25,12 +25,13 @@ import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.dto.GiveItemDTO;
 import ua.valeriishymchuk.simpleitemgenerator.dto.WithdrawItemDTO;
-import ua.valeriishymchuk.simpleitemgenerator.service.IInfoService;
+import ua.valeriishymchuk.simpleitemgenerator.service.impl.InfoService;
 import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
 
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -40,9 +41,8 @@ public class CommandsController {
     private static final String COMMAND_PERMISSION = "simpleitemgenerator.commands";
     private static final String COMMAND_PERMISSION_PREPEND = COMMAND_PERMISSION + ".";
 
-
     ItemService itemService;
-    IInfoService infoService;
+    InfoService infoService;
 
     private enum OccupiedSlotHandling {
         REPLACE,

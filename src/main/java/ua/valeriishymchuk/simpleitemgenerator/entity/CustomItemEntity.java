@@ -7,6 +7,7 @@ import io.vavr.CheckedFunction0;
 import io.vavr.Tuple2;
 import io.vavr.control.Option;
 import io.vavr.control.Try;
+import io.vavr.control.Validation;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
@@ -24,6 +25,7 @@ import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import org.spongepowered.configurate.serialize.SerializationException;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
+import ua.valeriishymchuk.simpleitemgenerator.common.config.tools.ConfigParsingHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.cooldown.CooldownType;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.HeadTexture;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
@@ -543,42 +545,20 @@ public class CustomItemEntity {
     }
 
     private static ClickAt parseClickAt(String raw) throws InvalidConfigurationException {
-        String upper = raw.toUpperCase();
-        return Try.ofSupplier(() -> ClickAt.valueOf(upper))
-                .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
-                    List<String> suggestions = StringSimilarityUtils.getSuggestions(
-                            upper,
-                            Arrays.stream(ClickAt.values())
-                                    .map(ClickAt::name)
-                    );
-                    return InvalidConfigurationException.unknownOption("at", raw, suggestions);
-                })).getOrElseThrow(x -> InvalidConfigurationException.path("at", x));
+        return ConfigParsingHelper.parseEnum(ClickAt.class, raw, "at").get();
     }
 
     private static CooldownType parseCooldownType(String raw) throws InvalidConfigurationException {
-        String upper = raw.toUpperCase();
-        return Try.ofSupplier(() -> CooldownType.valueOf(upper))
-                .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
-                    List<String> suggestions = StringSimilarityUtils.getSuggestions(
-                            upper,
-                            Arrays.stream(CooldownType.values())
-                                    .map(CooldownType::name)
-                    );
-                    return InvalidConfigurationException.unknownOption("cooldown type", raw, suggestions);
-                })).getOrElseThrow(x -> InvalidConfigurationException.path("cooldown-type", x));
+        return ConfigParsingHelper.parseEnum(
+                CooldownType.class,
+                raw,
+                "cooldown type",
+                "cooldown-type"
+        ).get();
     }
 
     private static ClickButton parseClickButton(String raw) throws InvalidConfigurationException {
-        String upper = raw.toUpperCase();
-        return Try.ofSupplier(() -> ClickButton.valueOf(upper))
-                .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
-                    List<String> suggestions = StringSimilarityUtils.getSuggestions(
-                            upper,
-                            Arrays.stream(ClickButton.values())
-                                    .map(ClickButton::name)
-                    );
-                    return InvalidConfigurationException.unknownOption("button", raw, suggestions);
-                })).getOrElseThrow(x -> InvalidConfigurationException.path("button", x));
+        return ConfigParsingHelper.parseEnum(ClickButton.class, raw, "button").get();
     }
 
     private static List<String> parsePermissions(String raw) throws InvalidConfigurationException {
@@ -752,34 +732,14 @@ public class CustomItemEntity {
                         .map(this::parseSlot)
                         .collect(Collectors.toList())
         );
-        //return Arrays.stream(raw.split(","))
-                //        .map(String::trim)
-                //        .flatMap(element -> {
-            //            String[] split = element.split("-");
-            //            if (split.length == 1) {
-                //                String first = split[0];
-                //                return Try.ofSupplier(() -> Collections.singletonList(Integer.parseInt(first)))
-                        //                        .recover(t -> parseEquipmentSlot(first)).get().stream();
-                //            } else {
-                //                int start = parseInt(split[0]);
-                //                int end = parseInt(split[1]);
-                //                return Arrays.stream(new IntRange(start, end).toArray())
-                        //                        .boxed();
-                //            }
-            //        }).collect(Collectors.toList());
     }
 
-    private SlotPredicate parseEquipmentSlot(String raw) {
-        String upper = raw.toUpperCase();
-        return Try.ofSupplier(() -> SlotGroup.valueOf(upper))
-                .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
-                    List<String> suggestions = StringSimilarityUtils.getSuggestions(
-                            upper,
-                            Arrays.stream(SlotGroup.values())
-                                    .map(SlotGroup::name)
-                    );
-                    return InvalidConfigurationException.unknownOption("equipment slot", raw, suggestions);
-                })).map(SlotGroup::getSlotPredicate).get();
+    private SlotPredicate parseEquipmentSlot(String raw) throws InvalidConfigurationException {
+        return ConfigParsingHelper.parseEnumWithoutPath(
+                SlotGroup.class,
+                raw,
+                "equipment slot"
+        ).map(SlotGroup::getSlotPredicate).get();
     }
 
     private List<Integer> parseTime(String raw) {
@@ -833,17 +793,12 @@ public class CustomItemEntity {
         SLOT,
         PREV_SLOT;
 
-        public static PredicateType fromString(String raw) {
-            String upper = raw.toUpperCase();
-            return Try.ofSupplier(() -> PredicateType.valueOf(upper))
-                    .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
-                        List<String> suggestions = StringSimilarityUtils.getSuggestions(
-                                upper,
-                                Arrays.stream(PredicateType.values())
-                                        .map(PredicateType::name)
-                        );
-                        return InvalidConfigurationException.unknownOption("predicate type", upper, suggestions);
-                    })).get();
+        public static PredicateType fromString(String raw) throws InvalidConfigurationException {
+            return ConfigParsingHelper.parseEnumWithoutPath(
+                    PredicateType.class,
+                    raw,
+                    "predicate type"
+            ).get();
         }
 
         public static String getPattern() {
