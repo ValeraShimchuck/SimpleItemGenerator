@@ -7,6 +7,7 @@ import lombok.experimental.FieldDefaults;
 import lombok.extern.log4j.Log4j2;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
+import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -15,6 +16,7 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
+import ua.valeriishymchuk.simpleitemgenerator.api.event.SimpleItemGeneratorReloadEvent;
 import ua.valeriishymchuk.simpleitemgenerator.common.component.RawComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.cooldown.CooldownType;
 import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
@@ -602,6 +604,7 @@ public class ItemService {
 
     public Component reload() {
         boolean result = cooldownRepository.reload() && configRepository.reload() && itemRepository.reloadItems();
+        if (result) Bukkit.getPluginManager().callEvent(new SimpleItemGeneratorReloadEvent());
         return result ? lang().getReloadSuccessfully().bake() : lang().getReloadUnsuccessfully().bake();
     }
 

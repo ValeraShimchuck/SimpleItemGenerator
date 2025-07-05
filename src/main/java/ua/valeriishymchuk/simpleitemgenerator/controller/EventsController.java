@@ -21,6 +21,8 @@ import org.bukkit.event.inventory.*;
 import org.bukkit.event.player.*;
 import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.inventory.*;
+import ua.valeriishymchuk.simpleitemgenerator.api.event.SimpleItemGeneratorLoadEvent;
+import ua.valeriishymchuk.simpleitemgenerator.api.event.SimpleItemGeneratorReloadEvent;
 import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.ItemCopy;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;

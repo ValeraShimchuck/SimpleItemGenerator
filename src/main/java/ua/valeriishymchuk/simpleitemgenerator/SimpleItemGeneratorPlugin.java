@@ -31,6 +31,7 @@ import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.configurate.yaml.NodeStyle;
 import ua.valeriishymchuk.simpleitemgenerator.api.SimpleItemGenerator;
+import ua.valeriishymchuk.simpleitemgenerator.api.event.SimpleItemGeneratorLoadEvent;
 import ua.valeriishymchuk.simpleitemgenerator.common.commands.CommandException;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.ConfigLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.builder.ConfigLoaderConfigurationBuilder;
@@ -142,6 +143,7 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
             Bukkit.getPluginManager().registerEvents(new EventsController(itemService, infoService,tickerTime, taskScheduler), this);
             new TickController(itemService, infoService,taskScheduler, tickerTime).start();
             new API();
+            Bukkit.getPluginManager().callEvent(new SimpleItemGeneratorLoadEvent());
             MetricsHelper.init(this);
             MetricsHelper.initTotalItemsChart(() -> itemRepository.getItemKeys().size());
             MetricsHelper.initPluginActivityChart(() -> infoService.isUsedActively());

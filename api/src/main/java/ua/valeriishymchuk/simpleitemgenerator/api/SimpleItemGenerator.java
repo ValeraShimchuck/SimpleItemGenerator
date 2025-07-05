@@ -5,10 +5,13 @@ import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
 
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
 
 public abstract class SimpleItemGenerator {
 
     private static SimpleItemGenerator instance = null;
+    private static final CompletableFuture<SimpleItemGenerator> LOAD_FUTURE = new CompletableFuture<>();
 
 
     protected SimpleItemGenerator() {
@@ -66,6 +69,37 @@ public abstract class SimpleItemGenerator {
         return instance;
     }
 
+    /**
+     * Checks whether the plugin is initialized.
+     *
+     * @return true if the plugin is initialized
+     */
+    public static boolean isLoaded() {
+        return instance != null;
+    }
+
+    /**
+     * Returns a future which will be completed when the plugin is loaded.
+     *
+     * @return A future of the plugin instance
+     */
+    public static CompletableFuture<SimpleItemGenerator> loadFuture() {
+        return LOAD_FUTURE.thenApply(s -> s);
+    }
+
+    /**
+     * Provides a way to wait for the plugin's initialization.
+     * This method can be used to delay code execution until the plugin is loaded.
+     *
+     * @param callback Code to be executed when the plugin is loaded
+     */
+    public static void onInit(Consumer<SimpleItemGenerator> callback) {
+        loadFuture().thenAccept(callback).exceptionally(e -> {
+            e.printStackTrace();
+            return null;
+        });
+    }
+
     private static void ensureInitialized() {
         if (instance == null) throw new IllegalStateException("SimpleItemGenerator not initialized!");
     }
@@ -78,6 +112,7 @@ public abstract class SimpleItemGenerator {
     private static void init(SimpleItemGenerator api) {
         ensureNotInitialized();
         instance = api;
+        LOAD_FUTURE.complete(api);
     }
 
 }
