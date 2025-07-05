@@ -78,6 +78,9 @@ public class MainConfigEntity {
         map.entrySet().stream()
                 .filter(entry -> !entry.getValue())
                 .forEach(entry -> featureTags.remove(entry.getKey()));
+        map.entrySet().stream()
+                .filter(Map.Entry::getValue)
+                .forEach(entry -> featureTags.add(entry.getKey()));
         return featureTags;
     }
 
