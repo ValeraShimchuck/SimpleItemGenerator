@@ -11,11 +11,9 @@ import cloud.commandframework.minecraft.extras.MinecraftExceptionHandler;
 import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.settings.PacketEventsSettings;
 import io.github.retrooper.packetevents.factory.spigot.SpigotPacketEventsBuilder;
-import io.vavr.control.Option;
 import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
-import lombok.val;
 import me.arcaniax.hdb.api.DatabaseLoadEvent;
 import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.audience.MessageType;
@@ -36,7 +34,6 @@ import ua.valeriishymchuk.simpleitemgenerator.api.SimpleItemGenerator;
 import ua.valeriishymchuk.simpleitemgenerator.common.commands.CommandException;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.ConfigLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.builder.ConfigLoaderConfigurationBuilder;
-import ua.valeriishymchuk.simpleitemgenerator.common.config.error.ConfigurationError;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.serializer.nbt.v2.CompoundBinaryTagTypeSerializer;
 import ua.valeriishymchuk.simpleitemgenerator.common.error.ErrorVisitor;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
@@ -55,11 +52,10 @@ import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ConfigRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.CooldownRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ItemRepository;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.UpdateRepository;
-import ua.valeriishymchuk.simpleitemgenerator.service.impl.InfoService;
-import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
+import ua.valeriishymchuk.simpleitemgenerator.service.InfoService;
+import ua.valeriishymchuk.simpleitemgenerator.service.ItemService;
 
 import java.io.File;
-import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
@@ -147,6 +143,8 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
             new TickController(itemService, infoService,taskScheduler, tickerTime).start();
             new API();
             MetricsHelper.init(this);
+            MetricsHelper.initTotalItemsChart(() -> itemRepository.getItemKeys().size());
+            MetricsHelper.initPluginActivityChart(() -> infoService.isUsedActively());
         });
     }
 
@@ -249,18 +247,21 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
         @Override
         public Optional<ItemStack> bakeItem(String key, @Nullable Player player) {
             Objects.requireNonNull(key);
+            infoService.updatePluginActivity();
             return itemRepository.bakeItem(key, player).toJavaOptional();
         }
 
         @Override
         public boolean hasKey(String key) {
             Objects.requireNonNull(key);
+            infoService.updatePluginActivity();
             return itemRepository.getItemKeys().contains(key);
         }
 
         @Override
         public Optional<String> getCustomItemKey(ItemStack item) {
             Objects.requireNonNull(item);
+            infoService.updatePluginActivity();
             return NBTCustomItem.getCustomItemId(item).toJavaOptional();
         }
 
@@ -268,6 +269,7 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
         public boolean updateItem(ItemStack item, @Nullable Player player) {
             Objects.requireNonNull(item);
             if (!isCustomItem(item)) return false;
+            infoService.updatePluginActivity();
             itemRepository.updateItem(item, player);
             return true;
         }

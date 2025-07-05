@@ -1,4 +1,4 @@
-package ua.valeriishymchuk.simpleitemgenerator.service.impl;
+package ua.valeriishymchuk.simpleitemgenerator.service;
 
 import io.vavr.control.Option;
 import lombok.AccessLevel;
@@ -10,25 +10,20 @@ import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
 import org.bukkit.Material;
-import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
-import org.joml.Vector3i;
 import ua.valeriishymchuk.simpleitemgenerator.common.component.RawComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.cooldown.CooldownType;
 import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
-import ua.valeriishymchuk.simpleitemgenerator.common.placeholders.PlaceholdersHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.IRayTraceResult;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceBlockResult;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceEntityResult;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
-import ua.valeriishymchuk.simpleitemgenerator.common.regex.RegexUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickAt;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickButton;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.PredicateInput;
@@ -44,7 +39,6 @@ import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ItemRepository;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -292,8 +286,8 @@ public class ItemService {
         boolean shouldCancel = false;
         boolean isInventoryClick = predicateInput.getTrigger() == PredicateInput.Trigger.INVENTORY_CLICK;
         if (!customItem.isPlainItem() && !isInventoryClick) {
-            subPipeline.append("Not plain item and not inventory click");
-            shouldCancel = true;
+            subPipeline.append("Not plain item and not inventory click. Setting it to " + usage.isCancel());
+            shouldCancel = usage.isCancel();
         } else if (usage.isCancel() /* && !customItem.isPlainItem() */) {
             subPipeline.append("Usage is cancelled");
             shouldCancel = true;

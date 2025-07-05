@@ -12,7 +12,7 @@ plugins {
 }
 
 group = "ua.valeriishymchuk"
-version = "1.9.0"
+version = "1.9.1"
 
 
 
@@ -75,7 +75,7 @@ dependencies {
     compileOnlyApi("com.sk89q:worldguard:6.1")
 
 
-    api("de.tr7zw:item-nbt-api:2.15.0")
+    api("de.tr7zw:item-nbt-api:2.15.1")
 
 
     val configVersion = "4.1.2"
@@ -90,7 +90,7 @@ dependencies {
     api("cloud.commandframework:cloud-core:$cloudVersion")
     api("cloud.commandframework:cloud-minecraft-extras:$cloudVersion")
     api("org.bstats:bstats-bukkit:3.0.2")
-    api("com.github.retrooper:packetevents-spigot:2.8.0-SNAPSHOT")
+    api("com.github.retrooper:packetevents-spigot:2.9.0-SNAPSHOT")
 }
 
 val targetJavaVersion = 8

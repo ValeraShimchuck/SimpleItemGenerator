@@ -1,9 +1,10 @@
-package ua.valeriishymchuk.simpleitemgenerator.service.impl;
+package ua.valeriishymchuk.simpleitemgenerator.service;
 
 import io.vavr.control.Option;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import lombok.experimental.NonFinal;
 import net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
@@ -24,6 +25,9 @@ public class InfoService {
     IConfigRepository configRepository;
     SemanticVersion currentVersion;
 
+    @NonFinal
+    long lastTimeWasUsed = 0;
+
 
     private MainConfigEntity getConfig() {
         return configRepository.getConfig();
@@ -33,6 +37,13 @@ public class InfoService {
         return configRepository.getLang();
     }
 
+    public void updatePluginActivity() {
+        lastTimeWasUsed = System.currentTimeMillis();
+    }
+
+    public boolean isUsedActively() {
+        return System.currentTimeMillis() - lastTimeWasUsed < 1000 * 60 * 60 * 24;
+    }
 
     public boolean isDebug() {
         return getConfig().isDebug();

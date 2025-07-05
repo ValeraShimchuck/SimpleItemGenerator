@@ -2,7 +2,6 @@ package ua.valeriishymchuk.simpleitemgenerator.controller;
 
 import cloud.commandframework.Command;
 import cloud.commandframework.CommandManager;
-import cloud.commandframework.arguments.CommandArgument;
 import cloud.commandframework.arguments.standard.EnumArgument;
 import cloud.commandframework.arguments.standard.IntegerArgument;
 import cloud.commandframework.arguments.standard.StringArgument;
@@ -15,7 +14,6 @@ import lombok.experimental.FieldDefaults;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.ItemStack;
@@ -25,13 +23,12 @@ import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.dto.GiveItemDTO;
 import ua.valeriishymchuk.simpleitemgenerator.dto.WithdrawItemDTO;
-import ua.valeriishymchuk.simpleitemgenerator.service.impl.InfoService;
-import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
+import ua.valeriishymchuk.simpleitemgenerator.service.InfoService;
+import ua.valeriishymchuk.simpleitemgenerator.service.ItemService;
 
 import java.util.Arrays;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)

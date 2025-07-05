@@ -19,6 +19,7 @@ import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.inventory.*;
 import org.bukkit.event.player.*;
+import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.inventory.*;
 import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.ItemCopy;
@@ -33,8 +34,8 @@ import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SigFeatureTag;
 import ua.valeriishymchuk.simpleitemgenerator.dto.*;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
-import ua.valeriishymchuk.simpleitemgenerator.service.impl.InfoService;
-import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
+import ua.valeriishymchuk.simpleitemgenerator.service.InfoService;
+import ua.valeriishymchuk.simpleitemgenerator.service.ItemService;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -111,6 +112,22 @@ public class EventsController implements Listener {
                         return null;
                     });
         }, 40L);
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    private void onPlayerCommand(PlayerCommandPreprocessEvent event) {
+        String command = event.getMessage().replace("/", "");
+        if (command.startsWith("sig") || command.startsWith("simpleitemgenerator")) {
+            infoService.updatePluginActivity();
+        }
+    }
+
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    private void onServerCommand(ServerCommandEvent event) {
+        String command = event.getCommand().replace("/", "");
+        if (command.startsWith("sig") || command.startsWith("simpleitemgenerator")) {
+            infoService.updatePluginActivity();
+        }
     }
 
     private ItemCopy[] getInventorySnapshot(InventoryView inventory) {

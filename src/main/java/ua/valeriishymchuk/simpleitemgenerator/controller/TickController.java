@@ -10,7 +10,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Item;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
-import org.bukkit.event.Cancellable;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
@@ -24,8 +23,8 @@ import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.SlotPredica
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageGeneralDTO;
 import ua.valeriishymchuk.simpleitemgenerator.dto.ItemUsageResultDTO;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
-import ua.valeriishymchuk.simpleitemgenerator.service.impl.InfoService;
-import ua.valeriishymchuk.simpleitemgenerator.service.impl.ItemService;
+import ua.valeriishymchuk.simpleitemgenerator.service.InfoService;
+import ua.valeriishymchuk.simpleitemgenerator.service.ItemService;
 
 import java.util.Arrays;
 import java.util.HashSet;
