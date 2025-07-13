@@ -11,11 +11,12 @@ import org.jetbrains.annotations.Nullable;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
-
 public class GiveItemDTO {
 
     @Getter
     Component message;
+    @Getter
+    Component dropMessage;
     @Nullable
     ItemStack itemStack;
 

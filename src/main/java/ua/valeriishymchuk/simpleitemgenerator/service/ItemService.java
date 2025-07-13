@@ -535,10 +535,12 @@ public class ItemService {
     public GiveItemDTO giveItem(String key, @Nullable Player player, Integer slot) {
         if (player == null) return new GiveItemDTO(
                 lang().getSenderNotPlayer().bake(),
+                lang().getDroppedItem().bake(),
                 null
         );
         if (slot != null && player.getInventory().getSize() <= slot) return new GiveItemDTO(
                 lang().getSlotNotExist().replaceText("%slot%", slot + "").bake(),
+                lang().getDroppedItem().bake(),
                 null
         );
         ItemStack itemStack = itemRepository.bakeItem(key, player).getOrNull();
@@ -547,6 +549,7 @@ public class ItemService {
                 .replaceText("%key%", key);
         return new GiveItemDTO(
                 message.bake(),
+                lang().getDroppedItem().bake(),
                 itemStack
         );
     }

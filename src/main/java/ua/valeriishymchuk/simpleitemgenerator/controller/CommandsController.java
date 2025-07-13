@@ -11,6 +11,7 @@ import io.vavr.control.Option;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
@@ -46,11 +47,11 @@ public class CommandsController {
         ADD
     }
 
-    private void addItemToInventory(Option<ItemStack> itemOpt, int amount, Player player) {
+    private void addItemToInventory(Option<ItemStack> itemOpt, int amount, Player player, Component dropMessage) {
         itemOpt.map(item -> Tuple.of(player, item))
                 .peek(t -> t._2.setAmount(amount))
                 .map(tuple -> tuple._1.getInventory().addItem(tuple._2))
-                .peek(items -> dropItems(items, player.getLocation()));
+                .peek(items -> dropItems(items, player.getLocation(), player, dropMessage));
     }
 
     public void setupCommands(CommandManager<CommandSender> commandManager) {
@@ -89,7 +90,12 @@ public class CommandsController {
                             .orElse(() -> Option.when(ctx.getSender() instanceof Player, () -> ((Player) ctx.getSender())));
                     GiveItemDTO result = itemService.giveItem(key, playerOpt.getOrNull());
                     KyoriHelper.sendMessage(ctx.getSender(), result.getMessage());
-                    playerOpt.peek(p -> addItemToInventory(result.getItemStack(), amount, p));
+                    playerOpt.peek(p -> addItemToInventory(
+                            result.getItemStack(),
+                            amount,
+                            p,
+                            result.getDropMessage()
+                    ));
                 }));
 
 
@@ -140,7 +146,12 @@ public class CommandsController {
                                 if (!isSlotOccupied || occupiedSlotHandling == OccupiedSlotHandling.REPLACE)
                                     tuple._1.getInventory().setItem(slot, tuple._2);
                                 else {
-                                    addItemToInventory(Option.of(tuple._2), tuple._2.getAmount(), playerOpt.get());
+                                    addItemToInventory(
+                                            Option.of(tuple._2),
+                                            tuple._2.getAmount(),
+                                            playerOpt.get(),
+                                            result.getDropMessage()
+                                    );
                                 }
                             });
                 }));
@@ -186,7 +197,8 @@ public class CommandsController {
                             playerOpt.peek(player -> {
                                 AtomicInteger remainingAmount = new AtomicInteger(amount);
                                 Arrays.stream(player.getInventory().getContents())
-                                        .filter(item -> NBTCustomItem.getCustomItemId(item).map(s -> s.equals(key)).getOrElse(false))
+                                        .filter(item -> NBTCustomItem.getCustomItemId(item)
+                                                .map(s -> s.equals(key)).getOrElse(false))
                                         .forEach(item -> {
                                             if (remainingAmount.get() <= 0) return;
                                             int toRemove = Math.min(remainingAmount.get(), item.getAmount());
@@ -203,7 +215,11 @@ public class CommandsController {
         );
     }
 
-    private void dropItems(Map<Integer, ItemStack> items, Location location) {
+    private void dropItems(Map<Integer, ItemStack> items, Location location, Player player,Component message) {
+        int totalItems = items.values().stream().map(ItemStack::getAmount).reduce(Integer::sum).orElse(0);
+        if (totalItems > 0) {
+            KyoriHelper.sendMessage(player, message);
+        }
         items.forEach((idx, item) -> {
             AtomicInteger totalAmount = new AtomicInteger(item.getAmount());
             int stack = item.getMaxStackSize();

@@ -26,6 +26,9 @@ public class LangEntity {
     }
 
     RawComponent giveItemSuccessfully = component("Custom item <dark_green>%key%</dark_green> was successfully given to <dark_green>%player%</dark_green>.");
+    RawComponent droppedItem = component(
+            "You didn't have enough space in your inventory. So some items were dropped on the ground"
+    );
     RawComponent invalidCommandSyntax = error("Invalid command syntax. Command usage: <white>%usage%</white>.");
     RawComponent noPermission = error("You don't have %permission% permission to use this command.");
     RawComponent invalidPlayer = error("Player <white>%player%</white> wasn't found.");
