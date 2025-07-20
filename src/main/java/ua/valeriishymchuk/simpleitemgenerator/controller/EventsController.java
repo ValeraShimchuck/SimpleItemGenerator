@@ -667,7 +667,16 @@ public class EventsController implements Listener {
         }
         result.getCommands().forEach(commands -> {
             CommandSender sender = commands.isExecuteAsConsole() ? Bukkit.getConsoleSender() : player;
-            Bukkit.dispatchCommand(sender, commands.getCommand());
+            try {
+                Bukkit.dispatchCommand(sender, commands.getCommand());
+            } catch (Throwable e) {
+                LOGGER.log(
+                        Level.WARNING,
+                        "Error while executing command " + commands.getCommand() + ":\n",
+                        e.getMessage()
+                );
+            }
+
         });
         result.getMessage().peek(message -> KyoriHelper.sendMessage(player, message));
         if (!result.getConsume().isNone() && item != null) {

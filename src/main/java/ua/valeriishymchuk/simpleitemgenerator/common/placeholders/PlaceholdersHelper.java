@@ -44,6 +44,7 @@ public class PlaceholdersHelper {
         placeholders.put("%target_x%", entity.getLocation().getX() + "");
         placeholders.put("%target_y%", entity.getLocation().getY() + "");
         placeholders.put("%target_z%", entity.getLocation().getZ() + "");
+        placeholders.put("%target_uuid%", entity.getUniqueId() + "");
         return placeholders;
     }
 
