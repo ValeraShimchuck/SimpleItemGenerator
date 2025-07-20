@@ -28,7 +28,7 @@ tasks.named("shadowJar", com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
 }
 
 
-val targetJavaVersion = 17
+val targetJavaVersion = 16
 java {
     withSourcesJar()
     val javaVersion = JavaVersion.toVersion(targetJavaVersion)

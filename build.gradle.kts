@@ -96,7 +96,7 @@ dependencies {
     api("com.github.retrooper:packetevents-spigot:2.9.3")
 }
 
-val targetJavaVersion = 17
+val targetJavaVersion = 16
 java {
     withSourcesJar()
     val javaVersion = JavaVersion.toVersion(targetJavaVersion)
