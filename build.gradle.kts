@@ -60,8 +60,9 @@ dependencies {
     //compileOnly("org.spigotmc:spigot-api:1.$finalVersion-R0.1-SNAPSHOT")
 
 
-    compileOnlyApi("org.spigotmc:spigot:1.8-R0.1-SNAPSHOT") // can be obtained from buildtools, being used only for investigation purposes
-    val adventureVersion = "4.17.0"
+    //compileOnlyApi("org.spigotmc:spigot:1.8-R0.1-SNAPSHOT") // can be obtained from buildtools, being used only for investigation purposes
+    compileOnlyApi("com.destroystokyo.paper:paper-api:1.16.5-R0.1-SNAPSHOT")
+    val adventureVersion = "4.23.0"
     api("net.kyori:adventure-text-minimessage:$adventureVersion")
     api("net.kyori:adventure-text-serializer-gson:$adventureVersion")
     api("net.kyori:adventure-text-serializer-legacy:$adventureVersion")
@@ -72,10 +73,12 @@ dependencies {
     compileOnlyApi("com.github.LoneDev6:API-ItemsAdder:3.6.1")
     compileOnlyApi("me.clip:placeholderapi:2.11.6")
     compileOnlyApi("com.arcaniax:HeadDatabase-API:1.3.2")
-    compileOnlyApi("com.sk89q:worldguard:6.1")
+    compileOnlyApi("com.sk89q.worldguard:worldguard-bukkit:7.0.5") {
+        exclude("org.bukkit")
+    }
 
 
-    api("de.tr7zw:item-nbt-api:2.15.1")
+    api("de.tr7zw:item-nbt-api:2.15.2-SNAPSHOT")
 
 
     val configVersion = "4.1.2"
@@ -90,10 +93,10 @@ dependencies {
     api("cloud.commandframework:cloud-core:$cloudVersion")
     api("cloud.commandframework:cloud-minecraft-extras:$cloudVersion")
     api("org.bstats:bstats-bukkit:3.0.2")
-    api("com.github.retrooper:packetevents-spigot:2.9.0-SNAPSHOT")
+    api("com.github.retrooper:packetevents-spigot:2.9.3")
 }
 
-val targetJavaVersion = 8
+val targetJavaVersion = 17
 java {
     withSourcesJar()
     val javaVersion = JavaVersion.toVersion(targetJavaVersion)

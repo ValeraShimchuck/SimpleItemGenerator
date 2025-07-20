@@ -33,7 +33,7 @@ public class RawComponent {
         this(Collections.emptyList());
     }
 
-    public Component bake() {
+    public WrappedComponent bake() {
         Component message = Component.empty();
         for (int i = 0; i < raw.size(); i++) {
             String line = raw.get(i);
@@ -42,11 +42,13 @@ public class RawComponent {
                 message = message.append(Component.newline());
             }
         }
-        return message;
+        return new WrappedComponent(message);
     }
 
-    public List<Component> bakeAsLore() {
-        return raw.stream().map(MiniMessage.miniMessage()::deserialize).collect(Collectors.toList());
+    public List<WrappedComponent> bakeAsLore() {
+        return raw.stream().map(MiniMessage.miniMessage()::deserialize)
+                .map(WrappedComponent::new)
+                .collect(Collectors.toList());
     }
 
     public RawComponent replaceText(String placeholder, String text) {
@@ -57,6 +59,10 @@ public class RawComponent {
 
     public RawComponent replaceText(String placeholder, Component text) {
         return replaceText(placeholder, MiniMessage.miniMessage().serialize(text));
+    }
+
+    public RawComponent replaceText(String placeholder, WrappedComponent text) {
+        return replaceText(placeholder, MiniMessage.miniMessage().serialize(text.getComponent()));
     }
 
     public RawComponent replaceText(String placeholder, RawComponent text) {

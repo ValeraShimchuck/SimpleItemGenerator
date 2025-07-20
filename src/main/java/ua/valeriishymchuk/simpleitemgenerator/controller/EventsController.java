@@ -10,6 +10,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
+import org.bukkit.block.Block;
 import org.bukkit.command.CommandSender;
 import org.bukkit.enchantments.EnchantmentTarget;
 import org.bukkit.entity.Player;
@@ -21,6 +22,8 @@ import org.bukkit.event.inventory.*;
 import org.bukkit.event.player.*;
 import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.inventory.*;
+import org.bukkit.material.Openable;
+import ua.valeriishymchuk.simpleitemgenerator.common.block.BlockDataWrapper;
 import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.ItemCopy;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
@@ -39,6 +42,8 @@ import ua.valeriishymchuk.simpleitemgenerator.service.ItemService;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -108,7 +113,12 @@ public class EventsController implements Listener {
                                 msgOpt.peek(msg -> KyoriHelper.sendMessage(event.getPlayer(), msg));
                             }
                     ).exceptionally(e -> {
-                        e.printStackTrace();
+                        LOGGER.log(
+                                Level.SEVERE,
+                                "Please report this error there:" +
+                                        " https://github.com/ValeraShimchuck/SimpleItemGenerator/issues\n",
+                                e
+                        );
                         return null;
                     });
         }, 40L);
@@ -160,6 +170,33 @@ public class EventsController implements Listener {
 
 
         return snapshot;
+    }
+
+    private boolean isInteractableBlock(Block block) {
+        Supplier<Boolean> legacyDoorCheck = () -> block.getState().getData() instanceof Openable;
+        Supplier<Boolean> legacySwitchableCheck = () -> block.getType().name().contains("BUTTON")
+                || block.getType().name().contains("LEVER");
+        BlockDataWrapper blockData = new BlockDataWrapper(block);
+        boolean checkDoor = blockData.isInstanceOf("org.bukkit.block.data.Openable")
+                .getOrElse(legacyDoorCheck) && !block.getType().name().contains("IRON");
+        boolean checkSwitchable = blockData.isInstanceOf("org.bukkit.block.data.type.Switch")
+                .getOrElse(legacySwitchableCheck);
+        return block.getState() instanceof InventoryHolder
+                || checkDoor
+                || checkSwitchable;
+    }
+
+    @EventHandler
+    private void onArmorRMBClickEvent(PlayerInteractEvent event) {
+        if (!infoService.getFeatures().contains(SigFeatureTag.ENHANCED_SLOT_PREDICATE)) return;
+        if (!event.getAction().name().startsWith("RIGHT")) return;
+        Block block = event.getClickedBlock();
+        if (block != null ) {
+            System.out.println(block.getState().getData() + " " + block.getType());
+            System.out.println("with block: " + event.useInteractedBlock() + " " + event.useItemInHand() + " " + isInteractableBlock(block));
+        } else {
+            System.out.println("without block: " + event.useInteractedBlock() + " " + event.useItemInHand());
+        }
     }
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -640,7 +677,7 @@ public class EventsController implements Listener {
                 AtomicInteger totalAmount = new AtomicInteger(result.getConsume().getAmount());
                 player.getInventory().forEach(itemCons -> {
                     if (itemCons == null || itemCons.getType().name().endsWith("AIR")) return;
-                    if (!itemService.areEqual(itemCons, clonedItem)) return;
+                    if (itemService.areNotEqual(itemCons, clonedItem)) return;
                     if (totalAmount.get() <= 0) return;
                     int toRemove = Math.min(totalAmount.get(), itemCons.getAmount());
                     itemCons.setAmount(itemCons.getAmount() - toRemove);
@@ -653,7 +690,7 @@ public class EventsController implements Listener {
                 } else {
                     player.getInventory().forEach(itemCons -> {
                         if (itemCons == null || itemCons.getType().name().endsWith("AIR")) return;
-                        if (!itemService.areEqual(itemCons, clonedItem)) return;
+                        if (itemService.areNotEqual(itemCons, clonedItem)) return;
                         itemCons.setAmount(0);
                     });
                 }

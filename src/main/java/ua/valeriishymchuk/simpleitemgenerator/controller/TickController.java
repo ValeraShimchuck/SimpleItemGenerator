@@ -54,14 +54,14 @@ public class TickController {
         taskScheduler.runTaskLater(() -> {
             updateItems();
             startUpdatingItems();
-        }, itemService.getUpdatePeriodTicks());
+        }, itemService.getPlaceholderUpdatePeriodTicks());
     }
 
     private void startTickingItems() {
         taskScheduler.runTaskLater(() -> {
             tickItems();
             startTickingItems();
-        }, 1);
+        }, itemService.getItemUpdatePeriodTicks());
     }
 
 
@@ -103,7 +103,7 @@ public class TickController {
                 AtomicInteger totalAmount = new AtomicInteger(result.getConsume().getAmount());
                 player.getInventory().forEach(itemCons -> {
                     if (itemCons == null || itemCons.getType().name().endsWith("AIR")) return;
-                    if (!itemService.areEqual(itemCons, clonedItem)) return;
+                    if (itemService.areNotEqual(itemCons, clonedItem)) return;
                     if (totalAmount.get() <= 0) return;
                     int toRemove = Math.min(totalAmount.get(), itemCons.getAmount());
                     itemCons.setAmount(itemCons.getAmount() - toRemove);
@@ -116,7 +116,7 @@ public class TickController {
                 } else {
                     player.getInventory().forEach(itemCons -> {
                         if (itemCons == null || itemCons.getType().name().endsWith("AIR")) return;
-                        if (!itemService.areEqual(itemCons, clonedItem)) return;
+                        if (itemService.areNotEqual(itemCons, clonedItem)) return;
                         itemCons.setAmount(0);
                     });
                 }

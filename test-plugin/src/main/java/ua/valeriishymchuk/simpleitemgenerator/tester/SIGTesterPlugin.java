@@ -42,6 +42,7 @@ import org.bukkit.util.BlockIterator;
 import org.jetbrains.annotations.NotNull;
 import ua.valeriishymchuk.simpleitemgenerator.SimpleItemGeneratorPlugin;
 import ua.valeriishymchuk.simpleitemgenerator.api.SimpleItemGenerator;
+import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.nbt.NBTConverter;
 import ua.valeriishymchuk.simpleitemgenerator.entity.CustomItemEntity;
@@ -445,7 +446,7 @@ public class SIGTesterPlugin extends JavaPlugin implements Listener {
 
                     @Override
                     public void sendMessage(final @NotNull Identity source, final @NotNull Component message, final @NotNull MessageType type) {
-                        KyoriHelper.sendMessage(s, message);
+                        KyoriHelper.sendMessage(s, new WrappedComponent(message));
                     }
                 });
         return manager;

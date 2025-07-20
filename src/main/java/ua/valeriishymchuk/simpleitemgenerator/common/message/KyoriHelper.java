@@ -8,21 +8,12 @@ import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import net.md_5.bungee.api.chat.BaseComponent;
 import net.md_5.bungee.chat.ComponentSerializer;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.ConsoleCommandSender;
-import org.bukkit.entity.Player;
-import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
+import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 
 public class KyoriHelper {
 
-    public static void sendMessage(CommandSender sender, Component message) {
-        if (sender instanceof Player) {
-            Player player = (Player) sender;
-            player.spigot().sendMessage(convert(message));
-        } else if (sender instanceof ConsoleCommandSender) {
-            ReflectedRepresentations.ConsoleCommandSender.sendComponentMessage(
-                    (ConsoleCommandSender) sender, message
-            );
-        } else sender.sendMessage(KyoriHelper.toLegacy(message));
+    public static void sendMessage(CommandSender sender, WrappedComponent message) {
+        message.send(sender);
     }
 
     public static void sendMessage(CommandSender sender, String minimessageText) {
@@ -37,31 +28,31 @@ public class KyoriHelper {
         return toJson(parseMiniMessage(miniMessage));
     }
 
-    public static Component parseMiniMessage(String miniMessage) {
+    public static WrappedComponent parseMiniMessage(String miniMessage) {
         Component component = MiniMessage.miniMessage().deserialize(miniMessage);
         if (component.decoration(TextDecoration.ITALIC) == TextDecoration.State.NOT_SET)
-            return component.decoration(TextDecoration.ITALIC, TextDecoration.State.FALSE);
-        return component;
+            return new WrappedComponent(component.decoration(TextDecoration.ITALIC, TextDecoration.State.FALSE));
+        return new WrappedComponent(component);
     }
 
-    public static String toJson(Component component) {
-        return GsonComponentSerializer.gson().serialize(component);
+    public static String toJson(WrappedComponent component) {
+        return component.asJson();
     }
 
     public static String toLegacy(Component component) {
         return LegacyComponentSerializer.legacySection().serialize(component);
     }
 
-    public static Component fromLegacy(String legacy) {
-        return LegacyComponentSerializer.legacySection().deserialize(legacy);
+    public static WrappedComponent fromLegacy(String legacy) {
+        return new WrappedComponent(LegacyComponentSerializer.legacySection().deserialize(legacy));
     }
 
-    public static Component fromJson(String json) {
-        return GsonComponentSerializer.gson().deserialize(json);
+    public static WrappedComponent fromJson(String json) {
+        return new WrappedComponent(GsonComponentSerializer.gson().deserialize(json));
     }
 
-    public static String serializeMiniMessage(Component component) {
-        return MiniMessage.miniMessage().serialize(component);
+    public static String serializeMiniMessage(WrappedComponent component) {
+        return MiniMessage.miniMessage().serialize(component.getComponent());
     }
 
     public static String jsonToMiniMessage(String message) {

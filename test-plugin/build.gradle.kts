@@ -10,8 +10,9 @@ dependencies {
     compileOnly("org.projectlombok:lombok:1.18.36")
     annotationProcessor("org.projectlombok:lombok:1.18.36")
     compileOnly(project(":"))
+    compileOnly("com.google.guava:guava:32.1.3-jre")
+    compileOnly("io.netty:netty-all:4.1.10.Final")
     compileOnly("io.github.valerashimchuck:simpleitemgenerator-api:1.5.0")
-    //compileOnly("io.netty:netty-all:4.1.116.Final")
 }
 
 tasks.named("shadowJar", com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar::class) {
@@ -24,11 +25,10 @@ tasks.named("shadowJar", com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
     relocate("org.bstats", "$mainPackage.bstats")
     relocate("org.joml", "$mainPackage.joml")
     relocate("com.github.retrooper.packetevents", "$mainPackage.packetevents")
-    //minimize()
 }
 
 
-val targetJavaVersion = 8
+val targetJavaVersion = 17
 java {
     withSourcesJar()
     val javaVersion = JavaVersion.toVersion(targetJavaVersion)
@@ -38,14 +38,6 @@ java {
         toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
     }
 }
-
-//tasks.withType(JavaCompile).configureEach {
-//    options.encoding = "UTF-8"
-//
-//    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
-//        options.release.set(targetJavaVersion)
-//    }
-//}
 
 
 tasks.named<ProcessResources>("processResources") {

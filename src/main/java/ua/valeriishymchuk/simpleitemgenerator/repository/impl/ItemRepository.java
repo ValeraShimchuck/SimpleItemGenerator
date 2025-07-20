@@ -1,5 +1,6 @@
 package ua.valeriishymchuk.simpleitemgenerator.repository.impl;
 
+import com.google.common.collect.Multimap;
 import io.vavr.Tuple;
 import io.vavr.control.Option;
 import io.vavr.control.Validation;
@@ -8,21 +9,32 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import lombok.val;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
+import org.bukkit.Color;
 import org.bukkit.Material;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.ItemFlag;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.Damageable;
 import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.inventory.meta.LeatherArmorMeta;
+import org.bukkit.inventory.meta.PotionMeta;
 import org.jetbrains.annotations.Nullable;
+import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.ConfigLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.error.ConfigurationError;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
 import ua.valeriishymchuk.simpleitemgenerator.common.error.ErrorVisitor;
+import ua.valeriishymchuk.simpleitemgenerator.common.item.ItemPropertyType;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.RawItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.PapiSupport;
+import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.entity.CustomItemEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.CustomItemsStorageEntity;
 import ua.valeriishymchuk.simpleitemgenerator.entity.result.ConfigLoadResultEntity;
@@ -91,8 +103,10 @@ public class ItemRepository {
         boolean isSameSignature = itemSignature != null && itemSignature == configItemSignature;
         String lastPlayer = NBTCustomItem.getLastHolder(itemStack).getOrNull();
         String currentPlayer = Option.of(player).map(Player::getName).getOrNull();
-        boolean shouldUpdateHeadTexture = customItem.getHeadTexture()
-                .map(t -> t.getValue().contains("%player%")).getOrElse(false)
+        Set<ItemPropertyType> itemPropertyTypes = customItem.getPropertiesToUpdate();
+        boolean shouldUpdateHeadTexture = itemPropertyTypes.contains(ItemPropertyType.HEAD_TEXTURE) &&
+                customItem.getHeadTexture()
+                        .map(t -> t.getValue().contains("%player%")).getOrElse(false)
                 && !Objects.equals(lastPlayer, currentPlayer);
         if (!customItem.hasPlaceHolders() && isSameSignature && !shouldUpdateHeadTexture) return false;
         ItemStack configItemStack = customItem.getItemStack();
@@ -102,18 +116,96 @@ public class ItemRepository {
             NBTCustomItem.setLastHolder(configItemStack, currentPlayer);
         }
         ItemMeta configItemMeta = configItemStack.getItemMeta();
-        itemStack.setType(configItemStack.getType());
-        ReflectedRepresentations.ItemMeta.getDisplayName(configItemMeta)
-                .map(line -> PapiSupport.tryParseComponent(player, line))
-                .peek(line -> ReflectedRepresentations.ItemMeta.setDisplayName(configItemMeta, line));
-        ReflectedRepresentations.ItemMeta.setLore(
-                configItemMeta,
-                ReflectedRepresentations.ItemMeta.getLore(configItemMeta).stream()
-                        .map(line -> PapiSupport.tryParseComponent(player, line))
-                        .collect(Collectors.toList())
-        );
-        itemStack.setItemMeta(configItemMeta);
+        if (itemPropertyTypes.contains(ItemPropertyType.MATERIAL)) {
+            if (itemStack.getType() != configItemStack.getType()) {
+                itemStack.setType(configItemStack.getType());
+            }
+        }
+        ItemMeta itemMeta = itemStack.getItemMeta();
+        itemPropertyTypes.forEach(type -> {
+            switch (type) {
+                case MATERIAL:
+                    break;
+                case NAME:
+                    WrappedComponent.displayName(configItemMeta)
+                            .map(component -> PapiSupport.tryParseComponent(player, component))
+                            .peek(name -> name.setDisplayName(itemMeta));
+                    break;
+                case LORE:
+                    WrappedComponent.setLore(itemMeta, WrappedComponent.lore(configItemMeta).stream()
+                            .map(line -> PapiSupport.tryParseComponent(player, line))
+                            .toList());
+                    break;
+                case CUSTOM_MODEL_DATA:
+                    if (FeatureSupport.MODERN_CMD_SUPPORT) {
+                        ReflectedRepresentations.ItemMeta.getModernCustomModelData(configItemMeta)
+                                .peek(modernCmd -> {
+                                    ReflectedRepresentations.ItemMeta.setModernCustomModelData(itemMeta, modernCmd);
+                                });
+                    } else {
+                        if (configItemMeta.hasCustomModelData()) {
+                            itemMeta.setCustomModelData(configItemMeta.getCustomModelData());
+                        }
+                    }
+                    break;
+                case UNBREAKABLE:
+                    itemMeta.setUnbreakable(configItemMeta.isUnbreakable());
+                    break;
+                case ITEM_FLAGS:
+                    Arrays.stream(ItemFlag.values()).forEach(itemMeta::removeItemFlags);
+                    itemMeta.addItemFlags(configItemMeta.getItemFlags().toArray(new ItemFlag[0]));
+                    break;
+                case ENCHANTMENTS:
+                    itemMeta.getEnchants().forEach((e, l) -> itemMeta.removeEnchant(e));
+                    break;
+                case ATTRIBUTES:
+                    final Multimap<Attribute, AttributeModifier> oldAttributes = itemMeta.getAttributeModifiers();
+                    if (oldAttributes != null) {
+                        oldAttributes.keySet().forEach(itemMeta::removeAttributeModifier);
+                    }
+                    final Multimap<Attribute, AttributeModifier> newAttributes = configItemMeta.getAttributeModifiers();
+                    if (newAttributes != null) {
+                        newAttributes.forEach((itemMeta::addAttributeModifier));
+                    }
+                    break;
+                case COLOR:
+                    Color newColor;
+                    if (configItemMeta instanceof LeatherArmorMeta leatherArmorMeta) {
+                        newColor = leatherArmorMeta.getColor();
+                    } else if (configItemMeta instanceof PotionMeta potionMeta) {
+                        newColor = potionMeta.getColor();
+                    } else newColor = null;
+
+                    if (itemMeta instanceof LeatherArmorMeta leatherArmorMeta) {
+                        leatherArmorMeta.setColor(
+                                Option.of(newColor)
+                                        .getOrElse(Bukkit.getItemFactory().getDefaultLeatherColor())
+                        );
+                    } else if (itemMeta instanceof PotionMeta potionMeta) {
+                        potionMeta.setColor(newColor);
+                    }
+                    break;
+                case POTION_EFFECTS:
+                    if (configItemMeta instanceof PotionMeta configPotionMeta &&
+                            itemMeta instanceof PotionMeta potionMeta) {
+                        potionMeta.clearCustomEffects();
+                        potionMeta.setBasePotionData(configPotionMeta.getBasePotionData());
+                        configPotionMeta.getCustomEffects()
+                                .forEach(effect -> potionMeta.addCustomEffect(effect, true));
+                    }
+                    break;
+                case DURABILITY:
+                    if (configItemMeta instanceof Damageable configDamageable &&
+                            itemMeta instanceof Damageable itemDamageable) {
+                        itemDamageable.setDamage(configDamageable.getDamage());
+                    }
+                    break;
+            }
+        });
+        itemStack.setItemMeta(itemMeta);
         NBTCustomItem.setCustomItemId(itemStack, customItemId);
+        NBTCustomItem.getSignature(configItemStack)
+                .peek(signature -> NBTCustomItem.setSignature(itemStack, signature));
         return true;
     }
 
@@ -154,7 +246,7 @@ public class ItemRepository {
                     CustomItemsStorageEntity item = t._2;
                     ItemLoadResultEntity loadResult = item.init(key);
                     errors.addAll(loadResult.getInvalidItems().values().stream()
-                            .map(e -> InvalidConfigurationException.format(e, "Error in file <white>%s</white>","items/" + key + ".yml"))
+                            .map(e -> InvalidConfigurationException.format(e, "Error in file <white>%s</white>", "items/" + key + ".yml"))
                             .collect(Collectors.toList()));
                     loadResult.getValidItems().forEach((itemKey, itemConfig) -> {
                         items.compute(itemKey, (k, v) -> {

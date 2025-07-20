@@ -1,6 +1,7 @@
 package ua.valeriishymchuk.simpleitemgenerator.entity;
 
 import io.vavr.CheckedRunnable;
+import io.vavr.Lazy;
 import io.vavr.Tuple;
 import io.vavr.Tuple2;
 import io.vavr.control.Option;
@@ -8,7 +9,6 @@ import io.vavr.control.Validation;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.FieldDefaults;
-import lombok.experimental.NonFinal;
 import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemFlag;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
@@ -25,7 +25,6 @@ import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickAt;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickButton;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SigFeatureTag;
 import ua.valeriishymchuk.simpleitemgenerator.entity.result.ConfigLoadResultEntity;
-import ua.valeriishymchuk.simpleitemgenerator.entity.result.ItemLoadResultEntity;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -43,6 +42,9 @@ public class MainConfigEntity {
     CustomItemsStorageEntity items = new CustomItemsStorageEntity(MainConfigEntity::initConfigDefaults);
 
     String placeholderUpdatePeriod = "10t";
+    String itemUpdatePeriod = "1t";
+    transient Lazy<Long> lazyItemUpdatePeriod = Lazy.of(this::getItemUpdatePeriod0);
+    transient Lazy<Long> lazyPlaceholderUpdatePeriod = Lazy.of(this::getPlaceholderUpdatePeriod0);
     @Getter
     boolean checkForUpdates = true;
     @Getter
@@ -210,7 +212,19 @@ public class MainConfigEntity {
     }
 
     public long getPlaceholderUpdatePeriod() {
+        return lazyPlaceholderUpdatePeriod.get();
+    }
+
+    public long getPlaceholderUpdatePeriod0() {
         return TimeTokenParser.parse(placeholderUpdatePeriod);
+    }
+
+    public long getItemUpdatePeriod() {
+        return lazyItemUpdatePeriod.get();
+    }
+
+    public long getItemUpdatePeriod0() {
+        return TimeTokenParser.parse(itemUpdatePeriod);
     }
 
     // initializing lazies

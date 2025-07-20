@@ -7,13 +7,10 @@ import io.vavr.CheckedFunction0;
 import io.vavr.Tuple2;
 import io.vavr.control.Option;
 import io.vavr.control.Try;
-import io.vavr.control.Validation;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
 import net.kyori.adventure.nbt.CompoundBinaryTag;
-import net.kyori.adventure.text.Component;
-import org.apache.commons.lang.math.IntRange;
 import org.apache.commons.lang.math.LongRange;
 import org.bukkit.Material;
 import org.bukkit.inventory.EquipmentSlot;
@@ -23,16 +20,17 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import org.spongepowered.configurate.serialize.SerializationException;
+import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.tools.ConfigParsingHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.cooldown.CooldownType;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.HeadTexture;
+import ua.valeriishymchuk.simpleitemgenerator.common.item.ItemPropertyType;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.RawItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.nbt.NBTConverter;
-import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.ItemsAdderSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.WorldGuardSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.text.StringSimilarityUtils;
@@ -71,6 +69,7 @@ public class CustomItemEntity {
     Boolean isPlain;
     Boolean canMove;
     Boolean autoUpdate;
+    Set<String> updateOnly;
 
     @NonFinal
     transient List<UsageEntity> usages;
@@ -82,8 +81,21 @@ public class CustomItemEntity {
     transient Option<HeadTexture> headTexture;
     @NonFinal
     transient Boolean hasTick;
+    @NonFinal
+    transient Set<ItemPropertyType> propertiesToUpdate;
 
-    public CustomItemEntity(ConfigurationNode item, ConfigurationNode usage, CompoundBinaryTag nbt, Boolean isIngredient, Boolean canBePutInInventory, Boolean removeOnDeath, Boolean isPlain, Boolean canMove, Boolean autoUpdate) {
+    public CustomItemEntity(
+            ConfigurationNode item,
+            ConfigurationNode usage,
+            CompoundBinaryTag nbt,
+            Boolean isIngredient,
+            Boolean canBePutInInventory,
+            Boolean removeOnDeath,
+            Boolean isPlain,
+            Boolean canMove,
+            Boolean autoUpdate,
+            Set<String> updateOnly
+    ) {
         this.item = item;
         this.usage = usage;
         this.nbt = nbt;
@@ -93,12 +105,33 @@ public class CustomItemEntity {
         this.isPlain = isPlain;
         this.canMove = canMove;
         this.autoUpdate = autoUpdate;
+        this.updateOnly = updateOnly;
     }
 
 
     private static ConfigurationNode createNode() {
         return DefaultLoader.yaml().createNode();
         //return createNode(ConfigurationOptions.defaults());
+    }
+
+    public Set<ItemPropertyType> getPropertiesToUpdate() {
+        if (this.propertiesToUpdate == null) this.propertiesToUpdate = getPropertiesToUpdate0();
+        return this.propertiesToUpdate;
+    }
+
+    private Set<ItemPropertyType> getPropertiesToUpdate0() {
+        boolean isEmpty = updateOnly == null || updateOnly.isEmpty();
+        if (isEmpty) return Arrays.stream(ItemPropertyType.values()).collect(Collectors.toSet());
+        return updateOnly.stream().map(CustomItemEntity::parseItemProperty).collect(Collectors.toSet());
+    }
+
+    private static ItemPropertyType parseItemProperty(String raw) throws InvalidConfigurationException {
+        return ConfigParsingHelper.parseEnum(
+                ItemPropertyType.class,
+                raw,
+                "cooldown type",
+                "update-only"
+        ).get();
     }
 
     public boolean hasTick() {
@@ -164,12 +197,34 @@ public class CustomItemEntity {
     }
 
     public static CustomItemEntity of(ItemStack item, List<UsageEntity> usages) {
-        return new CustomItemEntity(serializeItemStack(item), serializeUsages(usages), null, null, null, null, null, null, null);
+        return new CustomItemEntity(
+                serializeItemStack(item),
+                serializeUsages(usages),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
     }
 
     @SneakyThrows
     public static CustomItemEntity of(RawItem item, List<UsageEntity> usages) {
-        return new CustomItemEntity(createNode().set(item), serializeUsages(usages), null, null, null, null, null, null, null);
+        return new CustomItemEntity(
+                createNode().set(item),
+                serializeUsages(usages),
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
     }
 
     @SneakyThrows
@@ -179,10 +234,15 @@ public class CustomItemEntity {
         Material material = item.getType();
         RawItem rawItem = new RawItem(
                 material.name(),
-                Option.of(meta.getDisplayName()).map(KyoriHelper::jsonToMiniMessage).getOrNull(),
-                meta.getLore().stream().map(KyoriHelper::jsonToMiniMessage).collect(Collectors.toList()),
+                WrappedComponent.displayName(meta)
+                        .map(WrappedComponent::asJson)
+                        .map(KyoriHelper::jsonToMiniMessage).getOrNull(),
+                WrappedComponent.lore(meta).stream()
+                        .map(WrappedComponent::fromRootComponent)
+                        .map(WrappedComponent::asJson)
+                        .map(KyoriHelper::jsonToMiniMessage).toList(),
                 null,
-                ReflectedRepresentations.ItemMeta.isUnbreakable(meta),
+                meta.isUnbreakable(),
                 new ArrayList<>(meta.getItemFlags().stream().map(ItemFlag::name).collect(Collectors.toList())),
                 io.vavr.collection.HashMap.ofAll(meta.getEnchants())
                         .mapKeys(MainConfigEntity::serializeEnchantment)
@@ -192,7 +252,7 @@ public class CustomItemEntity {
                 null,
                 null
         );
-        Integer cmd = ReflectedRepresentations.ItemMeta.tryGetCustomModelData(meta).getOrNull();
+        Integer cmd = meta.hasCustomModelData()? meta.getCustomModelData() : null;
         if (cmd != null) {
             rawItem = rawItem.withCmd(cmd);
         }
@@ -290,8 +350,8 @@ public class CustomItemEntity {
 
     private boolean hasPlaceholders0() throws InvalidConfigurationException {
         ItemStack item = getItemStack();
-        Option<Component> displayOpt = ReflectedRepresentations.ItemMeta.getDisplayName(item.getItemMeta());
-        List<Component> lore = ReflectedRepresentations.ItemMeta.getLore(item.getItemMeta());
+        Option<WrappedComponent> displayOpt = WrappedComponent.displayName(item.getItemMeta());
+        List<WrappedComponent> lore = WrappedComponent.lore(item.getItemMeta());
         return Stream.of(
                         displayOpt.toJavaList(),
                         lore
@@ -362,18 +422,7 @@ public class CustomItemEntity {
 
     private List<UsageEntity> parseUsages() throws InvalidConfigurationException {
         if (usage.isNull())
-            return Collections.singletonList(
-                    new UsageEntity(
-                            Collections.emptyList(),
-                            0,
-                            0,
-                            false,
-                            UsageEntity.Consume.NONE,
-                            Collections.emptyList(),
-                            Collections.emptyList(),
-                            CooldownType.PER_ITEM
-                    )
-            );
+            return List.of();
         AtomicInteger increment = new AtomicInteger();
         try {
             if (usage.isList()) {

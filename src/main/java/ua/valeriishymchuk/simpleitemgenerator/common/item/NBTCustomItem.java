@@ -1,91 +1,105 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.item;
 
-import de.tr7zw.changeme.nbtapi.NBT;
-import de.tr7zw.changeme.nbtapi.NBTType;
-import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
-import de.tr7zw.changeme.nbtapi.iface.ReadableNBT;
+
 import io.vavr.control.Option;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import net.kyori.adventure.key.Key;
+import org.bukkit.NamespacedKey;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
+import org.bukkit.persistence.PersistentDataContainer;
+import org.bukkit.persistence.PersistentDataType;
 import org.jetbrains.annotations.Nullable;
+
+import java.util.function.Consumer;
 
 public class NBTCustomItem {
 
-    private static final Key CUSTOM_ITEM_ID_KEY = Key.key("simpleitemgenerator:custom_item_id");
-    private static final Key CUSTOM_ITEM_COOLDOWN_KEY = Key.key("simpleitemgenerator:custom_item_cooldown");
-    private static final Key CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY = Key.key("simpleitemgenerator:custom_item_freezetime");
-    private static final Key CUSTOM_ITEM_SIGNATURE = Key.key("simpleitemgenerator:custom_item_signature");
-    private static final Key CUSTOM_ITEM_LAST_HOLDER = Key.key("simpleitemgenerator:last_holder");
-    private static final String PUBLIC_BUKKIT_VALUES = "PublicBukkitValues";
+    private static final NamespacedKey CUSTOM_ITEM_ID_KEY = key("custom_item_id");
+    private static final NamespacedKey CUSTOM_ITEM_COOLDOWN_KEY = key("custom_item_cooldown");
+    private static final NamespacedKey CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY = key("custom_item_freezetime");
+    private static final NamespacedKey CUSTOM_ITEM_SIGNATURE = key("custom_item_signature");
+    private static final NamespacedKey CUSTOM_ITEM_LAST_HOLDER = key("last_holder");
+
+    private static NamespacedKey key(String value) {
+        return NamespacedKey.fromString("simpleitemgenerator:" + value);
+    }
+
+    private static NamespacedKey cooldown(int cooldownId) {
+        return NamespacedKey.fromString(CUSTOM_ITEM_COOLDOWN_KEY.asString() + cooldownId);
+    }
+
+    private static NamespacedKey freezeTime(int cooldownId) {
+        return NamespacedKey.fromString(CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY.asString() + cooldownId);
+    }
 
     public static Option<String> getCustomItemId(ItemStack item) {
-        if (item == null || item.getType().name().endsWith("AIR")) return Option.none();
-        return NBT.get(item, nbt -> {
-            return getBukkitValues(nbt)
-                    .filter(bukkitValues -> bukkitValues.hasTag(CUSTOM_ITEM_ID_KEY.asString(), NBTType.NBTTagString))
-                    .map(bukkitValues -> bukkitValues.getString(CUSTOM_ITEM_ID_KEY.asString()))
-                    .flatMap(Option::of);
-        });
+        if (item == null || item.getType().isAir()) return Option.none();
+        return Option.of(
+                item.getItemMeta().getPersistentDataContainer()
+                        .get(CUSTOM_ITEM_ID_KEY, PersistentDataType.STRING)
+        );
     }
 
     public static boolean hasCustomItemId(ItemStack item) {
-        return getCustomItemId(item).isDefined();
+        if (item == null || item.getType().isAir()) return false;
+        return item.getItemMeta().getPersistentDataContainer().has(CUSTOM_ITEM_ID_KEY, PersistentDataType.STRING);
     }
 
     public static void setCustomItemId(ItemStack item, String customItemId) {
-        NBT.modify(item, nbt -> {
-            nbt.getOrCreateCompound(PUBLIC_BUKKIT_VALUES).setString(CUSTOM_ITEM_ID_KEY.asString(), customItemId);
+        updateNBT(item, persistentDataContainer ->  {
+            persistentDataContainer.set(CUSTOM_ITEM_ID_KEY, PersistentDataType.STRING, customItemId);
         });
     }
 
+    private static void updateNBT(ItemStack item, Consumer<PersistentDataContainer> consumer) {
+        ItemMeta itemMeta = item.getItemMeta();
+        PersistentDataContainer persistentDataContainer = itemMeta.getPersistentDataContainer();
+        consumer.accept(persistentDataContainer);
+        item.setItemMeta(itemMeta);
+    }
+
     public static void setSignature(ItemStack item, int signature) {
-        NBT.modify(item, nbt -> {
-            nbt.getOrCreateCompound(PUBLIC_BUKKIT_VALUES).setInteger(CUSTOM_ITEM_SIGNATURE.asString(), signature);
+        updateNBT(item, persistentDataContainer -> {
+            persistentDataContainer.set(CUSTOM_ITEM_SIGNATURE, PersistentDataType.INTEGER, signature);
         });
     }
 
     public static Option<Integer> getSignature(ItemStack item) {
-        if (item == null || item.getType().name().endsWith("AIR")) return Option.none();
-        return NBT.get(item, nbt -> {
-            return getBukkitValues(nbt)
-                    .map(bukkitValues -> bukkitValues.getInteger(CUSTOM_ITEM_SIGNATURE.asString()))
-                    .flatMap(Option::of);
-        });
+        if (item == null || item.getType().isAir()) return Option.none();
+        return Option.of(
+                item.getItemMeta().getPersistentDataContainer().get(CUSTOM_ITEM_SIGNATURE, PersistentDataType.INTEGER)
+        );
     }
 
     public static Option<String> getLastHolder(ItemStack item) {
-        if (item == null || item.getType().name().endsWith("AIR")) return Option.none();
-        return NBT.get(item, nbt -> {
-            return getBukkitValues(nbt)
-                    .map(bukkitValues -> bukkitValues.getString(CUSTOM_ITEM_LAST_HOLDER.asString()))
-                    .flatMap(Option::of);
-        });
+        if (item == null || item.getType().isAir()) return Option.none();
+        return Option.of(
+                item.getItemMeta().getPersistentDataContainer().get(CUSTOM_ITEM_LAST_HOLDER, PersistentDataType.STRING)
+        );
     }
 
     public static void setLastHolder(ItemStack item, @Nullable String userName) {
-        if (item == null || item.getType().name().endsWith("AIR")) return;
-        NBT.modify(item, nbt -> {
-            if (userName != null)
-                nbt.getOrCreateCompound(PUBLIC_BUKKIT_VALUES).setString(CUSTOM_ITEM_LAST_HOLDER.asString(), userName);
-            else nbt.getOrCreateCompound(PUBLIC_BUKKIT_VALUES).removeKey(CUSTOM_ITEM_LAST_HOLDER.asString());
+        if (item == null || item.getType().isAir()) return;
+        updateNBT(item, persistentDataContainer -> {
+            if (userName != null) {
+                persistentDataContainer.set(CUSTOM_ITEM_LAST_HOLDER, PersistentDataType.STRING, userName);
+            } else {
+                persistentDataContainer.remove(CUSTOM_ITEM_LAST_HOLDER);
+            }
         });
     }
 
 
     public static Cooldown getCooldown(ItemStack itemStack, int cooldownId) {
-        return NBT.get(itemStack, nbt -> {
-            Long cooldown = getBukkitValues(nbt)
-                    .map(bukkitValues -> bukkitValues.getLong(CUSTOM_ITEM_COOLDOWN_KEY.asString() + cooldownId)).getOrNull();
-            Long freezetime = getBukkitValues(nbt)
-                    .map(bukkitValues -> bukkitValues.getLong(CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY.asString() + cooldownId)).getOrNull();
-            if (cooldown == null || cooldown < System.currentTimeMillis()) return CooldownType.NONE.toCooldown(0);
-            if (freezetime == null || freezetime < System.currentTimeMillis()) return CooldownType.DEFAULT.toCooldown(cooldown);
-            return CooldownType.FROZEN.toCooldown(freezetime);
-        });
+        PersistentDataContainer persistentDataContainer = itemStack.getItemMeta().getPersistentDataContainer();
+        Long cooldown = persistentDataContainer.get(cooldown(cooldownId), PersistentDataType.LONG);
+        Long freezetime = persistentDataContainer.get(freezeTime(cooldownId), PersistentDataType.LONG);
+        if (cooldown == null || cooldown < System.currentTimeMillis()) return CooldownType.NONE.toCooldown(0);
+        if (freezetime == null || freezetime < System.currentTimeMillis()) return CooldownType.DEFAULT.toCooldown(cooldown);
+        return CooldownType.FROZEN.toCooldown(freezetime);
     }
 
     public static Cooldown queryCooldown(ItemStack itemStack, long cooldownMillis, long freezetimeMillis, int cooldownId) {
@@ -103,24 +117,17 @@ public class NBTCustomItem {
     public static void updateCooldown(ItemStack itemStack, @Nullable Long cooldown, int cooldownId) {
         if (cooldown == null) return;
         if (cooldown <= 0) return;
-        NBT.modify(itemStack, nbt -> {
-            ReadWriteNBT bukkitValues = nbt.getOrCreateCompound(PUBLIC_BUKKIT_VALUES);
-            bukkitValues.setLong(CUSTOM_ITEM_COOLDOWN_KEY.asString() + cooldownId, cooldown);
+        updateNBT(itemStack, persistentDataContainer -> {
+            persistentDataContainer.set(cooldown(cooldownId), PersistentDataType.LONG, cooldown);
         });
     }
 
     public static void updateFreezetime(ItemStack itemStack, @Nullable Long freezetime, int cooldownId) {
         if (freezetime == null) return;
         if (freezetime <= 0) return;
-        NBT.modify(itemStack, nbt -> {
-            ReadWriteNBT bukkitValues = nbt.getOrCreateCompound(PUBLIC_BUKKIT_VALUES);
-            bukkitValues.setLong(CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY.asString() + cooldownId, freezetime);
+        updateNBT(itemStack, persistentDataContainer -> {
+            persistentDataContainer.set(freezeTime(cooldownId), PersistentDataType.LONG, freezetime);
         });
-    }
-
-
-    private static Option<ReadableNBT> getBukkitValues(ReadableNBT item) {
-        return Option.of(item.getCompound(PUBLIC_BUKKIT_VALUES));
     }
 
     @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)

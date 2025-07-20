@@ -8,15 +8,16 @@ import lombok.experimental.FieldDefaults;
 import net.kyori.adventure.text.Component;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
+import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
 public class GiveItemDTO {
 
     @Getter
-    Component message;
+    WrappedComponent message;
     @Getter
-    Component dropMessage;
+    WrappedComponent dropMessage;
     @Nullable
     ItemStack itemStack;
 

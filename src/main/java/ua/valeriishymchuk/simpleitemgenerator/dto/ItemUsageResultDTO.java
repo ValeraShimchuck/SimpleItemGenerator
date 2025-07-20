@@ -5,6 +5,7 @@ import lombok.*;
 import lombok.experimental.FieldDefaults;
 import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.Nullable;
+import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 
@@ -18,7 +19,7 @@ import java.util.List;
 public class ItemUsageResultDTO {
 
     @Nullable
-    Component message;
+    WrappedComponent message;
     @Getter
     List<CommandExecutionDTO> commands;
     @Getter
@@ -28,7 +29,7 @@ public class ItemUsageResultDTO {
     @Getter
     PipelineDebug pipelineDebug;
 
-    public Option<Component> getMessage() {
+    public Option<WrappedComponent> getMessage() {
         return Option.of(message);
     }
 

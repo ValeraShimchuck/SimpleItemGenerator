@@ -24,8 +24,10 @@ import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import org.spongepowered.configurate.objectmapping.meta.Setting;
 import ua.valeriishymchuk.simpleitemgenerator.api.SimpleItemGenerator;
+import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
+import ua.valeriishymchuk.simpleitemgenerator.common.custommodeldata.CustomModelDataHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.text.StringSimilarityUtils;
@@ -255,7 +257,7 @@ public class RawItem implements Cloneable {
                 )).get();
     }
 
-    private Option<ItemCustomModelData> getCustomModelData() throws InvalidConfigurationException {
+    public Option<ItemCustomModelData> getCustomModelData() throws InvalidConfigurationException {
         if (customModelData == null || customModelData.isNull()) return Option.none();
         boolean isCmdSupported = FeatureSupport.CMD_SUPPORT;
         boolean isModernCmdSupported = FeatureSupport.MODERN_CMD_SUPPORT;
@@ -326,7 +328,7 @@ public class RawItem implements Cloneable {
                                 .sorted(Comparator.comparingDouble(entry -> -entry.getValue()))
                                 .limit(5)
                                 .map(AbstractMap.SimpleEntry::getKey)
-                                .collect(Collectors.toList());
+                                .toList();
                         return InvalidConfigurationException.format("Unknown flag <white>%s</white>. %s", flag, (!list.isEmpty() ? "Did you mean: <white>" + list : "</white>"));
                     }));
             try {
@@ -358,8 +360,12 @@ public class RawItem implements Cloneable {
                                 .sorted(Comparator.comparingDouble(entry -> -entry.getValue()))
                                 .limit(5)
                                 .map(AbstractMap.SimpleEntry::getKey)
-                                .collect(Collectors.toList());
-                        return InvalidConfigurationException.format("Unknown material <white>%s</white>. %s", this.material, (!list.isEmpty() ? "Did you mean: <white>" + list : "</white>"));
+                                .toList();
+                        return InvalidConfigurationException.format(
+                                "Unknown material <white>%s</white>. %s",
+                                this.material,
+                                (!list.isEmpty() ? "Did you mean: <white>" + list : "</white>")
+                        );
                     }));
             if (materialTry.isFailure()) throw (InvalidConfigurationException) materialTry.getCause();
             return materialTry.get();
@@ -368,14 +374,11 @@ public class RawItem implements Cloneable {
         }
     }
 
-    private ItemStack applyModernCmd(ItemStack stack, ItemCustomModelData cmd) {
-        com.github.retrooper.packetevents.protocol.item.ItemStack peStack = SpigotConversionUtil.fromBukkitItemStack(stack);
-        peStack.setComponent(ComponentTypes.CUSTOM_MODEL_DATA_LISTS, cmd);
-        return SpigotConversionUtil.toBukkitItemStack(peStack);
-    }
+
 
     public ItemStack bake() throws InvalidConfigurationException {
-        ItemStack preparedItem = new ItemStack(getMaterial());
+
+        ItemStack preparedItem = ReflectedRepresentations.ItemStack.createItemStack(getMaterial());
         ItemStack item;
         if (!attributes.isEmpty()) {
             AtomicInteger increment = new AtomicInteger();
@@ -386,7 +389,6 @@ public class RawItem implements Cloneable {
                                     increment.incrementAndGet();
                                     return a;
                                 }))
-                        //.foldLeft(preparedItem, (itemStream, attribute) -> attribute.applyOnItem(itemStream));
                         .transform(list -> Attribute.applyOnItem(list.toJavaList(), preparedItem));
             } catch (Throwable e) {
                 throw InvalidConfigurationException.path("attributes, " + increment.get(), e);
@@ -395,19 +397,21 @@ public class RawItem implements Cloneable {
         ItemCustomModelData cmd = getCustomModelData().getOrNull();
         if (FeatureSupport.MODERN_CMD_SUPPORT) {
             if (cmd != null) {
-                item = applyModernCmd(item, cmd);
+                item = CustomModelDataHelper.applyModernCmd(item, cmd);
             }
         }
+        ItemMeta meta = item.getItemMeta();
+
         if (durability != null) {
             int damage = item.getType().getMaxDurability() - durability;
-            item.setDurability((short) damage);
+            if (meta instanceof Damageable damageable) {
+                damageable.setDamage(damage);
+            }
         }
-        ItemMeta meta = item.getItemMeta();
-        if (name != null) ReflectedRepresentations.ItemMeta.setDisplayName(meta, KyoriHelper.parseMiniMessage(name));
-        if (!lore.isEmpty()) ReflectedRepresentations.ItemMeta.setLore(meta, lore.stream()
+        if (name != null)  KyoriHelper.parseMiniMessage(name).setDisplayName(meta);
+        if (!lore.isEmpty()) WrappedComponent.setLore(meta, lore.stream()
                 .map(KyoriHelper::parseMiniMessage)
-                .collect(Collectors.toList())
-        );
+                .toList());
         Option<org.bukkit.Color> colorOpt = getColor();
         if (meta instanceof LeatherArmorMeta && colorOpt.isDefined()) {
             ((LeatherArmorMeta) meta).setColor(colorOpt.get());
@@ -417,8 +421,7 @@ public class RawItem implements Cloneable {
         } else if (colorOpt.isDefined()) {
             throw new InvalidConfigurationException("'color' node is not supported for this material.");
         }
-        if (meta instanceof PotionMeta) {
-            PotionMeta potionMeta = (PotionMeta) meta;
+        if (meta instanceof PotionMeta potionMeta) {
             getPotionEffects().forEach(e -> {
                 potionMeta.addCustomEffect(e, true);
             });
@@ -433,7 +436,7 @@ public class RawItem implements Cloneable {
                 ((EnchantmentStorageMeta) meta).addStoredEnchant(ench, level, true);
             } else meta.addEnchant(ench, level, true);
         });
-        if (unbreakable != null) ReflectedRepresentations.ItemMeta.setUnbreakable(meta, unbreakable);
+        if (unbreakable != null) meta.setUnbreakable(unbreakable);
         item.setItemMeta(meta);
         return item;
     }
@@ -461,7 +464,7 @@ public class RawItem implements Cloneable {
                                 .sorted(Comparator.comparingDouble(e -> -e.getValue()))
                                 .limit(5)
                                 .map(AbstractMap.SimpleEntry::getKey)
-                                .collect(Collectors.toList());
+                                .toList();
                         throw InvalidConfigurationException.format("Unknown enchantment <white>%s</white>. %s", entry.getKey(), (!list.isEmpty() ? "Did you mean: <white>" + list + "</white>" : ""));
                     }
                     map.put(enchantment, level);
@@ -482,7 +485,7 @@ public class RawItem implements Cloneable {
 
     @SneakyThrows
     private void setLegacyCustomModelData(ItemMeta itemMeta, int cmd) {
-        ReflectedRepresentations.ItemMeta.setCustomModelData(itemMeta, cmd);
+        itemMeta.setCustomModelData(cmd);
     }
 
 }

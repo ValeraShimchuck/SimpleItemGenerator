@@ -1,5 +1,6 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.reflection;
 
+import com.github.retrooper.packetevents.protocol.component.builtin.item.ItemCustomModelData;
 import io.vavr.CheckedFunction1;
 import io.vavr.control.Option;
 import io.vavr.control.Try;
@@ -9,13 +10,18 @@ import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
 import net.md_5.bungee.api.chat.BaseComponent;
 import org.bukkit.Bukkit;
+import org.bukkit.Color;
 import org.bukkit.Material;
+import org.bukkit.NamespacedKey;
+import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import ua.valeriishymchuk.simpleitemgenerator.common.boundingbox.BoundingBox;
+import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
@@ -32,19 +38,25 @@ import static ua.valeriishymchuk.simpleitemgenerator.common.reflection.Minecraft
 
 public class ReflectedRepresentations {
 
-    public static class PlayerInteractEvent {
-        public static final Class<org.bukkit.event.player.PlayerInteractEvent> CLASS = org.bukkit.event.player.PlayerInteractEvent.class;
+    public static class ItemStack {
+        public static Class<org.bukkit.inventory.ItemStack> ITEM_STACK_CLASS = org.bukkit.inventory.ItemStack.class;
 
-        public static EquipmentSlot getClickedItemSlot(org.bukkit.event.player.PlayerInteractEvent event) {
+        public static org.bukkit.inventory.ItemStack createItemStack(org.bukkit.Material material) {
             try {
-                Method m = CLASS.getMethod("getHand");
-                EquipmentSlot hand = (EquipmentSlot) m.invoke(event);
-                if (hand == null) return EquipmentSlot.HAND;
-                if (hand.name().equals("OFF_HAND")) return hand;
-                return hand;
-            } catch (NoSuchMethodException | InvocationTargetException | IllegalAccessException e) {
-                return EquipmentSlot.HAND;
+                Method method = ITEM_STACK_CLASS.getMethod("of", org.bukkit.Material.class);
+                return (org.bukkit.inventory.ItemStack) method.invoke(null, material);
+            } catch (Throwable e) {
+                return new org.bukkit.inventory.ItemStack(material);
             }
+        }
+
+    }
+
+    public static class PlayerInteractEvent {
+
+        @Deprecated(forRemoval = true)
+        public static EquipmentSlot getClickedItemSlot(org.bukkit.event.player.PlayerInteractEvent event) {
+            return event.getHand();
         }
 
     }
@@ -53,38 +65,27 @@ public class ReflectedRepresentations {
         public static final Class<org.bukkit.inventory.EntityEquipment> CLASS = org.bukkit.inventory.EntityEquipment.class;
 
         @SneakyThrows
-        public static void setItemInOffhand(org.bukkit.inventory.EntityEquipment equipment, ItemStack item) {
-            try {
-                Method m = CLASS.getMethod("setItemInOffHand", ItemStack.class);
-                m.invoke(equipment, item);
-            } catch (NoSuchMethodException ignored) {}
+        @Deprecated(forRemoval = true)
+        public static void setItemInOffhand(org.bukkit.inventory.EntityEquipment equipment, org.bukkit.inventory.ItemStack item) {
+            equipment.setItem(EquipmentSlot.OFF_HAND, item);
         }
 
         @SneakyThrows
-        public static Option<ItemStack> getItemInOffhand(org.bukkit.inventory.EntityEquipment equipment) {
-            try {
-                Method m = CLASS.getMethod("getItemInOffHand");
-                return Option.of((ItemStack) m.invoke(equipment));
-            } catch (NoSuchMethodException e) {
-                return Option.none();
-            }
+        @Deprecated(forRemoval = true)
+        public static Option<org.bukkit.inventory.ItemStack> getItemInOffhand(org.bukkit.inventory.EntityEquipment equipment) {
+            return Option.of(
+                    equipment.getItem(EquipmentSlot.OFF_HAND)
+            ).filter(itemStack -> itemStack.getType().isAir());
         }
 
     }
 
     public static class Material {
-        public static final Class<org.bukkit.Material> CLASS = org.bukkit.Material.class;
 
         @SneakyThrows
+        @Deprecated(forRemoval = true)
         public static boolean isItem(org.bukkit.Material material) {
-            Method m = Arrays.stream(CLASS.getMethods())
-                    .filter(m2 -> m2.getName().equals("isItem")).findFirst().orElse(null);
-            if (m == null) {
-                boolean hasItemVersion = Try.of(() -> org.bukkit.Material.valueOf(material.name() + "_ITEM")).isSuccess();
-                return !hasItemVersion;
-                //return !material.isBlock();
-            }
-            return (boolean) m.invoke(material);
+            return material.isItem();
         }
     }
 
@@ -180,45 +181,28 @@ public class ReflectedRepresentations {
 
     }
 
-    public static class ConsoleCommandSender {
-        public static final Class<org.bukkit.command.ConsoleCommandSender> CLASS = org.bukkit.command.ConsoleCommandSender.class;
-
-        public static void sendComponentMessage(
-                org.bukkit.command.ConsoleCommandSender consoleCommandSender,
-                Component component
-        ) {
-            boolean isSent = Option.ofOptional(Arrays.stream(CLASS.getMethods()).filter(m -> m.getName().equals("spigot"))
-                    .findFirst())
-                    .flatMap(CheckedFunction1.lift(method -> {
-                        Object spigot = method.invoke(consoleCommandSender);
-                        Class<?> spigotClass = spigot.getClass();
-                        Method sendMessage = spigotClass.getMethod("sendMessage", BaseComponent[].class);
-                        sendMessage.invoke(spigot, (Object) KyoriHelper.convert(component));
-                        return true;
-                    })).getOrElse(false);
-            if (!isSent) consoleCommandSender.sendMessage(KyoriHelper.toLegacy(component));
-        }
-
-    }
-
     public static class NamespacedKey {
 
         public static final Class<?> CLASS;
 
         @SneakyThrows
+        @Deprecated(forRemoval = true)
         public static ReflectionObject of(String namespace, String key) {
             validate();
             return ReflectionObject.newInstance(CLASS, namespace, key);
         }
 
+        @Deprecated(forRemoval = true)
         public static ReflectionObject from(Key key) {
             return of(key.namespace(), key.value());
         }
 
+        @Deprecated(forRemoval = true)
         public static ReflectionObject from(String key) {
             return from(Key.key(key));
         }
 
+        @Deprecated(forRemoval = true)
         public static Key getKyoriKey(ReflectionObject reflectionObject) {
             validate();
             if (reflectionObject.getClazz() != CLASS)
@@ -260,100 +244,125 @@ public class ReflectedRepresentations {
             }
         }
 
+        public static void clearToolComponent(
+                org.bukkit.inventory.meta.ItemMeta meta
+        ) {
+            try {
+                Method getTool = org.bukkit.inventory.meta.ItemMeta.class.getMethod("getTool");
+                getTool.setAccessible(true);
+                Class<?> toolClass = getTool.getReturnType();
+                Method setTool = org.bukkit.inventory.meta.ItemMeta.class
+                        .getMethod("setTool", toolClass);
+                setTool.setAccessible(true);
+                setTool.invoke(meta, (Object) null);
+            } catch (Exception ignored) {
+
+            }
+        }
+
+        public static void copyToolComponent(
+                org.bukkit.inventory.meta.ItemMeta src,
+                org.bukkit.inventory.meta.ItemMeta dst
+        ) {
+           try {
+               Method getTool = org.bukkit.inventory.meta.ItemMeta.class.getMethod("getTool");
+               getTool.setAccessible(true);
+               Class<?> toolClass = getTool.getReturnType();
+               Object tool = getTool.invoke(src);
+               Method setTool = org.bukkit.inventory.meta.ItemMeta.class
+                       .getMethod("setTool", toolClass);
+               setTool.invoke(dst, tool);
+           } catch (Exception ignored) {
+               ignored.printStackTrace();
+           }
+        }
+
         @SneakyThrows
+        public static Option<ItemCustomModelData> getModernCustomModelData(org.bukkit.inventory.meta.ItemMeta itemMeta) {
+            if (!FeatureSupport.MODERN_CMD_SUPPORT) return Option.none();
+            Class<?> cmdBukkitComponentClass = Class.forName("org.bukkit.inventory.meta.components.CustomModelDataComponent");
+            Object bukkitCmdComponent = CLASS.getMethod("getCustomModelDataComponent").invoke(itemMeta);
+            Method getFloats = cmdBukkitComponentClass.getMethod("getFloats");
+            Method getFlags = cmdBukkitComponentClass.getMethod("getFlags");
+            Method getStrings = cmdBukkitComponentClass.getMethod("getStrings");
+            Method getColors = cmdBukkitComponentClass.getMethod("getColors");
+            return Option.some(new ItemCustomModelData(
+                    (List<Float>) getFloats.invoke(bukkitCmdComponent),
+                    (List<Boolean>) getFlags.invoke(bukkitCmdComponent),
+                    (List<String>) getStrings.invoke(bukkitCmdComponent),
+                    ((List<Color>) getColors.invoke(bukkitCmdComponent)).stream()
+                            .map(bukkitColor -> new com.github.retrooper.packetevents.protocol.color.Color(
+                                    bukkitColor.getRed(),
+                                    bukkitColor.getGreen(),
+                                    bukkitColor.getBlue()
+                            )).toList()
+            ));
+        }
+
+        @SneakyThrows
+        public static void setModernCustomModelData(org.bukkit.inventory.meta.ItemMeta itemMeta, ItemCustomModelData customModelData) {
+            if (!FeatureSupport.MODERN_CMD_SUPPORT) return;
+            Class<?> cmdBukkitComponentClass = Class.forName("org.bukkit.inventory.meta.components.CustomModelDataComponent");
+            Object bukkitCmdComponent = CLASS.getMethod("getCustomModelDataComponent").invoke(itemMeta);
+            Method setFloats = cmdBukkitComponentClass.getMethod("setFloats", List.class);
+            Method setFlags = cmdBukkitComponentClass.getMethod("setFlags", List.class);
+            Method setStrings = cmdBukkitComponentClass.getMethod("setStrings", List.class);
+            Method setColors = cmdBukkitComponentClass.getMethod("setColors", List.class);
+            setFloats.invoke(bukkitCmdComponent, customModelData.getFloats());
+            setFlags.invoke(bukkitCmdComponent, customModelData.getFlags());
+            setStrings.invoke(bukkitCmdComponent, customModelData.getStrings());
+            setColors.invoke(
+                    bukkitCmdComponent,
+                    customModelData.getColors().stream()
+                            .map(packetEventsColor -> Color.fromRGB(packetEventsColor.asRGB()))
+                            .toList()
+            );
+
+
+        }
+
+
+        @SneakyThrows
+        @Deprecated(forRemoval = true)
         public static void setUnbreakable(org.bukkit.inventory.meta.ItemMeta meta, boolean unbreakable) {
-            Method method = Arrays.stream(CLASS.getMethods())
-                    .filter(m -> m.getName().equals("setUnbreakable"))
-                    .findFirst().orElse(null);
-            if (method == null) {
-                meta.spigot().setUnbreakable(unbreakable);
-            } else method.invoke(meta, unbreakable);
+            meta.setUnbreakable(unbreakable);
         }
 
         @SneakyThrows
+        @Deprecated(forRemoval = true)
         public static boolean isUnbreakable(org.bukkit.inventory.meta.ItemMeta meta) {
-            Method method = Arrays.stream(CLASS.getMethods())
-                    .filter(m -> m.getName().equals("isUnbreakable")).findFirst()
-                    .orElse(null);
-            if (method == null) {
-                return meta.spigot().isUnbreakable();
-            } else return (boolean) method.invoke(meta);
+            return meta.isUnbreakable();
 
-        }
-
-        public static boolean isDisplayNameString() {
-            return DISPLAY_NAME_FIELD.getType() == String.class;
         }
 
         @SneakyThrows
-        public static void setDisplayName(org.bukkit.inventory.meta.ItemMeta meta, Component displayName) {
-            // it will probably break on older versions
-            if (!FeatureSupport.TEXT_COMPONENTS_IN_ITEMS_SUPPORT) {
-                meta.setDisplayName(KyoriHelper.toLegacy(displayName));
-                return;
-            }
-            Field displayNameField = CRAFT_META.getDeclaredField("displayName");
-            displayNameField.setAccessible(true);
-            if (isDisplayNameString()) DISPLAY_NAME_FIELD.set(meta, KyoriHelper.toJson(displayName));
-            else DISPLAY_NAME_FIELD.set(meta, MinecraftReflection.toMinecraftComponent(displayName).getObject());
+        @Deprecated(forRemoval = true)
+        public static Option<WrappedComponent> getDisplayName(org.bukkit.inventory.meta.ItemMeta meta) {
+            return WrappedComponent.displayName(meta);
         }
 
         @SneakyThrows
-        public static Option<Component> getDisplayName(org.bukkit.inventory.meta.ItemMeta meta) {
-            Object displayName = DISPLAY_NAME_FIELD.get(meta);
-            if (displayName == null)
-                return Option.none();
-            if (displayName instanceof String) {
-                if (!FeatureSupport.TEXT_COMPONENTS_IN_ITEMS_SUPPORT)
-                    return Option.some(KyoriHelper.fromLegacy((String) displayName));
-                return Option.some(KyoriHelper.fromJson((String) displayName));
-            }
-            return Option.some(MinecraftReflection.fromMinecraftComponent(ReflectionObject.of(displayName)));
+        @Deprecated(forRemoval = true)
+        public static List<WrappedComponent> getLore(org.bukkit.inventory.meta.ItemMeta meta) {
+            return WrappedComponent.lore(meta);
         }
 
         @SneakyThrows
-        public static void setLore(org.bukkit.inventory.meta.ItemMeta meta, Collection<Component> lore) {
-            LORE_FIELD.set(meta, lore.stream().map(component -> {
-                if (!FeatureSupport.TEXT_COMPONENTS_IN_ITEMS_SUPPORT) return KyoriHelper.toLegacy(component);
-                if (isDisplayNameString()) return KyoriHelper.toJson(component);
-                else return MinecraftReflection.toMinecraftComponent(component).getObject();
-            }).collect(Collectors.toList()));
-        }
-
-        @SneakyThrows
-        public static List<Component> getLore(org.bukkit.inventory.meta.ItemMeta meta){
-            List<Object> rawLore = (List<Object>) LORE_FIELD.get(meta);
-            if (rawLore == null || rawLore.isEmpty()) return Collections.emptyList();
-            return rawLore.stream().map(obj -> {
-                if (!FeatureSupport.TEXT_COMPONENTS_IN_ITEMS_SUPPORT) return KyoriHelper.fromLegacy((String) obj);
-                if (isDisplayNameString()) return KyoriHelper.fromJson((String) obj);
-                else return MinecraftReflection.fromMinecraftComponent(ReflectionObject.of(obj));
-            }).collect(Collectors.toList());
-        }
-
-        @SneakyThrows
+        @Deprecated(forRemoval = true)
         public static Option<Integer> getCustomModelData(org.bukkit.inventory.meta.ItemMeta itemMeta) {
-            ensureCmdSupport();
-            Method getCustomModelData = CLASS.getMethod("getCustomModelData");
-            return Option.of((Integer) getCustomModelData.invoke(itemMeta));
+            if (itemMeta.hasCustomModelData()) return Option.some(itemMeta.getCustomModelData());
+            return Option.none();
         }
 
+        @Deprecated(forRemoval = true)
         public static Option<Integer> tryGetCustomModelData(org.bukkit.inventory.meta.ItemMeta itemMeta) {
-            if (!FeatureSupport.CMD_SUPPORT)
-                return Option.none();
             return getCustomModelData(itemMeta);
         }
 
         @SneakyThrows
+        @Deprecated(forRemoval = true)
         public static void setCustomModelData(org.bukkit.inventory.meta.ItemMeta itemMeta, Integer cmd) {
-            ensureCmdSupport();
-            Method setCustomModelData = CLASS.getMethod("setCustomModelData", Integer.class);
-            setCustomModelData.invoke(itemMeta, cmd);
-        }
-
-        private static void ensureCmdSupport() {
-            if (!FeatureSupport.CMD_SUPPORT)
-                throw new IllegalStateException("Custom model data is supported from >=1.14. Current version " + SemanticVersion.CURRENT_MINECRAFT);
+            itemMeta.setCustomModelData(cmd);
         }
 
     }
@@ -362,40 +371,40 @@ public class ReflectedRepresentations {
 
         public static final Class<org.bukkit.enchantments.Enchantment> CLASS = org.bukkit.enchantments.Enchantment.class;
 
+        @Deprecated(forRemoval = true)
         public static org.bukkit.enchantments.Enchantment getByKey(Key key) {
             return getByKey(key.asString());
         }
 
+        @Deprecated(forRemoval = true)
         public static Option<org.bukkit.enchantments.Enchantment> tryGetByKey(Key key) {
             return tryGetByKey(key.asString());
         }
 
+        @Deprecated(forRemoval = true)
         public static Option<org.bukkit.enchantments.Enchantment> tryGetByKey(String key) {
-            if (!FeatureSupport.NAMESPACED_ENCHANTMENTS_SUPPORT)
-                return Option.none();
             return Option.of(getByKey(key));
         }
 
         @SneakyThrows
+        @Deprecated(forRemoval = true)
         public static org.bukkit.enchantments.Enchantment getByKey(String key) {
-            ensureNamespacedEnchantmentsSupport();
-            return ReflectionObject.ofStatic(org.bukkit.enchantments.Enchantment.class)
-                    .invokePublic("getByKey", ReflectedRepresentations.NamespacedKey.from(key))
-                    .<org.bukkit.enchantments.Enchantment>map(ReflectionObject::cast)
-                    .getOrElseThrow(() -> new IllegalArgumentException("Unknown enchantment: " + key));
+            return org.bukkit.enchantments.Enchantment.getByKey(org.bukkit.NamespacedKey.fromString(key));
         }
 
-        public static ReflectionObject getNamespacedKey(org.bukkit.enchantments.Enchantment enchantment) {
+        @Deprecated(forRemoval = true)
+                public static ReflectionObject getNamespacedKey(org.bukkit.enchantments.Enchantment enchantment) {
             ensureNamespacedEnchantmentsSupport();
             return new ReflectionObject(CLASS, enchantment).invokePublic("getKey")
                     .get();
         }
 
+        @Deprecated(forRemoval = true)
         public static Option<Key> tryGetKey(org.bukkit.enchantments.Enchantment enchantment) {
-            if (!FeatureSupport.NAMESPACED_ENCHANTMENTS_SUPPORT) return Option.none();
             return Option.of(getKyoriKey(enchantment));
         }
 
+        @Deprecated(forRemoval = true)
         public static Key getKyoriKey(org.bukkit.enchantments.Enchantment enchantment) {
             ensureNamespacedEnchantmentsSupport();
             return ReflectedRepresentations.NamespacedKey.getKyoriKey(getNamespacedKey(enchantment));

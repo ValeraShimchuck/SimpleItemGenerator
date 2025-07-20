@@ -33,6 +33,7 @@ import org.spongepowered.configurate.yaml.NodeStyle;
 import ua.valeriishymchuk.simpleitemgenerator.api.SimpleItemGenerator;
 import ua.valeriishymchuk.simpleitemgenerator.api.event.SimpleItemGeneratorLoadEvent;
 import ua.valeriishymchuk.simpleitemgenerator.common.commands.CommandException;
+import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.ConfigLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.builder.ConfigLoaderConfigurationBuilder;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.serializer.nbt.v2.CompoundBinaryTagTypeSerializer;
@@ -104,7 +105,12 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
             cooldownRepository = new CooldownRepository(cooldownLoader(), errorVisitor);
             SemanticVersion currentVersion = SemanticVersion.parse(getDescription().getVersion());
             infoService = new InfoService(updateRepository, configRepository, currentVersion);
-            itemService = new ItemService(configRepository, itemRepository, cooldownRepository);
+            itemService = new ItemService(
+                    configRepository,
+                    itemRepository,
+                    cooldownRepository,
+                    infoService
+            );
             new CommandsController(itemService, infoService).setupCommands(commandManager);
         }
         if (!isHDBLoaded && HeadDatabaseSupport.isPluginEnabled()) {
@@ -211,12 +217,14 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
                 .withHandler(
                         MinecraftExceptionHandler.ExceptionType.NO_PERMISSION,
                         (sender, exception) -> configRepository.getLang().getNoPermission()
-                                .replaceText("%permission%", ((NoPermissionException) exception).getMissingPermission()).bake()
+                                .replaceText("%permission%", ((NoPermissionException) exception).getMissingPermission())
+                                .bake().getComponent()
                 )
                 .withHandler(
                         MinecraftExceptionHandler.ExceptionType.INVALID_SYNTAX,
                         (sender, exception) -> configRepository.getLang().getInvalidCommandSyntax()
-                                .replaceText("%usage%", ((InvalidSyntaxException) exception).getCorrectSyntax()).bake()
+                                .replaceText("%usage%", ((InvalidSyntaxException) exception).getCorrectSyntax())
+                                .bake().getComponent()
                 )
                 .withHandler(MinecraftExceptionHandler.ExceptionType.ARGUMENT_PARSING, (sender, exception) -> {
                     ArgumentParseException argumentParseException = (ArgumentParseException) exception;
@@ -229,16 +237,20 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
                                 .replaceText("%number%", integerParseException.getInput())
                                 .replaceText("%min%", integerParseException.getMin())
                                 .replaceText("%max%", integerParseException.getMax())
-                                .bake();
+                                .bake()
+                                .getComponent();
                     }
                     getLogger().log(Level.SEVERE, "An unknown argument error occurred", argumentParseException.getCause());
-                    return configRepository.getLang().getUnknownArgumentError().replaceText("%error%", argumentParseException.getCause()).bake();
+                    return configRepository.getLang()
+                            .getUnknownArgumentError()
+                            .replaceText("%error%", argumentParseException.getCause())
+                            .bake().getComponent();
                 })
                 .apply(manager, s -> new Audience() {
 
                     @Override
                     public void sendMessage(final @NotNull Identity source, final @NotNull Component message, final @NotNull MessageType type) {
-                        KyoriHelper.sendMessage(s, message);
+                        KyoriHelper.sendMessage(s, new WrappedComponent(message));
                     }
                 });
         return manager;

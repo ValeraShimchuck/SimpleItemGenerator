@@ -6,4 +6,4 @@ softdepend:
   - PlaceholderAPI
   - HeadDatabase
   - WorldGuard
-api-version: 1.13
+api-version: 1.16

@@ -20,6 +20,7 @@ import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.ItemStack;
 import ua.valeriishymchuk.simpleitemgenerator.common.commands.ArgumentParserWrapper;
 import ua.valeriishymchuk.simpleitemgenerator.common.commands.argument.CustomPlayerArgument;
+import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.dto.GiveItemDTO;
@@ -47,7 +48,7 @@ public class CommandsController {
         ADD
     }
 
-    private void addItemToInventory(Option<ItemStack> itemOpt, int amount, Player player, Component dropMessage) {
+    private void addItemToInventory(Option<ItemStack> itemOpt, int amount, Player player, WrappedComponent dropMessage) {
         itemOpt.map(item -> Tuple.of(player, item))
                 .peek(t -> t._2.setAmount(amount))
                 .map(tuple -> tuple._1.getInventory().addItem(tuple._2))
@@ -74,9 +75,9 @@ public class CommandsController {
                                 e -> {
                                     if (e instanceof PlayerArgument.PlayerParseException) {
                                         PlayerArgument.PlayerParseException ex = (PlayerArgument.PlayerParseException) e;
-                                        return itemService.playerNotFound(ex.getInput());
+                                        return itemService.playerNotFound(ex.getInput()).getComponent();
                                     }
-                                    return itemService.playerNotFound("[blank]");
+                                    return itemService.playerNotFound("[blank]").getComponent();
                                 }
                         ))
                 )
@@ -117,9 +118,9 @@ public class CommandsController {
                                 e -> {
                                     if (e instanceof PlayerArgument.PlayerParseException) {
                                         PlayerArgument.PlayerParseException ex = (PlayerArgument.PlayerParseException) e;
-                                        return itemService.playerNotFound(ex.getInput());
+                                        return itemService.playerNotFound(ex.getInput()).getComponent();
                                     }
-                                    return itemService.playerNotFound("[blank]");
+                                    return itemService.playerNotFound("[blank]").getComponent();
                                 }
                         ))
                 )
@@ -174,9 +175,9 @@ public class CommandsController {
                                         e -> {
                                             if (e instanceof PlayerArgument.PlayerParseException) {
                                                 PlayerArgument.PlayerParseException ex = (PlayerArgument.PlayerParseException) e;
-                                                return itemService.playerNotFound(ex.getInput());
+                                                return itemService.playerNotFound(ex.getInput()).getComponent();
                                             }
-                                            return itemService.playerNotFound("[blank]");
+                                            return itemService.playerNotFound("[blank]").getComponent();
                                         }
                                 ))
                         )
@@ -215,7 +216,7 @@ public class CommandsController {
         );
     }
 
-    private void dropItems(Map<Integer, ItemStack> items, Location location, Player player,Component message) {
+    private void dropItems(Map<Integer, ItemStack> items, Location location, Player player, WrappedComponent message) {
         int totalItems = items.values().stream().map(ItemStack::getAmount).reduce(Integer::sum).orElse(0);
         if (totalItems > 0) {
             KyoriHelper.sendMessage(player, message);

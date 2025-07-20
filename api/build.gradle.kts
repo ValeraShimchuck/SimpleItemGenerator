@@ -5,39 +5,17 @@ import org.jreleaser.model.Signing
 plugins {
     id("java")
     `java-library`
-    //id("application")
     id("maven-publish")
     id("org.jreleaser") version "1.15.0"
-    //id("com.github.johnrengelman.shadow") version "8.1.1"
 }
 
 group = "ua.valeriishymchuk"
 
 dependencies {
-    compileOnly("org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT") // you can compile with this
+    compileOnly("org.spigotmc:spigot-api:1.8.8-R0.1-SNAPSHOT")
     compileOnlyApi("org.jetbrains:annotations:26.0.2")
-    //compileOnly(project(":"))
-    //compileOnly("io.netty:netty-all:4.1.116.Final")
 }
 
-//configurations.all {
-//    resolutionStrategy {
-//        force("commons-io:commons-io:2.15.0") // Force the correct version
-//    }
-//}
-
-//tasks.named("shadowJar", com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar::class) {
-//    val mainPackage = rootProject.group.toString() + "." + rootProject.name.lowercase()
-//    relocate("cloud.commandframework", "$mainPackage.commandframework")
-//    relocate("net.kyori", "$mainPackage.kyori")
-//    relocate("de.tr7zw.changeme.nbtapi", "$mainPackage.nbtapi")
-//    relocate("org.spongepowered", "$mainPackage.spongepowered")
-//    relocate("org.yaml.snakeyaml", "$mainPackage.snakeyaml")
-//    relocate("org.bstats", "$mainPackage.bstats")
-//    relocate("org.joml", "$mainPackage.joml")
-//    relocate("com.github.retrooper.packetevents", "$mainPackage.packetevents")
-//    //minimize()
-//}
 
 publishing {
     publications {
@@ -169,27 +147,4 @@ jreleaser {
         }
     }
 }
-
-//tasks.withType(JavaCompile).configureEach {
-//    options.encoding = "UTF-8"
-//
-//    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
-//        options.release.set(targetJavaVersion)
-//    }
-//}
-
-
-//tasks.named<ProcessResources>("processResources") {
-//    val props = mapOf(
-//        "version" to rootProject.version
-//    )
-//    props.forEach { (key, value) ->
-//        inputs.property(key, value)
-//    }
-//    filteringCharset = "UTF-8"
-//    filesMatching("plugin.yml") {
-//        expand(props)
-//    }
-//}
-
 

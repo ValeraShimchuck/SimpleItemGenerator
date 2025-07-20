@@ -4,9 +4,6 @@ import io.vavr.control.Option;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import lombok.extern.log4j.Log4j2;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
 import org.bukkit.Bukkit;
 import org.bukkit.GameMode;
 import org.bukkit.Location;
@@ -18,14 +15,15 @@ import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
 import ua.valeriishymchuk.simpleitemgenerator.api.event.SimpleItemGeneratorReloadEvent;
 import ua.valeriishymchuk.simpleitemgenerator.common.component.RawComponent;
+import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.cooldown.CooldownType;
 import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
+import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.IRayTraceResult;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceBlockResult;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceEntityResult;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceHelper;
-import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickAt;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickButton;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.PredicateInput;
@@ -47,7 +45,6 @@ import java.util.stream.Stream;
 import static ua.valeriishymchuk.simpleitemgenerator.common.placeholders.PlaceholdersHelper.placeholdersFor;
 import static ua.valeriishymchuk.simpleitemgenerator.common.placeholders.PlaceholdersHelper.replacePlayer;
 
-@Log4j2
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
 public class ItemService {
@@ -56,6 +53,7 @@ public class ItemService {
     IConfigRepository configRepository;
     ItemRepository itemRepository;
     CooldownRepository cooldownRepository;
+    InfoService infoService;
 
     private MainConfigEntity config() {
         return configRepository.getConfig();
@@ -250,21 +248,11 @@ public class ItemService {
         CustomItemEntity customItem = itemRepository.getItem(customItemId).get();
         int id = customItem.getUsages().indexOf(usage);
         CooldownType cooldownType = usage.getCooldownType();
-        CooldownQueryDomain cooldownQueryDomain;
-        switch (cooldownType) {
-            case PER_ITEM:
-                cooldownQueryDomain = queryPerItem(item, usage, id);
-                break;
-            case GLOBAL:
-                cooldownQueryDomain = queryGlobal(customItemId, usage, id);
-                break;
-            case PER_PLAYER:
-                cooldownQueryDomain = queryPerPlayer(customItemId, player, usage, id);
-                break;
-            default:
-                throw new IllegalStateException("Unexpected value: " + cooldownType);
-        }
-        return cooldownQueryDomain;
+        return switch (cooldownType) {
+            case PER_ITEM -> queryPerItem(item, usage, id);
+            case GLOBAL -> queryGlobal(customItemId, usage, id);
+            case PER_PLAYER -> queryPerPlayer(customItemId, player, usage, id);
+        };
     }
 
     private ItemUsageResultDTO applyCooldown(
@@ -311,7 +299,7 @@ public class ItemService {
     ) {
         ItemUsageResultDTO nop = ItemUsageResultDTO.EMPTY
                 .withPipelineDebug(pipelineDebug);
-        if (item == null || !NBTCustomItem.hasCustomItemId(item)) return nop;
+        if (!NBTCustomItem.hasCustomItemId(item)) return nop;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (customItemId == null) return nop;
         PipelineDebug prependedDebug = PipelineDebug.prepend(pipelineDebug, customItemId);
@@ -321,12 +309,13 @@ public class ItemService {
             boolean isItemUsage = predicateInput.getTrigger() != PredicateInput.Trigger.TICK
                     && predicateInput.getTrigger() != PredicateInput.Trigger.INVENTORY_CLICK;
             boolean shouldSendMessage = isItemUsage && config().isSendInvalidItemMessage();
-            Component message = lang().getInvalidItem().replaceText("%key%", customItemId).bake();
+            WrappedComponent message = lang().getInvalidItem().replaceText("%key%", customItemId).bake();
             return ItemUsageResultDTO.EMPTY
                     .withMessage(shouldSendMessage ? message : null)
                     .withShouldCancel(true)
                     .withPipelineDebug(prependedDebug);
         }
+        infoService.updatePluginActivity();
         List<UsageEntity> usages = customItem.getUsages().stream()
                 .filter(usageFilter -> {
                     UsageEntity.AcceptResult result = usageFilter.accepts(predicateInput);
@@ -337,7 +326,7 @@ public class ItemService {
                             .appendAllAndReturnSelf(result.getPipelineDebugs());
                     return result.isAccepted();
                 })
-                .collect(Collectors.toList());
+                .toList();
         return usages.stream().
                 map(usage -> applyCooldown(usage, item, player, predicateInput, placeholders, prependedDebug))
                 .reduce((acc, e) -> mergeUsages(acc, e, customItem.isPlainItem(), prependedDebug))
@@ -376,7 +365,7 @@ public class ItemService {
         return useItem0(player, item, clickType, placeholders, pipelineDebug);
     }
 
-    public RaytraceResultDomain raytrace(Player player) {
+    private RaytraceResultDomain raytrace(Player player) {
         int playerReach = 3;
         IRayTraceResult result = RayTraceHelper.rayTrace(
                 player,
@@ -443,7 +432,7 @@ public class ItemService {
                         raytraceResultDomain.clickAt,
                         new PredicateInput.Amount(
                                 getTotalItems(item, player),
-                                item == null ? 0 : item.getAmount()
+                                item.getAmount()
                         ),
                         itemUsageGeneralDTO.getCurrentTick(),
                         itemUsageGeneralDTO.getSlot(),
@@ -505,12 +494,12 @@ public class ItemService {
         return customItem.removeOnDeath();
     }
 
-    public boolean areEqual(ItemStack item, ItemStack item2) {
-        if (item == null || item2 == null) return false;
+    public boolean areNotEqual(ItemStack item, ItemStack item2) {
+        if (item == null || item2 == null) return true;
         String customItemId1 = NBTCustomItem.getCustomItemId(item).getOrNull();
         String customItemId2 = NBTCustomItem.getCustomItemId(item2).getOrNull();
-        if (customItemId1 == null || customItemId2 == null) return false;
-        return Objects.equals(customItemId1, customItemId2);
+        if (customItemId1 == null || customItemId2 == null) return true;
+        return !Objects.equals(customItemId1, customItemId2);
     }
 
     public Option<ItemStack> updateItem(ItemStack itemStack, @Nullable Player player) {
@@ -567,7 +556,9 @@ public class ItemService {
                 false
         );
         int totalItems = Arrays.stream(player.getInventory().getContents())
-                .filter(item -> NBTCustomItem.getCustomItemId(item).map(s -> s.equals(key)).getOrElse(false))
+                .filter(item -> NBTCustomItem.getCustomItemId(item).map(s -> s.equals(key))
+                        .getOrElse(false))
+                .filter(Objects::nonNull)
                 .mapToInt(ItemStack::getAmount)
                 .sum();
         List<RawComponent> messages = new ArrayList<>();
@@ -581,15 +572,15 @@ public class ItemService {
             messages.add(lang().getSuccessfullyWithdrewReceiver());
             success = true;
         }
-        Component itemName = ReflectedRepresentations.ItemMeta.getDisplayName(customItem.getItemStack().getItemMeta())
-                .getOrElse(MiniMessage.miniMessage().deserialize("<white>" + key + "</white>"));
-        List<Component> finalMessages = messages.stream().map(raw -> {
+        WrappedComponent itemName = WrappedComponent.displayName(customItem.getItemStack().getItemMeta())
+                .getOrElse(KyoriHelper.parseMiniMessage("<white>" + key + "</white>"));
+        List<WrappedComponent> finalMessages = messages.stream().map(raw -> {
             return raw.replaceText("%amount%", amount + "")
                     .replaceText("%item%", itemName)
                     .replaceText("%player%", player.getName())
                     .replaceText("%key%", key)
                     .bake();
-        }).collect(Collectors.toList());
+        }).toList();
         return new WithdrawItemDTO(
                 finalMessages.get(0),
                 finalMessages.get(1),
@@ -601,17 +592,22 @@ public class ItemService {
         return itemRepository.getItemKeys();
     }
 
-    public long getUpdatePeriodTicks() {
+    public long getPlaceholderUpdatePeriodTicks() {
         return config().getPlaceholderUpdatePeriod() / 50;
     }
 
-    public Component reload() {
+    public long getItemUpdatePeriodTicks() {
+        return config().getItemUpdatePeriod() / 50;
+    }
+
+
+    public WrappedComponent reload() {
         boolean result = cooldownRepository.reload() && configRepository.reload() && itemRepository.reloadItems();
         if (result) Bukkit.getPluginManager().callEvent(new SimpleItemGeneratorReloadEvent());
         return result ? lang().getReloadSuccessfully().bake() : lang().getReloadUnsuccessfully().bake();
     }
 
-    public Component playerNotFound(String input) {
+    public WrappedComponent playerNotFound(String input) {
         return lang().getInvalidPlayer().replaceText("%player%", input).bake();
     }
 
