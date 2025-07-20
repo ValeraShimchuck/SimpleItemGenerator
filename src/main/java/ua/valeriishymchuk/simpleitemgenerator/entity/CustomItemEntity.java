@@ -32,6 +32,8 @@ import ua.valeriishymchuk.simpleitemgenerator.common.item.RawItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.nbt.NBTConverter;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.ItemsAdderSupport;
+import ua.valeriishymchuk.simpleitemgenerator.common.support.NexoSupport;
+import ua.valeriishymchuk.simpleitemgenerator.common.support.OraxenSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.WorldGuardSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.text.StringSimilarityUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.time.TimeTokenParser;
@@ -407,9 +409,25 @@ public class CustomItemEntity {
                 } catch (Exception e) {
                     if (!ItemsAdderSupport.isPluginEnabled())
                         throw new InvalidConfigurationException("Plugin ItemsAdder is not enabled!");
-                    else throw new InvalidConfigurationException("Can't find item <white>" + link + "</white>");
+                    else throw new InvalidConfigurationException("Can't find ItemsAdder item <white>" + link + "</white>");
                 }
 
+            } else if (linkType.equals("oraxen")) {
+                try {
+                    item = OraxenSupport.getItem(link);
+                } catch (Exception e) {
+                    if (!OraxenSupport.isPluginEnabled())
+                        throw new InvalidConfigurationException("Plugin Oraxen is not enabled!");
+                    else throw new InvalidConfigurationException("Can't find Oraxen item <white>" + link + "</white>");
+                }
+            } else if (linkType.equals("nexo")) {
+                try {
+                    item = NexoSupport.getItem(link);
+                } catch (Exception e) {
+                    if (!NexoSupport.isPluginEnabled())
+                        throw new InvalidConfigurationException("Plugin Nexo is not enabled!");
+                    else throw new InvalidConfigurationException("Can't find Nexo item <white>" + link + "</white>");
+                }
             } else {
                 throw InvalidConfigurationException.format("Invalid link type: <white>[%s]</white>[", linkType);
             }

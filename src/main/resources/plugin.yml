@@ -6,4 +6,6 @@ softdepend:
   - PlaceholderAPI
   - HeadDatabase
   - WorldGuard
+  - Oraxen
+  - Nexo
 api-version: 1.16
