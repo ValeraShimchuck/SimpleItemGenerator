@@ -5,21 +5,20 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import net.kyori.adventure.text.Component;
 import org.jetbrains.annotations.Nullable;
-import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
+import ua.valeriishymchuk.libs.net.kyori.adventure.text.Component;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
 @Getter
 public class WithdrawItemDTO {
 
-    WrappedComponent senderMessage;
+    Component senderMessage;
     @Getter(AccessLevel.NONE)
-    @Nullable WrappedComponent receiverMessage;
+    @Nullable Component receiverMessage;
     boolean success;
 
-    public Option<WrappedComponent> getReceiverMessage() {
+    public Option<Component> getReceiverMessage() {
         return Option.of(receiverMessage);
     }
 }

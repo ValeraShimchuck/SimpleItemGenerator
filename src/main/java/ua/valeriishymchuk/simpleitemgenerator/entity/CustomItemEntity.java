@@ -10,7 +10,7 @@ import io.vavr.control.Try;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
-import net.kyori.adventure.nbt.CompoundBinaryTag;
+import ua.valeriishymchuk.libs.net.kyori.adventure.nbt.CompoundBinaryTag;
 import org.apache.commons.lang.math.LongRange;
 import org.bukkit.Material;
 import org.bukkit.inventory.EquipmentSlot;
@@ -20,7 +20,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import org.spongepowered.configurate.serialize.SerializationException;
-import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
+import ua.valeriishymchuk.libs.net.kyori.adventure.text.Component;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.tools.ConfigParsingHelper;
@@ -236,12 +236,14 @@ public class CustomItemEntity {
         Material material = item.getType();
         RawItem rawItem = new RawItem(
                 material.name(),
-                WrappedComponent.displayName(meta)
-                        .map(WrappedComponent::asJson)
+                Option.of(meta.displayName())
+                        .map(KyoriHelper::convert)
+                        .map(KyoriHelper::toJson)
                         .map(KyoriHelper::jsonToMiniMessage).getOrNull(),
-                WrappedComponent.lore(meta).stream()
-                        .map(WrappedComponent::fromRootComponent)
-                        .map(WrappedComponent::asJson)
+                Option.of(meta.lore()).getOrElse(List.of())
+                        .stream()
+                        .map(KyoriHelper::convert)
+                        .map(KyoriHelper::toJson)
                         .map(KyoriHelper::jsonToMiniMessage).toList(),
                 null,
                 meta.isUnbreakable(),
@@ -352,8 +354,10 @@ public class CustomItemEntity {
 
     private boolean hasPlaceholders0() throws InvalidConfigurationException {
         ItemStack item = getItemStack();
-        Option<WrappedComponent> displayOpt = WrappedComponent.displayName(item.getItemMeta());
-        List<WrappedComponent> lore = WrappedComponent.lore(item.getItemMeta());
+        Option<Component> displayOpt = Option.of(item.getItemMeta().displayName()).map(KyoriHelper::convert);
+        List<Component> lore = Option.of(item.getItemMeta().lore()).getOrElse(List.of())
+                .stream()
+                .map(KyoriHelper::convert).toList();
         return Stream.of(
                         displayOpt.toJavaList(),
                         lore

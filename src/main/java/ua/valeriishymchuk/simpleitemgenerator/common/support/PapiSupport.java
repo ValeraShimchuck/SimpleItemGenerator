@@ -1,11 +1,10 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.support;
 
 import me.clip.placeholderapi.PlaceholderAPI;
-import net.kyori.adventure.text.Component;
+import ua.valeriishymchuk.libs.net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.OfflinePlayer;
 import org.jetbrains.annotations.Nullable;
-import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 
 public class PapiSupport {
@@ -35,7 +34,7 @@ public class PapiSupport {
         return PlaceholderAPI.setPlaceholders(player, text);
     }
 
-    public static WrappedComponent tryParseComponent(@Nullable OfflinePlayer player, WrappedComponent text) {
+    public static Component tryParseComponent(@Nullable OfflinePlayer player, Component text) {
         if (!isPluginEnabled()) return text;
         if (player == null) return text;
         String rawText = KyoriHelper.toJson(text);

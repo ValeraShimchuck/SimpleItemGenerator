@@ -14,7 +14,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
-import net.kyori.adventure.key.Key;
+import ua.valeriishymchuk.libs.net.kyori.adventure.key.Key;
 import org.bukkit.inventory.ItemStack;
 import org.spongepowered.configurate.ConfigurationNode;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;

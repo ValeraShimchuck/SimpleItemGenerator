@@ -19,13 +19,6 @@ import com.github.retrooper.packetevents.wrapper.play.client.*;
 import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerPlayerPositionAndLook;
 import de.tr7zw.changeme.nbtapi.NBT;
 import lombok.SneakyThrows;
-import net.kyori.adventure.audience.Audience;
-import net.kyori.adventure.audience.MessageType;
-import net.kyori.adventure.identity.Identity;
-import net.kyori.adventure.nbt.CompoundBinaryTag;
-import net.kyori.adventure.nbt.ListBinaryTag;
-import net.kyori.adventure.nbt.StringBinaryTag;
-import net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -40,9 +33,11 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.util.BlockIterator;
 import org.jetbrains.annotations.NotNull;
+import ua.valeriishymchuk.libs.net.kyori.adventure.nbt.CompoundBinaryTag;
+import ua.valeriishymchuk.libs.net.kyori.adventure.nbt.ListBinaryTag;
+import ua.valeriishymchuk.libs.net.kyori.adventure.nbt.StringBinaryTag;
 import ua.valeriishymchuk.simpleitemgenerator.SimpleItemGeneratorPlugin;
 import ua.valeriishymchuk.simpleitemgenerator.api.SimpleItemGenerator;
-import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.nbt.NBTConverter;
 import ua.valeriishymchuk.simpleitemgenerator.entity.CustomItemEntity;
@@ -379,7 +374,7 @@ public class SIGTesterPlugin extends JavaPlugin implements Listener {
                     .map(b -> (ListBinaryTag) b)
                     .flatMap(ListBinaryTag::stream)
                     .map(b -> (StringBinaryTag) b)
-                    .map(StringBinaryTag::value).collect(Collectors.toList());
+                    .map(StringBinaryTag::value).toList();
             List<String> expected = Arrays.asList("1", "2", "3", "4", "5", "6");
             checkArgument(strings.equals(expected), "Got " + strings + " instead of " + expected);
             int[] ints = kyoriNBT.getIntArray("test-array");
@@ -442,13 +437,7 @@ public class SIGTesterPlugin extends JavaPlugin implements Listener {
         );
         new MinecraftExceptionHandler<CommandSender>()
                 .withDefaultHandlers()
-                .apply(manager, s -> new Audience() {
-
-                    @Override
-                    public void sendMessage(final @NotNull Identity source, final @NotNull Component message, final @NotNull MessageType type) {
-                        KyoriHelper.sendMessage(s, new WrappedComponent(message));
-                    }
-                });
+                .apply(manager, s -> s);
         return manager;
     }
 

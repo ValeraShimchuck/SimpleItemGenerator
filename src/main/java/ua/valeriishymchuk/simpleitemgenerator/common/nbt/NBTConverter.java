@@ -4,8 +4,8 @@ import de.tr7zw.changeme.nbtapi.NBT;
 import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
 import de.tr7zw.changeme.nbtapi.iface.ReadableNBT;
 import lombok.SneakyThrows;
-import net.kyori.adventure.nbt.BinaryTagIO;
-import net.kyori.adventure.nbt.CompoundBinaryTag;
+import ua.valeriishymchuk.libs.net.kyori.adventure.nbt.BinaryTagIO;
+import ua.valeriishymchuk.libs.net.kyori.adventure.nbt.CompoundBinaryTag;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;

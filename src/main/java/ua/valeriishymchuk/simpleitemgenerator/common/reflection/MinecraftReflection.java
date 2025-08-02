@@ -2,7 +2,7 @@ package ua.valeriishymchuk.simpleitemgenerator.common.reflection;
 
 import io.vavr.CheckedFunction0;
 import lombok.SneakyThrows;
-import net.kyori.adventure.text.Component;
+import ua.valeriishymchuk.libs.net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 

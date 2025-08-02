@@ -5,19 +5,18 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import net.kyori.adventure.text.Component;
+import ua.valeriishymchuk.libs.net.kyori.adventure.text.Component;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
-import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
 public class GiveItemDTO {
 
     @Getter
-    WrappedComponent message;
+    Component message;
     @Getter
-    WrappedComponent dropMessage;
+    Component dropMessage;
     @Nullable
     ItemStack itemStack;
 

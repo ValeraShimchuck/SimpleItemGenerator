@@ -15,11 +15,7 @@ import lombok.AccessLevel;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import me.arcaniax.hdb.api.DatabaseLoadEvent;
-import net.kyori.adventure.audience.Audience;
-import net.kyori.adventure.audience.MessageType;
-import net.kyori.adventure.identity.Identity;
-import net.kyori.adventure.nbt.CompoundBinaryTag;
-import net.kyori.adventure.text.Component;
+import ua.valeriishymchuk.libs.net.kyori.adventure.nbt.CompoundBinaryTag;
 import org.bukkit.Bukkit;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -27,13 +23,11 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.plugin.java.JavaPlugin;
-import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.configurate.yaml.NodeStyle;
 import ua.valeriishymchuk.simpleitemgenerator.api.SimpleItemGenerator;
 import ua.valeriishymchuk.simpleitemgenerator.api.event.SimpleItemGeneratorLoadEvent;
 import ua.valeriishymchuk.simpleitemgenerator.common.commands.CommandException;
-import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.ConfigLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.builder.ConfigLoaderConfigurationBuilder;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.serializer.nbt.v2.CompoundBinaryTagTypeSerializer;
@@ -217,19 +211,21 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
                 .withHandler(
                         MinecraftExceptionHandler.ExceptionType.NO_PERMISSION,
                         (sender, exception) -> configRepository.getLang().getNoPermission()
-                                .replaceText("%permission%", ((NoPermissionException) exception).getMissingPermission())
-                                .bake().getComponent()
+                                .replaceText("%permission%", ((NoPermissionException) exception)
+                                        .getMissingPermission())
+                                .bake()
                 )
                 .withHandler(
                         MinecraftExceptionHandler.ExceptionType.INVALID_SYNTAX,
                         (sender, exception) -> configRepository.getLang().getInvalidCommandSyntax()
                                 .replaceText("%usage%", ((InvalidSyntaxException) exception).getCorrectSyntax())
-                                .bake().getComponent()
+                                .bake()
                 )
                 .withHandler(MinecraftExceptionHandler.ExceptionType.ARGUMENT_PARSING, (sender, exception) -> {
                     ArgumentParseException argumentParseException = (ArgumentParseException) exception;
                     if (argumentParseException.getCause() instanceof CommandException) {
-                        return ((CommandException) argumentParseException.getCause()).getErrorMessage();
+                        return KyoriHelper.convert(((CommandException) argumentParseException.getCause())
+                                .getErrorMessage());
                     }
                     if (argumentParseException.getCause() instanceof IntegerArgument.IntegerParseException) {
                         IntegerArgument.IntegerParseException integerParseException = (IntegerArgument.IntegerParseException) argumentParseException.getCause();
@@ -237,22 +233,15 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
                                 .replaceText("%number%", integerParseException.getInput())
                                 .replaceText("%min%", integerParseException.getMin())
                                 .replaceText("%max%", integerParseException.getMax())
-                                .bake()
-                                .getComponent();
+                                .bake();
                     }
                     getLogger().log(Level.SEVERE, "An unknown argument error occurred", argumentParseException.getCause());
                     return configRepository.getLang()
                             .getUnknownArgumentError()
                             .replaceText("%error%", argumentParseException.getCause())
-                            .bake().getComponent();
+                            .bake();
                 })
-                .apply(manager, s -> new Audience() {
-
-                    @Override
-                    public void sendMessage(final @NotNull Identity source, final @NotNull Component message, final @NotNull MessageType type) {
-                        KyoriHelper.sendMessage(s, new WrappedComponent(message));
-                    }
-                });
+                .apply(manager, s -> s);
         return manager;
     }
 

@@ -5,9 +5,8 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import lombok.experimental.NonFinal;
-import net.kyori.adventure.text.Component;
+import ua.valeriishymchuk.libs.net.kyori.adventure.text.Component;
 import org.bukkit.entity.Player;
-import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SigFeatureTag;
 import ua.valeriishymchuk.simpleitemgenerator.entity.MainConfigEntity;
@@ -55,25 +54,26 @@ public class InfoService {
         return getConfig().getFeatures();
     }
 
-    public Option<WrappedComponent> getMessage(Player player) {
+    public Option<Component> getMessage(Player player) {
         if (!player.isOp() || !getConfig().isSendWelcomeMessage()) return Option.none();
-        return Option.some(getLang().getAdminWelcome().replaceText("%version%", currentVersion.toFullString()).bake());
+        return Option.some(getLang().getAdminWelcome()
+                .replaceText("%version%", currentVersion.toFullString()).bakeInternal());
     }
 
-    public CompletableFuture<Option<WrappedComponent>> getNewUpdateMessage(Player player) {
+    public CompletableFuture<Option<Component>> getNewUpdateMessage(Player player) {
         if (!player.isOp() || !getConfig().isCheckForUpdates()) return CompletableFuture.completedFuture(Option.none());
         return updateRepository.getLatestPluginVersion().thenApply(version -> {
             if (currentVersion.isAtLeast(version)) return Option.none();
             return Option.some(getLang().getNewUpdateVersion()
                             .replaceText("%new_version%", version.toFullString())
                             .replaceText("%current_version%", currentVersion.toFullString())
-                    .bake());
+                    .bakeInternal());
         });
     }
 
-    public WrappedComponent getUsage() {
+    public Component getUsage() {
         return getLang().getSigUsage()
                 .replaceText("%version%", currentVersion.toFullString())
-                .bake();
+                .bakeInternal();
     }
 }

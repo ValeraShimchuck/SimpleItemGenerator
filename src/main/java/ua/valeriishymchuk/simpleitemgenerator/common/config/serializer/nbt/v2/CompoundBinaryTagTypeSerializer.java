@@ -10,7 +10,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
-import net.kyori.adventure.nbt.*;
+import ua.valeriishymchuk.libs.net.kyori.adventure.nbt.*;
 import org.apache.commons.lang.ArrayUtils;
 import org.checkerframework.checker.nullness.qual.Nullable;
 import org.spongepowered.configurate.ConfigurationNode;

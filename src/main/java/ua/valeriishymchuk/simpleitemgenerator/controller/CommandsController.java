@@ -11,7 +11,7 @@ import io.vavr.control.Option;
 import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import net.kyori.adventure.text.Component;
+import ua.valeriishymchuk.libs.net.kyori.adventure.text.Component;
 import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.command.CommandSender;
@@ -20,7 +20,6 @@ import org.bukkit.event.inventory.InventoryType;
 import org.bukkit.inventory.ItemStack;
 import ua.valeriishymchuk.simpleitemgenerator.common.commands.ArgumentParserWrapper;
 import ua.valeriishymchuk.simpleitemgenerator.common.commands.argument.CustomPlayerArgument;
-import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.dto.GiveItemDTO;
@@ -48,7 +47,7 @@ public class CommandsController {
         ADD
     }
 
-    private void addItemToInventory(Option<ItemStack> itemOpt, int amount, Player player, WrappedComponent dropMessage) {
+    private void addItemToInventory(Option<ItemStack> itemOpt, int amount, Player player, Component dropMessage) {
         itemOpt.map(item -> Tuple.of(player, item))
                 .peek(t -> t._2.setAmount(amount))
                 .map(tuple -> tuple._1.getInventory().addItem(tuple._2))
@@ -75,9 +74,9 @@ public class CommandsController {
                                 e -> {
                                     if (e instanceof PlayerArgument.PlayerParseException) {
                                         PlayerArgument.PlayerParseException ex = (PlayerArgument.PlayerParseException) e;
-                                        return itemService.playerNotFound(ex.getInput()).getComponent();
+                                        return itemService.playerNotFound(ex.getInput());
                                     }
-                                    return itemService.playerNotFound("[blank]").getComponent();
+                                    return itemService.playerNotFound("[blank]");
                                 }
                         ))
                 )
@@ -118,9 +117,9 @@ public class CommandsController {
                                 e -> {
                                     if (e instanceof PlayerArgument.PlayerParseException) {
                                         PlayerArgument.PlayerParseException ex = (PlayerArgument.PlayerParseException) e;
-                                        return itemService.playerNotFound(ex.getInput()).getComponent();
+                                        return itemService.playerNotFound(ex.getInput());
                                     }
-                                    return itemService.playerNotFound("[blank]").getComponent();
+                                    return itemService.playerNotFound("[blank]");
                                 }
                         ))
                 )
@@ -175,9 +174,9 @@ public class CommandsController {
                                         e -> {
                                             if (e instanceof PlayerArgument.PlayerParseException) {
                                                 PlayerArgument.PlayerParseException ex = (PlayerArgument.PlayerParseException) e;
-                                                return itemService.playerNotFound(ex.getInput()).getComponent();
+                                                return itemService.playerNotFound(ex.getInput());
                                             }
-                                            return itemService.playerNotFound("[blank]").getComponent();
+                                            return itemService.playerNotFound("[blank]");
                                         }
                                 ))
                         )
@@ -216,7 +215,7 @@ public class CommandsController {
         );
     }
 
-    private void dropItems(Map<Integer, ItemStack> items, Location location, Player player, WrappedComponent message) {
+    private void dropItems(Map<Integer, ItemStack> items, Location location, Player player, Component message) {
         int totalItems = items.values().stream().map(ItemStack::getAmount).reduce(Integer::sum).orElse(0);
         if (totalItems > 0) {
             KyoriHelper.sendMessage(player, message);

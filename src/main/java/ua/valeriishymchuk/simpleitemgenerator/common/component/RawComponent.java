@@ -3,10 +3,11 @@ package ua.valeriishymchuk.simpleitemgenerator.common.component;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.experimental.FieldDefaults;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.minimessage.MiniMessage;
+import ua.valeriishymchuk.libs.net.kyori.adventure.text.Component;
+import ua.valeriishymchuk.libs.net.kyori.adventure.text.minimessage.MiniMessage;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import org.spongepowered.configurate.objectmapping.meta.Setting;
+import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -33,7 +34,12 @@ public class RawComponent {
         this(Collections.emptyList());
     }
 
-    public WrappedComponent bake() {
+
+    public net.kyori.adventure.text.Component bake() {
+        return KyoriHelper.convert(bakeInternal());
+    }
+
+    public Component bakeInternal() {
         Component message = Component.empty();
         for (int i = 0; i < raw.size(); i++) {
             String line = raw.get(i);
@@ -42,13 +48,7 @@ public class RawComponent {
                 message = message.append(Component.newline());
             }
         }
-        return new WrappedComponent(message);
-    }
-
-    public List<WrappedComponent> bakeAsLore() {
-        return raw.stream().map(MiniMessage.miniMessage()::deserialize)
-                .map(WrappedComponent::new)
-                .collect(Collectors.toList());
+        return message;
     }
 
     public RawComponent replaceText(String placeholder, String text) {
@@ -61,12 +61,8 @@ public class RawComponent {
         return replaceText(placeholder, MiniMessage.miniMessage().serialize(text));
     }
 
-    public RawComponent replaceText(String placeholder, WrappedComponent text) {
-        return replaceText(placeholder, MiniMessage.miniMessage().serialize(text.getComponent()));
-    }
-
     public RawComponent replaceText(String placeholder, RawComponent text) {
-        return replaceText(placeholder, text.bake());
+        return replaceText(placeholder, text.bakeInternal());
     }
 
     public RawComponent replaceText(String placeholder, Object obj) {

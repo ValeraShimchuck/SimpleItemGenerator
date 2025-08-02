@@ -3,36 +3,20 @@ package ua.valeriishymchuk.simpleitemgenerator.common.reflection;
 import com.github.retrooper.packetevents.protocol.component.builtin.item.ItemCustomModelData;
 import io.vavr.CheckedFunction1;
 import io.vavr.control.Option;
-import io.vavr.control.Try;
 import lombok.NonNull;
 import lombok.SneakyThrows;
-import net.kyori.adventure.key.Key;
-import net.kyori.adventure.text.Component;
-import net.md_5.bungee.api.chat.BaseComponent;
-import org.bukkit.Bukkit;
+import ua.valeriishymchuk.libs.net.kyori.adventure.key.Key;
 import org.bukkit.Color;
-import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
-import org.bukkit.enchantments.Enchantment;
-import org.bukkit.inventory.EntityEquipment;
 import org.bukkit.inventory.EquipmentSlot;
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import ua.valeriishymchuk.simpleitemgenerator.common.boundingbox.BoundingBox;
-import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
-import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 
 import java.lang.reflect.*;
 import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.stream.Collectors;
 
 import static ua.valeriishymchuk.simpleitemgenerator.common.reflection.MinecraftReflection.getCraftBukkit;
 
@@ -320,51 +304,6 @@ public class ReflectedRepresentations {
 
 
         }
-
-
-        @SneakyThrows
-        @Deprecated(forRemoval = true)
-        public static void setUnbreakable(org.bukkit.inventory.meta.ItemMeta meta, boolean unbreakable) {
-            meta.setUnbreakable(unbreakable);
-        }
-
-        @SneakyThrows
-        @Deprecated(forRemoval = true)
-        public static boolean isUnbreakable(org.bukkit.inventory.meta.ItemMeta meta) {
-            return meta.isUnbreakable();
-
-        }
-
-        @SneakyThrows
-        @Deprecated(forRemoval = true)
-        public static Option<WrappedComponent> getDisplayName(org.bukkit.inventory.meta.ItemMeta meta) {
-            return WrappedComponent.displayName(meta);
-        }
-
-        @SneakyThrows
-        @Deprecated(forRemoval = true)
-        public static List<WrappedComponent> getLore(org.bukkit.inventory.meta.ItemMeta meta) {
-            return WrappedComponent.lore(meta);
-        }
-
-        @SneakyThrows
-        @Deprecated(forRemoval = true)
-        public static Option<Integer> getCustomModelData(org.bukkit.inventory.meta.ItemMeta itemMeta) {
-            if (itemMeta.hasCustomModelData()) return Option.some(itemMeta.getCustomModelData());
-            return Option.none();
-        }
-
-        @Deprecated(forRemoval = true)
-        public static Option<Integer> tryGetCustomModelData(org.bukkit.inventory.meta.ItemMeta itemMeta) {
-            return getCustomModelData(itemMeta);
-        }
-
-        @SneakyThrows
-        @Deprecated(forRemoval = true)
-        public static void setCustomModelData(org.bukkit.inventory.meta.ItemMeta itemMeta, Integer cmd) {
-            itemMeta.setCustomModelData(cmd);
-        }
-
     }
 
     public static class Enchantment {

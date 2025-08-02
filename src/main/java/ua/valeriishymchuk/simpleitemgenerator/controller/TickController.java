@@ -15,7 +15,6 @@ import org.bukkit.inventory.InventoryView;
 import org.bukkit.inventory.ItemStack;
 import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
-import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.scheduler.BukkitTaskScheduler;
 import ua.valeriishymchuk.simpleitemgenerator.common.slot.EquipmentToSlotConverter;
 import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickTimer;
@@ -163,13 +162,12 @@ public class TickController {
                     Option.of(equipment.getHelmet()).filter(ItemStack::hasItemMeta)
                             .flatMap(item -> itemService.updateItem(item, null))
                             .peek(equipment::setHelmet);
-                    Option.of(equipment.getItemInHand()).filter(ItemStack::hasItemMeta)
+                    Option.of(equipment.getItemInMainHand()).filter(ItemStack::hasItemMeta)
                             .flatMap(item -> itemService.updateItem(item, null))
-                            .peek(equipment::setItemInHand);
-                    ReflectedRepresentations.EntityEquipment.getItemInOffhand(equipment)
-                            .filter(ItemStack::hasItemMeta)
+                            .peek(equipment::setItemInMainHand);
+                    Option.of(equipment.getItemInOffHand()).filter(ItemStack::hasItemMeta)
                             .flatMap(item -> itemService.updateItem(item, null))
-                            .peek(i -> ReflectedRepresentations.EntityEquipment.setItemInOffhand(equipment, i));
+                            .peek(equipment::setItemInOffHand);
                 });
     }
 

@@ -536,7 +536,7 @@ public class EventsController implements Listener {
         if (lastPlayerClickTick != null && currentTick == lastPlayerClickTick) return;
         Option<String> customItemOpt = Option.of(event.getItem())
                 .flatMap(NBTCustomItem::getCustomItemId);
-        EquipmentSlot equipmentSlot = ReflectedRepresentations.PlayerInteractEvent.getClickedItemSlot(event);
+        EquipmentSlot equipmentSlot = event.getHand();
         int currentMainHandSlot = event.getPlayer().getInventory().getHeldItemSlot();
         ItemUsageResultDTO result = itemService.useItem(
                 new ItemUsageBlockDTO(

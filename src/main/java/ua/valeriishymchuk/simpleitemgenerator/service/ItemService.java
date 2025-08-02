@@ -13,9 +13,9 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
+import ua.valeriishymchuk.libs.net.kyori.adventure.text.Component;
 import ua.valeriishymchuk.simpleitemgenerator.api.event.SimpleItemGeneratorReloadEvent;
 import ua.valeriishymchuk.simpleitemgenerator.common.component.RawComponent;
-import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.cooldown.CooldownType;
 import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
@@ -143,7 +143,11 @@ public class ItemService {
         );
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (usageResult.isShouldCancel() && player.getGameMode() == GameMode.CREATIVE && customItemId != null) {
-            usageResult = usageResult.withMessage(lang().getCreativeDrop().replaceText("%key%", customItemId).bake());
+            usageResult = usageResult.withMessage(lang()
+                    .getCreativeDrop()
+                    .replaceText("%key%", customItemId)
+                    .bakeInternal()
+            );
         }
         return usageResult;
     }
@@ -309,7 +313,7 @@ public class ItemService {
             boolean isItemUsage = predicateInput.getTrigger() != PredicateInput.Trigger.TICK
                     && predicateInput.getTrigger() != PredicateInput.Trigger.INVENTORY_CLICK;
             boolean shouldSendMessage = isItemUsage && config().isSendInvalidItemMessage();
-            WrappedComponent message = lang().getInvalidItem().replaceText("%key%", customItemId).bake();
+            Component message = lang().getInvalidItem().replaceText("%key%", customItemId).bakeInternal();
             return ItemUsageResultDTO.EMPTY
                     .withMessage(shouldSendMessage ? message : null)
                     .withShouldCancel(true)
@@ -523,13 +527,13 @@ public class ItemService {
 
     public GiveItemDTO giveItem(String key, @Nullable Player player, Integer slot) {
         if (player == null) return new GiveItemDTO(
-                lang().getSenderNotPlayer().bake(),
-                lang().getDroppedItem().bake(),
+                lang().getSenderNotPlayer().bakeInternal(),
+                lang().getDroppedItem().bakeInternal(),
                 null
         );
         if (slot != null && player.getInventory().getSize() <= slot) return new GiveItemDTO(
-                lang().getSlotNotExist().replaceText("%slot%", slot + "").bake(),
-                lang().getDroppedItem().bake(),
+                lang().getSlotNotExist().replaceText("%slot%", slot + "").bakeInternal(),
+                lang().getDroppedItem().bakeInternal(),
                 null
         );
         ItemStack itemStack = itemRepository.bakeItem(key, player).getOrNull();
@@ -537,21 +541,21 @@ public class ItemService {
         message = message.replaceText("%player%", player.getName())
                 .replaceText("%key%", key);
         return new GiveItemDTO(
-                message.bake(),
-                lang().getDroppedItem().bake(),
+                message.bakeInternal(),
+                lang().getDroppedItem().bakeInternal(),
                 itemStack
         );
     }
 
     public WithdrawItemDTO withdrawItem(String key, @Nullable Player player, int amount) {
         if (player == null) return new WithdrawItemDTO(
-                lang().getSenderNotPlayer().bake(),
+                lang().getSenderNotPlayer().bakeInternal(),
                 null,
                 false
         );
         CustomItemEntity customItem = itemRepository.getItem(key).getOrNull();
         if (customItem == null) return new WithdrawItemDTO(
-                lang().getItemDoesntExist().replaceText("%key%", key).bake(),
+                lang().getItemDoesntExist().replaceText("%key%", key).bakeInternal(),
                 null,
                 false
         );
@@ -572,14 +576,14 @@ public class ItemService {
             messages.add(lang().getSuccessfullyWithdrewReceiver());
             success = true;
         }
-        WrappedComponent itemName = WrappedComponent.displayName(customItem.getItemStack().getItemMeta())
+        Component itemName = Option.of(customItem.getItemStack().getItemMeta().displayName()).map(KyoriHelper::convert)
                 .getOrElse(KyoriHelper.parseMiniMessage("<white>" + key + "</white>"));
-        List<WrappedComponent> finalMessages = messages.stream().map(raw -> {
+        List<Component> finalMessages = messages.stream().map(raw -> {
             return raw.replaceText("%amount%", amount + "")
                     .replaceText("%item%", itemName)
                     .replaceText("%player%", player.getName())
                     .replaceText("%key%", key)
-                    .bake();
+                    .bakeInternal();
         }).toList();
         return new WithdrawItemDTO(
                 finalMessages.get(0),
@@ -601,14 +605,14 @@ public class ItemService {
     }
 
 
-    public WrappedComponent reload() {
+    public Component reload() {
         boolean result = cooldownRepository.reload() && configRepository.reload() && itemRepository.reloadItems();
         if (result) Bukkit.getPluginManager().callEvent(new SimpleItemGeneratorReloadEvent());
-        return result ? lang().getReloadSuccessfully().bake() : lang().getReloadUnsuccessfully().bake();
+        return result ? lang().getReloadSuccessfully().bakeInternal() : lang().getReloadUnsuccessfully().bakeInternal();
     }
 
-    public WrappedComponent playerNotFound(String input) {
-        return lang().getInvalidPlayer().replaceText("%player%", input).bake();
+    public Component playerNotFound(String input) {
+        return lang().getInvalidPlayer().replaceText("%player%", input).bakeInternal();
     }
 
     public void cooldownAutoSave() {

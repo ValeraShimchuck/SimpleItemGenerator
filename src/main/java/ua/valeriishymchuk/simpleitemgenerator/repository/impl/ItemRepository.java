@@ -9,7 +9,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import lombok.val;
-import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Material;
@@ -23,7 +22,6 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.LeatherArmorMeta;
 import org.bukkit.inventory.meta.PotionMeta;
 import org.jetbrains.annotations.Nullable;
-import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.ConfigLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.error.ConfigurationError;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
@@ -127,14 +125,18 @@ public class ItemRepository {
                 case MATERIAL:
                     break;
                 case NAME:
-                    WrappedComponent.displayName(configItemMeta)
+                    Option.of(configItemMeta.displayName())
+                            .map(KyoriHelper::convert)
                             .map(component -> PapiSupport.tryParseComponent(player, component))
-                            .peek(name -> name.setDisplayName(itemMeta));
+                            .map(KyoriHelper::convert)
+                            .peek(itemMeta::displayName);
                     break;
                 case LORE:
-                    WrappedComponent.setLore(itemMeta, WrappedComponent.lore(configItemMeta).stream()
-                            .map(line -> PapiSupport.tryParseComponent(player, line))
-                            .toList());
+                     itemMeta.lore(Option.of(configItemMeta.lore()).getOrElse(List.of()).stream()
+                             .map(KyoriHelper::convert)
+                             .map(line -> PapiSupport.tryParseComponent(player, line))
+                             .map(KyoriHelper::convert)
+                             .toList());
                     break;
                 case CUSTOM_MODEL_DATA:
                     if (FeatureSupport.MODERN_CMD_SUPPORT) {

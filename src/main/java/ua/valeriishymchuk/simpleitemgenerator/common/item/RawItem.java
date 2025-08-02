@@ -1,16 +1,14 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.item;
 
 import com.github.retrooper.packetevents.protocol.color.Color;
-import com.github.retrooper.packetevents.protocol.component.ComponentTypes;
 import com.github.retrooper.packetevents.protocol.component.builtin.item.ItemCustomModelData;
 import com.google.common.primitives.Floats;
-import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import io.vavr.API;
 import io.vavr.control.Option;
 import io.vavr.control.Try;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
-import net.kyori.adventure.key.Key;
+import org.bukkit.NamespacedKey;
 import org.bukkit.DyeColor;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -23,8 +21,6 @@ import org.jetbrains.annotations.Nullable;
 import org.spongepowered.configurate.ConfigurationNode;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import org.spongepowered.configurate.objectmapping.meta.Setting;
-import ua.valeriishymchuk.simpleitemgenerator.api.SimpleItemGenerator;
-import ua.valeriishymchuk.simpleitemgenerator.common.component.WrappedComponent;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
 import ua.valeriishymchuk.simpleitemgenerator.common.custommodeldata.CustomModelDataHelper;
@@ -38,7 +34,6 @@ import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Function;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -347,10 +342,10 @@ public class RawItem implements Cloneable {
             if (this.material == null) throw new InvalidConfigurationException("Property is not defined");
             String rawMaterial = material.toUpperCase();
             Try<Material> materialTry = Try.of(() -> Material.valueOf(rawMaterial))
-                    .filter(ReflectedRepresentations.Material::isItem)
+                    .filter(Material::isItem)
                     .mapFailure(API.Case(API.$(), e -> {
                         List<String> list = Arrays.stream(Material.values())
-                                .filter(ReflectedRepresentations.Material::isItem)
+                                .filter(Material::isItem)
                                 .map(Material::name)
                                 .filter(m -> !m.startsWith("LEGACY_"))
                                 .map(m -> new AbstractMap.SimpleEntry<>(
@@ -408,10 +403,13 @@ public class RawItem implements Cloneable {
                 damageable.setDamage(damage);
             }
         }
-        if (name != null)  KyoriHelper.parseMiniMessage(name).setDisplayName(meta);
-        if (!lore.isEmpty()) WrappedComponent.setLore(meta, lore.stream()
-                .map(KyoriHelper::parseMiniMessage)
-                .toList());
+        if (name != null) meta.displayName(KyoriHelper.convert(KyoriHelper.parseMiniMessage(name)));
+        if (!lore.isEmpty()) {
+            meta.lore(lore.stream()
+                    .map(KyoriHelper::parseMiniMessage)
+                    .map(KyoriHelper::convert)
+                    .toList());
+        }
         Option<org.bukkit.Color> colorOpt = getColor();
         if (meta instanceof LeatherArmorMeta && colorOpt.isDefined()) {
             ((LeatherArmorMeta) meta).setColor(colorOpt.get());
@@ -449,14 +447,14 @@ public class RawItem implements Cloneable {
                 try {
                     int level = entry.getValue();
                     String rawEnchantment = entry.getKey().toUpperCase();
-                    Enchantment enchantment = Try.of(() -> ReflectedRepresentations.Enchantment.tryGetByKey(entry.getKey()))
+                    Enchantment enchantment = Try.of(() -> Enchantment.getByKey(NamespacedKey.fromString(entry.getKey())))
+                            .map(Option::of)
                             .toOption()
                             .flatMap(Function.identity())
                             .getOrElse(Enchantment.getByName(rawEnchantment));
                     if (enchantment == null) {
                         List<String> list = Arrays.stream(Enchantment.values())
-                                .map(e -> ReflectedRepresentations.Enchantment.tryGetKey(e).map(Key::asString)
-                                        .getOrElse(e.getName()))
+                                .map(e -> e.getKey().asString())
                                 .map(e -> new AbstractMap.SimpleEntry<>(
                                         e, StringSimilarityUtils.jaroDistance(e, FeatureSupport.NAMESPACED_ENCHANTMENTS_SUPPORT? entry.getKey() : rawEnchantment)
                                 ))
@@ -477,10 +475,6 @@ public class RawItem implements Cloneable {
         } catch (Exception e) {
             throw InvalidConfigurationException.path("enchantments", e);
         }
-    }
-
-    private Enchantment findEnchantment(String name) {
-        return ReflectedRepresentations.Enchantment.tryGetByKey(name).getOrElse(() -> Enchantment.getByName(name));
     }
 
     @SneakyThrows
