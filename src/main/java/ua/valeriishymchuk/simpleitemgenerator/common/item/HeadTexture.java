@@ -68,7 +68,7 @@ public class HeadTexture {
             String value = valuePreProcessor.apply(this.value);
             if (!(inputItem.getItemMeta() instanceof SkullMeta)) {
                 Material playerHeadMaterial = Arrays.stream(Material.values())
-                        .filter(ReflectedRepresentations.Material::isItem)
+                        .filter(Material::isItem)
                         .filter(m -> !m.name().endsWith("AIR"))
                         .map(ItemStack::new)
                         .filter(ItemStack::hasItemMeta)
