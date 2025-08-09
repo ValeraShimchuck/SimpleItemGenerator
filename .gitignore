@@ -5,10 +5,7 @@
 *.ipr
 *.iws
 
-test/
-!test/server-settings/
-!test/settings/
-!test/test.sh
+autotest/**/*
 
 # IntelliJ
 out/

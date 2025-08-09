@@ -1,48 +1,42 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.item;
 
-import com.github.retrooper.packetevents.protocol.attribute.AttributeOperation;
-import com.github.retrooper.packetevents.protocol.attribute.Attributes;
-import com.github.retrooper.packetevents.protocol.component.ComponentTypes;
-import com.github.retrooper.packetevents.protocol.component.builtin.item.ItemAttributeModifiers;
-import de.tr7zw.changeme.nbtapi.NBT;
-import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
-import io.github.retrooper.packetevents.util.SpigotConversionUtil;
+
 import io.vavr.API;
 import io.vavr.control.Option;
 import io.vavr.control.Try;
 import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
 import ua.valeriishymchuk.libs.net.kyori.adventure.key.Key;
-import org.bukkit.inventory.ItemStack;
 import org.spongepowered.configurate.ConfigurationNode;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
+import ua.valeriishymchuk.simpleitemgenerator.common.slot.EquipmentSlotWrapper;
 import ua.valeriishymchuk.simpleitemgenerator.common.text.StringSimilarityUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 
 import javax.annotation.Nullable;
 import java.util.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Collectors;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
+@Getter
 public class Attribute {
 
-    private static final String ATTRIBUTE_MODIFIERS = "AttributeModifiers";
-    private static final String ATTRIBUTE_MODIFIERS_1_21 = "attribute_modifiers";
-    private static final String ATTRIBUTE_NAME = "AttributeName";
-    private static final String ATTRIBUTE_NAME_1_21 = "type";
-    private static final String ID = "id"; // 1.21 string
-    private static final String SLOT = "Slot"; // 1.9 str
+    protected static final String ATTRIBUTE_MODIFIERS = "AttributeModifiers";
+    protected static final String ATTRIBUTE_MODIFIERS_1_21 = "attribute_modifiers";
+    protected static final String ATTRIBUTE_NAME = "AttributeName";
+    protected static final String ATTRIBUTE_NAME_1_21 = "type";
+    protected static final String ID = "id"; // 1.21 string
+    protected static final String SLOT = "Slot"; // 1.9 str
 
-    private static final String NAME = "Name"; // until 1.21 string
-    private static final String AMOUNT = "Amount"; // double
-    private static final String OPERATION = "Operation"; // int
-    private static final String UUID = "UUID";  // until 1.21 varies
+    protected static final String NAME = "Name"; // until 1.21 string
+    protected static final String AMOUNT = "Amount"; // double
+    protected static final String OPERATION = "Operation"; // int
+    protected static final String UUID = "UUID";  // until 1.21 varies
 
 
     Operation operation;
@@ -53,7 +47,7 @@ public class Attribute {
     @Nullable
     String name;
     @Nullable
-    ItemAttributeModifiers.EquipmentSlotGroup slot;
+    EquipmentSlotWrapper slot;
 
     @SneakyThrows
     public ConfigurationNode toNode() {
@@ -106,16 +100,16 @@ public class Attribute {
                 .getOrElseThrow(x -> InvalidConfigurationException.path("attribute", x));
     }
 
-    private static Option<ItemAttributeModifiers.EquipmentSlotGroup> getSlot(ConfigurationNode node) throws InvalidConfigurationException {
+    private static Option<EquipmentSlotWrapper> getSlot(ConfigurationNode node) throws InvalidConfigurationException {
         return Try.ofSupplier(() -> node.node("slot").getString())
                 .map(Option::of)
                 .map(slotOpt -> slotOpt.map(String::toUpperCase))
-                .mapTry(slotOpt -> slotOpt.map(ItemAttributeModifiers.EquipmentSlotGroup::valueOf))
+                .mapTry(slotOpt -> slotOpt.map(EquipmentSlotWrapper::valueOf))
                 .mapFailure(API.Case(API.$(e -> e instanceof IllegalArgumentException), e -> {
                     List<String> suggestions = StringSimilarityUtils.getSuggestions(
                             node.node("slot").getString(),
-                            Arrays.stream(ItemAttributeModifiers.EquipmentSlotGroup.values())
-                                    .map(ItemAttributeModifiers.EquipmentSlotGroup::name)
+                            Arrays.stream(EquipmentSlotWrapper.values())
+                                    .map(EquipmentSlotWrapper::name)
                     );
                     return InvalidConfigurationException.unknownOption("slot", node.node("slot").getString(), suggestions);
                 }))
@@ -125,10 +119,10 @@ public class Attribute {
                         throw new InvalidConfigurationException("Slot is supported since 1.9. Current version is " + SemanticVersion.CURRENT_MINECRAFT);
                     }
                     if (FeatureSupport.SLOT_GROUP_SUPPORT) return;
-                    List<ItemAttributeModifiers.EquipmentSlotGroup> forbiddenSlots = Arrays.asList(
-                            ItemAttributeModifiers.EquipmentSlotGroup.BODY,
-                            ItemAttributeModifiers.EquipmentSlotGroup.ARMOR,
-                            ItemAttributeModifiers.EquipmentSlotGroup.HAND
+                    List<EquipmentSlotWrapper> forbiddenSlots = Arrays.asList(
+                            EquipmentSlotWrapper.BODY,
+                            EquipmentSlotWrapper.ARMOR,
+                            EquipmentSlotWrapper.HAND
                     );
                     if (forbiddenSlots.contains(slot.get())) throw new InvalidConfigurationException(
                             "Slot " + slot.get() + " is not available up until 1.20.5. Current version is " + SemanticVersion.CURRENT_MINECRAFT
@@ -146,91 +140,11 @@ public class Attribute {
                 .mapTry(Double::parseDouble)
                 .mapFailure(API.Case(API.$(e -> e instanceof NumberFormatException), e -> InvalidConfigurationException.format("Not a number: <white>%s</white>.", node.node("amount").getString())))
                 .getOrElseThrow(x -> InvalidConfigurationException.path("amount", x));
-        ItemAttributeModifiers.EquipmentSlotGroup slot = getSlot(node).getOrElse(ItemAttributeModifiers.EquipmentSlotGroup.ANY);
+        EquipmentSlotWrapper slot = getSlot(node).getOrElse(EquipmentSlotWrapper.ANY);
         return new Attribute(operation, modifier, amount, null, name, slot);
     }
 
-    private ReadWriteNBT toNbt(int entropy) {
-        ReadWriteNBT nbt = NBT.createNBTObject();
-        boolean is1_21 = SemanticVersion.CURRENT_MINECRAFT.isAtLeast(1, 21);
-        boolean supportsComponents = FeatureSupport.ITEM_COMPONENTS_SUPPORT;
-        boolean is1_9 = SemanticVersion.CURRENT_MINECRAFT.isAtLeast(1, 9);
-        nbt.setString(supportsComponents ? ATTRIBUTE_NAME_1_21 : ATTRIBUTE_NAME, modifier.getNotation(SemanticVersion.CURRENT_MINECRAFT));
-        String name = this.name == null ? entropy + "" : this.name;
-        UUID uuid = this.uuid == null ? java.util.UUID.nameUUIDFromBytes(name.getBytes()) : this.uuid;
-        if (!is1_21) {
-            nbt.setString(supportsComponents ? NAME.toLowerCase() : NAME, name);
-            writeUUID(supportsComponents ? UUID.toLowerCase() : UUID, uuid, nbt);
-        } else nbt.setString(ID, name);
-        if (is1_9 && slot != null && slot != ItemAttributeModifiers.EquipmentSlotGroup.ANY) {
-            if (io.vavr.collection.List.of(
-                    ItemAttributeModifiers.EquipmentSlotGroup.HAND,
-                    ItemAttributeModifiers.EquipmentSlotGroup.ARMOR,
-                    ItemAttributeModifiers.EquipmentSlotGroup.BODY
-            ).contains(slot)) throw new UnsupportedOperationException(
-                    "Slot " + slot + " is supported since 1.20.5>. Current version is " + SemanticVersion.CURRENT_MINECRAFT
-            );
-            nbt.setString(SLOT, slot.name().toLowerCase());
-        }
-        nbt.setDouble(supportsComponents ? AMOUNT.toLowerCase() : AMOUNT, amount);
-        if (supportsComponents) {
-            nbt.setString(OPERATION.toLowerCase(), operation.name().toLowerCase());
-        } else nbt.setInteger(OPERATION, operation.ordinal());
-        return nbt;
-    }
 
-    public static ItemStack applyOnItem(List<Attribute> attributes, ItemStack itemStack) {
-        boolean supportsComponents = FeatureSupport.ITEM_COMPONENTS_SUPPORT;
-        if (!supportsComponents) {
-            NBT.modify(itemStack, nbt -> {
-                attributes.forEach(attribute -> {
-                    nbt.getCompoundList(ATTRIBUTE_MODIFIERS).addCompound(attribute.toNbt(nbt.getCompoundList(ATTRIBUTE_MODIFIERS).size()));
-                });
-
-            });
-            return itemStack;
-        }
-        com.github.retrooper.packetevents.protocol.item.ItemStack peStack = SpigotConversionUtil.fromBukkitItemStack(itemStack);
-        ItemAttributeModifiers modifiers = new ItemAttributeModifiers(new ArrayList<>(), true);
-        AtomicInteger atomicEntropy = new AtomicInteger(0);
-        attributes.forEach(attribute -> {
-            int entropy = atomicEntropy.getAndIncrement();
-            String name = attribute.name == null ? entropy + "" : attribute.name;
-            java.util.UUID uuid = attribute.uuid == null ? java.util.UUID.nameUUIDFromBytes(name.getBytes()) : attribute.uuid;
-            modifiers.addModifier(new ItemAttributeModifiers.ModifierEntry(
-                    Attributes.getByName(attribute.modifier.getNotation(SemanticVersion.CURRENT_MINECRAFT)),
-                    new ItemAttributeModifiers.Modifier(
-                            uuid,
-                            name,
-                            attribute.amount,
-                            AttributeOperation.values()[attribute.operation.ordinal()]
-                    ),
-                    attribute.slot == null ? ItemAttributeModifiers.EquipmentSlotGroup.ANY : attribute.slot
-            ));
-        });
-        peStack.getComponents().set(ComponentTypes.ATTRIBUTE_MODIFIERS, modifiers);
-        return SpigotConversionUtil.toBukkitItemStack(peStack);
-    }
-
-
-    private static void writeUUID(String key, UUID uuid, ReadWriteNBT nbt) {
-        if (FeatureSupport.NAMESPACED_ATTRIBUTES_SUPPORT) {
-            nbt.setIntArray(key, uuidToIntArray(uuid));
-        } else {
-            nbt.setLong(key + "Most", uuid.getMostSignificantBits());
-            nbt.setLong(key + "Least", uuid.getLeastSignificantBits());
-        }
-    }
-
-    public static int[] uuidToIntArray(UUID uuid) {
-        long l = uuid.getMostSignificantBits();
-        long m = uuid.getLeastSignificantBits();
-        return leastMostToIntArray(l, m);
-    }
-
-    private static int[] leastMostToIntArray(long uuidMost, long uuidLeast) {
-        return new int[]{(int) (uuidMost >> 32), (int) uuidMost, (int) (uuidLeast >> 32), (int) uuidLeast};
-    }
 
     public enum Operation {
         ADD_VALUE,

@@ -92,7 +92,9 @@ public final class SimpleItemGeneratorPlugin extends JavaPlugin {
             File itemsFolder = new File(getDataFolder(), "items");
             itemsFolder.mkdirs();
             itemsConfigLoader = configLoader(itemsFolder);
-            ErrorVisitor errorVisitor = new ErrorVisitor(getLogger());
+            ErrorVisitor errorVisitor = new ErrorVisitor(getLogger(), message -> {
+                KyoriHelper.sendMessage(Bukkit.getConsoleSender(), message);
+            });
             configRepository = new ConfigRepository(configLoader, errorVisitor);
             itemRepository = new ItemRepository(configRepository, itemsConfigLoader, errorVisitor);
             IUpdateRepository updateRepository = new UpdateRepository();

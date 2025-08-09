@@ -10,6 +10,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.jetbrains.annotations.Nullable;
 import org.spongepowered.configurate.objectmapping.ConfigSerializable;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
+import ua.valeriishymchuk.simpleitemgenerator.common.item.HeadTextureApplier;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
@@ -50,7 +51,7 @@ public class CustomItemsStorageEntity {
             try {
                 value.getUsages();
                 value.getHeadTexture().peek(h -> {
-                    h.apply(value.getItemStack(), s -> s);
+                    HeadTextureApplier.apply(h, value.getItemStack(), s -> s);
                 });
                 value.getItemStack();
                 validItems.put(finalPrefix + key, value);

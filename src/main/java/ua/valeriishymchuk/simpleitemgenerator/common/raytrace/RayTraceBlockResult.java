@@ -1,16 +1,13 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.raytrace;
 
-import io.vavr.control.Option;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
-import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.bukkit.Location;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
+import ua.valeriishymchuk.simpleitemgenerator.common.wrapper.BlockFaceWrapper;
 
-import java.util.List;
 import java.util.Objects;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
@@ -18,9 +15,9 @@ import java.util.Objects;
 public final class RayTraceBlockResult extends RayTraceResult {
 
     Block hitBlock;
-    BlockFace side;
+    BlockFaceWrapper side;
 
-    public RayTraceBlockResult(@NonNull Block hitBlock, @NonNull Location hitLocation, BlockFace side) {
+    public RayTraceBlockResult(@NonNull Block hitBlock, @NonNull Location hitLocation, BlockFaceWrapper side) {
         super(Objects.requireNonNull(hitLocation));
         this.hitBlock = Objects.requireNonNull(hitBlock);
         this.side = side;

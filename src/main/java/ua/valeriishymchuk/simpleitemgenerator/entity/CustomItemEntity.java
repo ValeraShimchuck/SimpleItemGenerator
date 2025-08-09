@@ -25,10 +25,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.tools.ConfigParsingHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.cooldown.CooldownType;
-import ua.valeriishymchuk.simpleitemgenerator.common.item.HeadTexture;
-import ua.valeriishymchuk.simpleitemgenerator.common.item.ItemPropertyType;
-import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
-import ua.valeriishymchuk.simpleitemgenerator.common.item.RawItem;
+import ua.valeriishymchuk.simpleitemgenerator.common.item.*;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.nbt.NBTConverter;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.ItemsAdderSupport;
@@ -377,7 +374,7 @@ public class CustomItemEntity {
             itemStack = parseItem();
             getHeadTexture().peek(h -> {
                 if (h.getValue().contains("%player%")) return;
-                itemStack = h.apply(itemStack, s -> s);
+                itemStack = HeadTextureApplier.apply(h, itemStack, s -> s);
             });
             if (nbt != null) {
                 NBT.modify(itemStack, itemNbt -> {

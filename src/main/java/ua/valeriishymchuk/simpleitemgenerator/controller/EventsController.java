@@ -24,6 +24,7 @@ import org.bukkit.event.server.ServerCommandEvent;
 import org.bukkit.inventory.*;
 import org.bukkit.material.Openable;
 import ua.valeriishymchuk.simpleitemgenerator.common.block.BlockDataWrapper;
+import ua.valeriishymchuk.simpleitemgenerator.common.bridge.BukkitBridge;
 import ua.valeriishymchuk.simpleitemgenerator.common.debug.PipelineDebug;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.ItemCopy;
 import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
@@ -544,7 +545,7 @@ public class EventsController implements Listener {
                         event.getAction(),
                         event.getItem(),
                         event.getClickedBlock(),
-                        event.getBlockFace(),
+                        BukkitBridge.bridge(event.getBlockFace()),
                         new SlotPredicate.Input(EquipmentToSlotConverter.convert(equipmentSlot, currentMainHandSlot), equipmentSlot, true),
                         tickerTime.getTick()
                 ),

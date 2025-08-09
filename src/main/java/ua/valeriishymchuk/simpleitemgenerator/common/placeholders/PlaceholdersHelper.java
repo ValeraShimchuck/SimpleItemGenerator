@@ -6,6 +6,7 @@ import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
 import org.joml.Vector3i;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.PapiSupport;
+import ua.valeriishymchuk.simpleitemgenerator.common.wrapper.BlockFaceWrapper;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -20,7 +21,7 @@ public class PlaceholdersHelper {
                 .replace("%player_z%", player.getLocation().getZ() + "");
     }
 
-    public static Map<String, String> placeholdersFor(Block block, BlockFace blockFace) {
+    public static Map<String, String> placeholdersFor(Block block, BlockFaceWrapper blockFace) {
         Map<String, String> placeholders = new HashMap<>();
         placeholders.put("%target_x%", block.getX() + "");
         placeholders.put("%target_y%", block.getY() + "");

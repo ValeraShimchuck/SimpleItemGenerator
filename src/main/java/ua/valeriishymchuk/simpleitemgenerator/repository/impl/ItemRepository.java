@@ -26,9 +26,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.config.ConfigLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.error.ConfigurationError;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
 import ua.valeriishymchuk.simpleitemgenerator.common.error.ErrorVisitor;
-import ua.valeriishymchuk.simpleitemgenerator.common.item.ItemPropertyType;
-import ua.valeriishymchuk.simpleitemgenerator.common.item.NBTCustomItem;
-import ua.valeriishymchuk.simpleitemgenerator.common.item.RawItem;
+import ua.valeriishymchuk.simpleitemgenerator.common.item.*;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.PapiSupport;
@@ -109,8 +107,12 @@ public class ItemRepository {
         if (!customItem.hasPlaceHolders() && isSameSignature && !shouldUpdateHeadTexture) return false;
         ItemStack configItemStack = customItem.getItemStack();
         if (shouldUpdateHeadTexture) {
-            customItem.getHeadTexture().get()
-                    .apply(configItemStack, s -> s.replace("%player%", player == null ? "n" : player.getName()));
+            HeadTexture headTexture = customItem.getHeadTexture().get();
+            HeadTextureApplier.apply(
+                    headTexture,
+                    configItemStack,
+                    s -> s.replace("%player%", player == null ? "n" : player.getName())
+            );
             NBTCustomItem.setLastHolder(configItemStack, currentPlayer);
         }
         ItemMeta configItemMeta = configItemStack.getItemMeta();

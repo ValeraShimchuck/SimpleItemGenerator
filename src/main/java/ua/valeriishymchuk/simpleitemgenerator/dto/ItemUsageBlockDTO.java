@@ -6,13 +6,12 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.bukkit.block.Block;
-import org.bukkit.block.BlockFace;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
 import org.bukkit.inventory.ItemStack;
 import org.jetbrains.annotations.Nullable;
-import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.PredicateInput;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.SlotPredicate;
+import ua.valeriishymchuk.simpleitemgenerator.common.wrapper.BlockFaceWrapper;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @RequiredArgsConstructor
@@ -24,7 +23,7 @@ public class ItemUsageBlockDTO {
     @Getter(AccessLevel.NONE)
     @Nullable Block clickedBlock;
     @Getter(AccessLevel.NONE)
-    @Nullable BlockFace clickedFace;
+    @Nullable BlockFaceWrapper clickedFace;
     SlotPredicate.Input slot;
     long currentTick;
 
@@ -32,7 +31,7 @@ public class ItemUsageBlockDTO {
         return Option.of(clickedBlock);
     }
 
-    public Option<BlockFace> getClickedFace() {
+    public Option<BlockFaceWrapper> getClickedFace() {
         return Option.of(clickedFace);
     }
 }

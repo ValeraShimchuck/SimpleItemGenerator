@@ -7,13 +7,12 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import org.bukkit.block.BlockFace;
 import org.joml.Vector2d;
 import org.joml.Vector3d;
 import ua.valeriishymchuk.simpleitemgenerator.common.raytrace.RayTraceHelper;
+import ua.valeriishymchuk.simpleitemgenerator.common.wrapper.BlockFaceWrapper;
 
 import java.text.NumberFormat;
-import java.util.Comparator;
 import java.util.Map;
 import java.util.Objects;
 
@@ -41,7 +40,7 @@ public class BoundingBox {
     }
 
     public Option<IntersectResult> intersects(Vector3d lineStart, Vector3d lineEnd) {
-        Map<BlockFace, BoxPlane> planes = getBlockPlanes();
+        Map<BlockFaceWrapper, BoxPlane> planes = getBlockPlanes();
         return HashMap.ofAll(planes)
                 .map((face, boxPlane) -> Tuple.of(face, boxPlane.intersects(lineStart, lineEnd).getOrNull()))
                 .filterValues(Objects::nonNull)
@@ -59,10 +58,10 @@ public class BoundingBox {
     @Getter
     public static class IntersectResult {
         Vector3d point;
-        BlockFace face;
+        BlockFaceWrapper face;
     }
 
-    private Map<BlockFace, BoxPlane> getBlockPlanes() {
+    private Map<BlockFaceWrapper, BoxPlane> getBlockPlanes() {
         Vector3d faceVector = new Vector3d(0, -1, 0);
         Vector3d originVector = new Vector3d(min.x(), min.y(), max.z());
         BoxPlane down = new BoxPlane(
@@ -118,12 +117,12 @@ public class BoundingBox {
         );
 
         return HashMap.of(
-                BlockFace.DOWN, down,
-                BlockFace.UP, up,
-                BlockFace.NORTH, north,
-                BlockFace.EAST, east,
-                BlockFace.WEST, west,
-                BlockFace.SOUTH, south
+                BlockFaceWrapper.DOWN, down,
+                BlockFaceWrapper.UP, up,
+                BlockFaceWrapper.NORTH, north,
+                BlockFaceWrapper.EAST, east,
+                BlockFaceWrapper.WEST, west,
+                BlockFaceWrapper.SOUTH, south
         ).toJavaMap();
 
 

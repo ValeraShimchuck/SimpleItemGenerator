@@ -23,6 +23,12 @@ plugins {
     `java-library`
     id("com.github.johnrengelman.shadow") version "8.1.1"
     id("idea")
+    id("checkstyle")
+}
+
+checkstyle {
+    toolVersion = "10.12.5"
+    configFile = file("config/checkstyle/checkstyle.xml")
 }
 
 group = "ua.valeriishymchuk"
@@ -123,6 +129,8 @@ dependencies {
     api("cloud.commandframework:cloud-minecraft-extras:$cloudVersion")
     api("org.bstats:bstats-bukkit:3.0.2")
     api("com.github.retrooper:packetevents-spigot:2.9.3")
+    testImplementation("com.tngtech.archunit:archunit:1.4.0")
+    testImplementation("junit:junit:4.13.2")
 }
 
 val targetJavaVersion = 16
@@ -136,13 +144,12 @@ java {
     }
 }
 
-//tasks.withType(JavaCompile).configureEach {
-//    options.encoding = "UTF-8"
-//
-//    if (targetJavaVersion >= 10 || JavaVersion.current().isJava10Compatible()) {
-//        options.release.set(targetJavaVersion)
-//    }
-//}
+tasks.withType<Checkstyle> {
+    reports {
+        xml.required.set(false)
+        html.required.set(true)
+    }
+}
 
 tasks.named<ProcessResources>("processResources") {
     val props = mapOf(
