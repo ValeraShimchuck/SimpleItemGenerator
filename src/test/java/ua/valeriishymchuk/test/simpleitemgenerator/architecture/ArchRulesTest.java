@@ -1,27 +1,24 @@
 package ua.valeriishymchuk.test.simpleitemgenerator.architecture;
 
 import com.tngtech.archunit.base.DescribedPredicate;
-import com.tngtech.archunit.core.domain.JavaClass;
-import com.tngtech.archunit.core.domain.JavaClasses;
+import com.tngtech.archunit.core.domain.*;
 import com.tngtech.archunit.core.importer.ClassFileImporter;
+import com.tngtech.archunit.lang.ArchCondition;
 import com.tngtech.archunit.lang.ArchRule;
+import com.tngtech.archunit.lang.ConditionEvents;
+import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.library.Architectures;
 import org.junit.Test;
 import ua.valeriishymchuk.simpleitemgenerator.common.annotation.UsesBukkit;
 
 import static com.tngtech.archunit.base.DescribedPredicate.not;
 import static com.tngtech.archunit.core.domain.properties.CanBeAnnotated.Predicates.annotatedWith;
-import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.classes;
+import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.*;
 import static com.tngtech.archunit.library.Architectures.layeredArchitecture;
 
 public class ArchRulesTest {
 
     private static final String BASE_PACKAGE = "ua.valeriishymchuk.simpleitemgenerator";
-
-    private JavaClasses getClasses() {
-        return new ClassFileImporter().importPackages(BASE_PACKAGE);
-    }
-
     private static final DescribedPredicate<JavaClass> MAIN_CLASS_PREDICATE = DescribedPredicate
             .describe(
                     "Main class",
@@ -29,6 +26,10 @@ public class ArchRulesTest {
                         return clazz.getFullName().startsWith("ua.valeriishymchuk.simpleitemgenerator.SimpleItemGeneratorPlugin");
                     }
             );
+
+    private JavaClasses getClasses() {
+        return new ClassFileImporter().importPackages(BASE_PACKAGE);
+    }
 
     @Test
     public void layeredArchitectureConstraint() {
@@ -66,13 +67,59 @@ public class ArchRulesTest {
                         .or(MAIN_CLASS_PREDICATE)
                         .or(JavaClass.Predicates.assignableTo("org.bukkit.event.Event"));
 
-        ArchRule rule = classes()
-                .that().resideOutsideOfPackage(BASE_PACKAGE + ".controller")
-                .and().areNotAnnotatedWith(UsesBukkit.class)
-                .and().areNotAssignableFrom(MAIN_CLASS_PREDICATE)
-                .and().areNotAssignableTo("org.bukkit.event.Event")
-                .should().onlyAccessClassesThat(not(minecraftClasses));
-        rule.check(jc);
+        DescribedPredicate<JavaMethod> allowedMethods = DescribedPredicate.describe(
+                "Methods in allowed classes",
+                method -> method.isAnnotatedWith(UsesBukkit.class) ||
+                        allowedClasses.test(method.getOwner())
+        );
+
+        ArchRule classDependRule = classes()
+                .that(not(allowedClasses))
+                .should(new ArchCondition<JavaClass>("Depend on fields or constructors") {
+                    @Override
+                    public void check(JavaClass item, ConditionEvents events) {
+                        for (JavaAccess<?> access : item.getAccessesFromSelf()) {
+                            if (access instanceof JavaMethodCall) continue;
+                            if (minecraftClasses.test(access.getTargetOwner())) {
+                                events.add(SimpleConditionEvent.violated(
+                                        item, String.format(
+                                                "%s uses Minecraft classes without @UsesBukkit annotation. Class: %s location: %s",
+                                                item.getDescription(),
+                                                access.getTargetOwner(),
+                                                access.getSourceCodeLocation()
+                                        )
+                                ));
+                            }
+                        }
+                    }
+                });
+
+        ArchRule methodRule = methods()
+                .that(not(allowedMethods)).should(new ArchCondition<>("Access Minecraft classes") {
+                    @Override
+                    public void check(JavaMethod item, ConditionEvents events) {
+                        for (JavaAccess<?> access : item.getAccessesFromSelf()) {
+                            boolean annotationCheckFailed;
+                            if (access instanceof JavaMethodCall call) {
+                                JavaMethod method = call.getTarget().resolveMember().orElse(null);
+                                annotationCheckFailed = method != null && method.isAnnotatedWith(UsesBukkit.class);
+                            } else annotationCheckFailed = false;
+                            if (minecraftClasses.test(access.getTarget().getOwner()) || annotationCheckFailed) {
+                                events.add(SimpleConditionEvent.violated(
+                                        item, String.format(
+                                                "%s uses Minecraft classes without @UsesBukkit annotation. Class: %s location: %s",
+                                                item.getDescription(),
+                                                access.getTargetOwner(),
+                                                access.getSourceCodeLocation()
+                                        )
+                                ));
+
+                            }
+                        }
+                    }
+                });
+        methodRule.check(jc);
+        classDependRule.check(jc);
     }
 
 }
