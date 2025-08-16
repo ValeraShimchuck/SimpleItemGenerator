@@ -5,6 +5,10 @@ import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
+import org.bukkit.block.BlockFace;
+import org.jetbrains.annotations.Contract;
+import org.jetbrains.annotations.Nullable;
+import ua.valeriishymchuk.simpleitemgenerator.common.annotation.UsesMinecraft;
 
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Getter
@@ -41,5 +45,16 @@ public enum BlockFaceWrapper {
         this.modZ = face1.getModZ() + face2.getModZ();
     }
 
+    @UsesMinecraft
+    public BlockFace toBukkit() {
+        return BlockFace.valueOf(name());
+    }
+
+    @UsesMinecraft
+    @Contract("null -> null")
+    public static BlockFaceWrapper toWrapper(@Nullable BlockFace bukkit) {
+        if (bukkit == null) return null;
+        return BlockFaceWrapper.valueOf(bukkit.name());
+    }
 
 }

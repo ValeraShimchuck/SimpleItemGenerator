@@ -9,7 +9,7 @@ import org.bukkit.Material;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.inventory.meta.SkullMeta;
-import ua.valeriishymchuk.simpleitemgenerator.common.annotation.UsesBukkit;
+import ua.valeriishymchuk.simpleitemgenerator.common.annotation.UsesMinecraft;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
 import ua.valeriishymchuk.simpleitemgenerator.common.support.HeadDatabaseSupport;
 
@@ -20,7 +20,8 @@ import java.util.function.UnaryOperator;
 
 import static ua.valeriishymchuk.simpleitemgenerator.common.item.HeadTexture.*;
 
-@UsesBukkit
+@UsesMinecraft
+@Deprecated(forRemoval = true) // Move it back to HeadTexture and mark every method with @UsesMinecraft
 public class HeadTextureApplier {
 
     public static ItemStack apply(HeadTexture headTexture, ItemStack inputItem, UnaryOperator<String> valuePreProcessor) {

@@ -12,27 +12,30 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.jetbrains.annotations.Nullable;
+import ua.valeriishymchuk.libs.net.kyori.adventure.key.Key;
+import ua.valeriishymchuk.simpleitemgenerator.common.wrapper.PersistentDataTypeWrapper;
+import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ItemRepository;
 
 import java.util.function.Consumer;
 
 public class NBTCustomItem {
 
-    private static final NamespacedKey CUSTOM_ITEM_ID_KEY = key("custom_item_id");
-    private static final NamespacedKey CUSTOM_ITEM_COOLDOWN_KEY = key("custom_item_cooldown");
-    private static final NamespacedKey CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY = key("custom_item_freezetime");
-    private static final NamespacedKey CUSTOM_ITEM_SIGNATURE = key("custom_item_signature");
-    private static final NamespacedKey CUSTOM_ITEM_LAST_HOLDER = key("last_holder");
+    private static final Key CUSTOM_ITEM_ID_KEY = key("custom_item_id");
+    private static final Key CUSTOM_ITEM_COOLDOWN_KEY = key("custom_item_cooldown");
+    private static final Key CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY = key("custom_item_freezetime");
+    private static final Key CUSTOM_ITEM_SIGNATURE = key("custom_item_signature");
+    private static final Key CUSTOM_ITEM_LAST_HOLDER = key("last_holder");
 
-    private static NamespacedKey key(String value) {
-        return NamespacedKey.fromString("simpleitemgenerator:" + value);
+    private static Key key(String value) {
+        return Key.key("simpleitemgenerator:" + value);
     }
 
-    private static NamespacedKey cooldown(int cooldownId) {
-        return NamespacedKey.fromString(CUSTOM_ITEM_COOLDOWN_KEY.asString() + cooldownId);
+    private static Key cooldown(int cooldownId) {
+        return Key.key(CUSTOM_ITEM_COOLDOWN_KEY.asString() + cooldownId);
     }
 
-    private static NamespacedKey freezeTime(int cooldownId) {
-        return NamespacedKey.fromString(CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY.asString() + cooldownId);
+    private static Key freezeTime(int cooldownId) {
+        return Key.key(CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY.asString() + cooldownId);
     }
 
     public static Option<String> getCustomItemId(ItemStack item) {
@@ -81,15 +84,12 @@ public class NBTCustomItem {
         );
     }
 
-    public static void setLastHolder(ItemStack item, @Nullable String userName) {
-        if (item == null || item.getType().isAir()) return;
-        updateNBT(item, persistentDataContainer -> {
-            if (userName != null) {
-                persistentDataContainer.set(CUSTOM_ITEM_LAST_HOLDER, PersistentDataType.STRING, userName);
-            } else {
-                persistentDataContainer.remove(CUSTOM_ITEM_LAST_HOLDER);
-            }
-        });
+    public static ItemRepository.ItemPatch setLastHolder(@Nullable String userName) {
+        return new ItemRepository.ItemPatch.PersistentDataContainer(
+                CUSTOM_ITEM_LAST_HOLDER,
+                new PersistentDataTypeWrapper.String(),
+                userName
+        );
     }
 
 

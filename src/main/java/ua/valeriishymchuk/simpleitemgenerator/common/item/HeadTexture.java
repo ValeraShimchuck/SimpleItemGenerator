@@ -7,6 +7,7 @@ import lombok.experimental.FieldDefaults;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 
+import java.util.Objects;
 import java.util.UUID;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -46,6 +47,18 @@ public class HeadTexture {
         } catch (Throwable e) {
             throw InvalidConfigurationException.nestedPath(e, "item", "head-texture");
         }
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        HeadTexture that = (HeadTexture) o;
+        return type == that.type && Objects.equals(value, that.value);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(type, value);
     }
 
     public enum Type {

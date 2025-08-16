@@ -24,6 +24,7 @@ plugins {
     id("com.github.johnrengelman.shadow") version "8.1.1"
     id("idea")
     id("checkstyle")
+    kotlin("jvm")
 }
 
 checkstyle {
@@ -131,14 +132,13 @@ dependencies {
     api("com.github.retrooper:packetevents-spigot:2.9.3")
     testImplementation("com.tngtech.archunit:archunit:1.4.0")
     testImplementation("junit:junit:4.13.2")
+    implementation(kotlin("stdlib-jdk8"))
 }
 
 val targetJavaVersion = 16
 java {
     withSourcesJar()
     val javaVersion = JavaVersion.toVersion(targetJavaVersion)
-    sourceCompatibility = javaVersion
-    targetCompatibility = javaVersion
     if (JavaVersion.current() < javaVersion) {
         toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
     }

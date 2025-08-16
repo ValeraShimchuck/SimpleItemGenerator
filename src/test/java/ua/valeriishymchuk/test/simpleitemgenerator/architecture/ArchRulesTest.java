@@ -9,7 +9,7 @@ import com.tngtech.archunit.lang.ConditionEvents;
 import com.tngtech.archunit.lang.SimpleConditionEvent;
 import com.tngtech.archunit.library.Architectures;
 import org.junit.Test;
-import ua.valeriishymchuk.simpleitemgenerator.common.annotation.UsesBukkit;
+import ua.valeriishymchuk.simpleitemgenerator.common.annotation.UsesMinecraft;
 
 import static com.tngtech.archunit.base.DescribedPredicate.not;
 import static com.tngtech.archunit.core.domain.properties.CanBeAnnotated.Predicates.annotatedWith;
@@ -63,13 +63,13 @@ public class ArchRulesTest {
 
         DescribedPredicate<JavaClass> allowedClasses =
                 JavaClass.Predicates.resideInAPackage(BASE_PACKAGE + ".controller")
-                        .or(annotatedWith(UsesBukkit.class))
+                        .or(annotatedWith(UsesMinecraft.class))
                         .or(MAIN_CLASS_PREDICATE)
                         .or(JavaClass.Predicates.assignableTo("org.bukkit.event.Event"));
 
         DescribedPredicate<JavaMethod> allowedMethods = DescribedPredicate.describe(
                 "Methods in allowed classes",
-                method -> method.isAnnotatedWith(UsesBukkit.class) ||
+                method -> method.isAnnotatedWith(UsesMinecraft.class) ||
                         allowedClasses.test(method.getOwner())
         );
 
@@ -83,7 +83,7 @@ public class ArchRulesTest {
                             if (minecraftClasses.test(access.getTargetOwner())) {
                                 events.add(SimpleConditionEvent.violated(
                                         item, String.format(
-                                                "%s uses Minecraft classes without @UsesBukkit annotation. Class: %s location: %s",
+                                                "%s uses Minecraft classes without @UsesMinecraft annotation. Class: %s location: %s",
                                                 item.getDescription(),
                                                 access.getTargetOwner(),
                                                 access.getSourceCodeLocation()
@@ -102,12 +102,12 @@ public class ArchRulesTest {
                             boolean annotationCheckFailed;
                             if (access instanceof JavaMethodCall call) {
                                 JavaMethod method = call.getTarget().resolveMember().orElse(null);
-                                annotationCheckFailed = method != null && method.isAnnotatedWith(UsesBukkit.class);
+                                annotationCheckFailed = method != null && method.isAnnotatedWith(UsesMinecraft.class);
                             } else annotationCheckFailed = false;
                             if (minecraftClasses.test(access.getTarget().getOwner()) || annotationCheckFailed) {
                                 events.add(SimpleConditionEvent.violated(
                                         item, String.format(
-                                                "%s uses Minecraft classes without @UsesBukkit annotation. Class: %s location: %s",
+                                                "%s uses Minecraft classes without @UsesMinecraft annotation. Class: %s location: %s",
                                                 item.getDescription(),
                                                 access.getTargetOwner(),
                                                 access.getSourceCodeLocation()

@@ -36,6 +36,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.tick.TickTimer;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.SlotPredicate;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SigFeatureTag;
+import ua.valeriishymchuk.simpleitemgenerator.common.wrapper.BlockFaceWrapper;
 import ua.valeriishymchuk.simpleitemgenerator.dto.*;
 import ua.valeriishymchuk.simpleitemgenerator.entity.UsageEntity;
 import ua.valeriishymchuk.simpleitemgenerator.service.InfoService;
@@ -545,7 +546,7 @@ public class EventsController implements Listener {
                         event.getAction(),
                         event.getItem(),
                         event.getClickedBlock(),
-                        BukkitBridge.bridge(event.getBlockFace()),
+                        BlockFaceWrapper.toWrapper(event.getBlockFace()),
                         new SlotPredicate.Input(EquipmentToSlotConverter.convert(equipmentSlot, currentMainHandSlot), equipmentSlot, true),
                         tickerTime.getTick()
                 ),

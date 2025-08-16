@@ -26,10 +26,15 @@ import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidCon
 import ua.valeriishymchuk.simpleitemgenerator.common.custommodeldata.CustomModelDataHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.message.KyoriHelper;
 import ua.valeriishymchuk.simpleitemgenerator.common.reflection.ReflectedRepresentations;
+import ua.valeriishymchuk.simpleitemgenerator.common.registry.ItemMaterialRegistry;
+import ua.valeriishymchuk.simpleitemgenerator.common.registry.WrappedRegistries;
+import ua.valeriishymchuk.simpleitemgenerator.common.registry.WrappedRegistry;
 import ua.valeriishymchuk.simpleitemgenerator.common.text.StringSimilarityUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.time.TimeTokenParser;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
+import ua.valeriishymchuk.simpleitemgenerator.common.wrapper.*;
+import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ItemRepository;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -77,147 +82,6 @@ public class RawItem implements Cloneable {
         );
     }
 
-    private List<PotionEffect> getPotionEffects() throws InvalidConfigurationException {
-        int i = -1;
-        try {
-            if (potion == null || potion.isNull()) return Collections.emptyList();
-            if (!potion.isList()) throw new InvalidConfigurationException("Potion node should be a list");
-            List<PotionEffect> effects = new ArrayList<>();
-            List<ConfigurationNode> rawList = potion.getList(ConfigurationNode.class);
-            i++;
-            for (ConfigurationNode node : rawList) {
-                if (!node.isMap()) throw new InvalidConfigurationException("Not a map");
-                List<String> allowedKeys = Arrays.asList("type", "duration", "amplifier", "show-particles", "show-icon", "ambient");
-                List<String> unknownKeys = node.childrenMap().keySet().stream().map(Object::toString)
-                        .filter(s -> !allowedKeys.contains(s))
-                        .collect(Collectors.toList());
-                if (!unknownKeys.isEmpty()) throw new InvalidConfigurationException("Unknown keys in potion: " + unknownKeys);
-                String rawType = node.node("type").getString();
-                if (rawType == null) throw new InvalidConfigurationException("'type' property is not defined");
-                Try<PotionEffectType> potionTry = Try.of(() -> PotionEffectType.getByName(rawType))
-                        .filter(Objects::nonNull)
-                        .mapFailure(API.Case(API.$(), e -> {
-                            List<String> list = StringSimilarityUtils.getSuggestions(rawType, Arrays.stream(PotionEffectType.values())
-                                    .map(PotionEffectType::getName));
-                            return InvalidConfigurationException.unknownOption("potion type", rawType, list);
-                        }));
-                PotionEffectType potion = potionTry.get();
-                int duration = Try.of(() ->  node.node("duration").getString("1s"))
-                        .map(TimeTokenParser::parse)
-                        .map(l -> l / 50)
-                        .map(Long::intValue)
-                        .getOrElseThrow(e -> InvalidConfigurationException.path("duration", e));
-                int amplifier = Try.of(() ->  node.node("amplifier").getString())
-                        .map(s -> s == null? "1" : s)
-                        .mapTry(Integer::parseInt)
-                        .filter(n -> n > 0 && n <= 256)
-                        .getOrElseThrow(e -> new InvalidConfigurationException("'amplifier' is invalid. Should be an integer from 1 to 256")) - 1;
-                boolean showParticles = Try.of(() ->  node.node("show-particles").getBoolean(true))
-                        .getOrElseThrow(e -> new InvalidConfigurationException("'show-particles' is invalid. Should be true or false"));
-                boolean showIcon = Try.of(() ->  node.node("show-icon").getBoolean(true))
-                        .getOrElseThrow(e -> new InvalidConfigurationException("'show-icon' is invalid. Should be true or false"));
-                boolean ambient = Try.of(() ->  node.node("ambient").getBoolean(true))
-                        .getOrElseThrow(e -> new InvalidConfigurationException("'ambient' is invalid. Should be true or false"));
-                // works very weird. You can't get particles without icon. But if you want icon without particles you can get it
-                PotionEffect effect = ReflectedRepresentations.PotionEffect.create(potion, duration, amplifier, ambient, showParticles, showIcon)
-                        .getOrElse(new PotionEffect(potion, duration, amplifier, ambient, showParticles));
-                effects.add(effect);
-                i++;
-            }
-            return effects;
-        } catch (Exception e) {
-            if (i == -1) throw InvalidConfigurationException.path("potion", e);
-            else throw InvalidConfigurationException.path("potion, " + i, e);
-        }
-    }
-
-    private Option<org.bukkit.Color> getColor() {
-        try {
-            if (color == null) return Option.none();
-            if (color.isNull()) return Option.none();
-            if (color.isList()) throw new InvalidConfigurationException("Color node should be a value or a map");
-            if (!color.isMap()) {
-                String rawValue = color.getString();
-                Matcher matcher = COLOR_PATTERN.matcher(rawValue);
-                if (!matcher.matches()) throw new InvalidConfigurationException("Invalid color value: " + rawValue + ". Expected: [dye|hex|decimal] <value>");
-                String type = matcher.group("type");
-                String value = matcher.group("value").toUpperCase();
-                if (type.equals("dye")) {
-                    Try<DyeColor> colorTry = Try.of(() -> DyeColor.valueOf(value))
-                            .mapFailure(API.Case(API.$(), e -> {
-                                List<String> list = StringSimilarityUtils.getSuggestions(value, Arrays.stream(DyeColor.values())
-                                        .map(DyeColor::name));
-                                return InvalidConfigurationException.unknownOption("dye color", value, list);
-                            }));
-                    DyeColor dyeColor = colorTry.get();
-                    return Option.some(dyeColor.getColor());
-                }
-                int colorInt;
-                boolean isHex = type.equals("hex");
-                try {
-                    if (isHex) {
-                        String hex;
-                        if (value.startsWith("0X")) hex = value.substring(2);
-                        else if (value.startsWith("#")) hex = value.substring(1);
-                        else hex = value;
-                        if (hex.isEmpty()) throw new InvalidConfigurationException("Invalid hexadecimal value: " + value + ". Should be like ffff00 or 0xffff00");
-                        colorInt = Integer.parseInt(hex, 16);
-                    } else colorInt = Integer.parseInt(value);
-                } catch (NumberFormatException e) {
-                    if (isHex) throw new InvalidConfigurationException("Invalid hexadecimal value: " + value + ". Should be like ffff00 or 0xffff00");
-                    else throw new InvalidConfigurationException("Invalid int value: " + value + ". Should be an integer value");
-                }
-                return Option.some(org.bukkit.Color.fromRGB(colorInt));
-            }
-            if (!color.hasChild("red")) throw new InvalidConfigurationException("'red' property is missing");
-            if (!color.hasChild("green")) throw new InvalidConfigurationException("'green' property is missing");
-            if (!color.hasChild("blue")) throw new InvalidConfigurationException("'blue' property is missing");
-            long nonColorProperties = color.childrenMap().keySet().stream().map(Object::toString)
-                    .filter(s -> !s.equals("red") && !s.equals("green") && !s.equals("blue")).count();
-            if (nonColorProperties > 0) throw new InvalidConfigurationException("Only 'red', 'green' and 'blue' properties are allowed");
-            int red = Try.of(() ->  color.node("red").get(Integer.class))
-                    .filter(Objects::nonNull)
-                    .filter(i -> i >= 0 && i <= 255)
-                    .getOrElseThrow(() -> new InvalidConfigurationException("red property should be an integer from 0 to 255"));
-            int blue = Try.of(() ->  color.node("blue").get(Integer.class))
-                    .filter(Objects::nonNull)
-                    .filter(i -> i >= 0 && i <= 255)
-                    .getOrElseThrow(() -> new InvalidConfigurationException("blue property should be an integer from 0 to 255"));
-            int green = Try.of(() ->  color.node("green").get(Integer.class))
-                    .filter(Objects::nonNull)
-                    .filter(i -> i >= 0 && i <= 255)
-                    .getOrElseThrow(() -> new InvalidConfigurationException("green property should be an integer from 0 to 255"));
-            return Option.some(org.bukkit.Color.fromRGB(red, green, blue));
-
-        } catch (Exception e) {
-            throw InvalidConfigurationException.path("color", e);
-        }
-    }
-
-    @Override
-    public RawItem clone() {
-        return withName(name);
-    }
-
-    @SneakyThrows
-    public RawItem withCmd(int cmd) {
-        ensureCmdSupport();
-        ConfigurationNode rawCmd = DefaultLoader.yaml().createNode();
-        rawCmd.set(cmd);
-        return withCustomModelData(rawCmd);
-    }
-
-    @SneakyThrows
-    public RawItem withCmd(float... cmds) {
-        ensureModernCmdSupport();
-        ConfigurationNode rawCmd = DefaultLoader.yaml().createNode();
-        if (cmds.length == 0) return this;
-        if (cmds.length == 1) {
-            rawCmd.set(cmds[0]);
-        } else rawCmd.setList(Float.class, Floats.asList(cmds));
-        return withCustomModelData(rawCmd);
-    }
-
     private static void ensureModernCmdSupport() {
         if (!FeatureSupport.MODERN_CMD_SUPPORT) throw new UnsupportedOperationException(
                 "Modern custom model data is supported from >=1.21.4. Current version " + SemanticVersion.CURRENT_MINECRAFT
@@ -252,17 +116,347 @@ public class RawItem implements Cloneable {
                 )).get();
     }
 
+    private List<PotionEffectWrapper> getOptionEffectWrappers(WrappedRegistry<PotionEffectTypeWrapper> registry) throws InvalidConfigurationException {
+        int i = -1;
+        try {
+            if (potion == null || potion.isNull()) return Collections.emptyList();
+            if (!potion.isList()) throw new InvalidConfigurationException("Potion node should be a list");
+            List<PotionEffectWrapper> effects = new ArrayList<>();
+            List<ConfigurationNode> rawList = potion.getList(ConfigurationNode.class);
+            i++;
+            for (ConfigurationNode node : rawList) {
+                if (!node.isMap()) throw new InvalidConfigurationException("Not a map");
+                List<String> allowedKeys = Arrays.asList("type", "duration", "amplifier", "show-particles", "show-icon", "ambient");
+                List<String> unknownKeys = node.childrenMap().keySet().stream().map(Object::toString)
+                        .filter(s -> !allowedKeys.contains(s))
+                        .toList();
+                if (!unknownKeys.isEmpty())
+                    throw new InvalidConfigurationException("Unknown keys in potion: " + unknownKeys);
+                String rawType = node.node("type").getString();
+                if (rawType == null) throw new InvalidConfigurationException("'type' property is not defined");
+                PotionEffectTypeWrapper potion = registry.wrapSafely(rawType)
+                        .getOrElseThrow(() -> InvalidConfigurationException.unknownOptionWithSuggestions(
+                                "potion type",
+                                rawType,
+                                registry.getPossibleValues().stream()
+                        ));
+                int duration = Try.of(() -> node.node("duration").getString("1s"))
+                        .map(TimeTokenParser::parse)
+                        .map(l -> l / 50)
+                        .map(Long::intValue)
+                        .getOrElseThrow(e -> InvalidConfigurationException.path("duration", e));
+                int amplifier = Try.of(() -> node.node("amplifier").getString())
+                        .map(s -> s == null ? "1" : s)
+                        .mapTry(Integer::parseInt)
+                        .filter(n -> n > 0 && n <= 256)
+                        .getOrElseThrow(e -> new InvalidConfigurationException("'amplifier' is invalid. Should be an integer from 1 to 256")) - 1;
+                boolean showParticles = Try.of(() -> node.node("show-particles").getBoolean(true))
+                        .getOrElseThrow(e -> new InvalidConfigurationException("'show-particles' is invalid. Should be true or false"));
+                boolean showIcon = Try.of(() -> node.node("show-icon").getBoolean(true))
+                        .getOrElseThrow(e -> new InvalidConfigurationException("'show-icon' is invalid. Should be true or false"));
+                boolean ambient = Try.of(() -> node.node("ambient").getBoolean(true))
+                        .getOrElseThrow(e -> new InvalidConfigurationException("'ambient' is invalid. Should be true or false"));
+
+                PotionEffectWrapper effect = new PotionEffectWrapper(
+                        potion,
+                        duration,
+                        amplifier,
+                        ambient,
+                        showParticles,
+                        showIcon
+                );
+                effects.add(effect);
+                i++;
+            }
+            return effects;
+        } catch (Exception e) {
+            if (i == -1) throw InvalidConfigurationException.path("potion", e);
+            else throw InvalidConfigurationException.path("potion, " + i, e);
+        }
+    }
+
+    private List<PotionEffect> getPotionEffects() throws InvalidConfigurationException {
+        int i = -1;
+        try {
+            if (potion == null || potion.isNull()) return Collections.emptyList();
+            if (!potion.isList()) throw new InvalidConfigurationException("Potion node should be a list");
+            List<PotionEffect> effects = new ArrayList<>();
+            List<ConfigurationNode> rawList = potion.getList(ConfigurationNode.class);
+            i++;
+            for (ConfigurationNode node : rawList) {
+                if (!node.isMap()) throw new InvalidConfigurationException("Not a map");
+                List<String> allowedKeys = Arrays.asList("type", "duration", "amplifier", "show-particles", "show-icon", "ambient");
+                List<String> unknownKeys = node.childrenMap().keySet().stream().map(Object::toString)
+                        .filter(s -> !allowedKeys.contains(s))
+                        .collect(Collectors.toList());
+                if (!unknownKeys.isEmpty())
+                    throw new InvalidConfigurationException("Unknown keys in potion: " + unknownKeys);
+                String rawType = node.node("type").getString();
+                if (rawType == null) throw new InvalidConfigurationException("'type' property is not defined");
+                Try<PotionEffectType> potionTry = Try.of(() -> PotionEffectType.getByName(rawType))
+                        .filter(Objects::nonNull)
+                        .mapFailure(API.Case(API.$(), e -> {
+                            List<String> list = StringSimilarityUtils.getSuggestions(rawType, Arrays.stream(PotionEffectType.values())
+                                    .map(PotionEffectType::getName));
+                            return InvalidConfigurationException.unknownOption("potion type", rawType, list);
+                        }));
+                PotionEffectType potion = potionTry.get();
+                int duration = Try.of(() -> node.node("duration").getString("1s"))
+                        .map(TimeTokenParser::parse)
+                        .map(l -> l / 50)
+                        .map(Long::intValue)
+                        .getOrElseThrow(e -> InvalidConfigurationException.path("duration", e));
+                int amplifier = Try.of(() -> node.node("amplifier").getString())
+                        .map(s -> s == null ? "1" : s)
+                        .mapTry(Integer::parseInt)
+                        .filter(n -> n > 0 && n <= 256)
+                        .getOrElseThrow(e -> new InvalidConfigurationException("'amplifier' is invalid. Should be an integer from 1 to 256")) - 1;
+                boolean showParticles = Try.of(() -> node.node("show-particles").getBoolean(true))
+                        .getOrElseThrow(e -> new InvalidConfigurationException("'show-particles' is invalid. Should be true or false"));
+                boolean showIcon = Try.of(() -> node.node("show-icon").getBoolean(true))
+                        .getOrElseThrow(e -> new InvalidConfigurationException("'show-icon' is invalid. Should be true or false"));
+                boolean ambient = Try.of(() -> node.node("ambient").getBoolean(true))
+                        .getOrElseThrow(e -> new InvalidConfigurationException("'ambient' is invalid. Should be true or false"));
+                // works very weird. You can't get particles without icon. But if you want icon without particles you can get it
+                PotionEffect effect = ReflectedRepresentations.PotionEffect.create(potion, duration, amplifier, ambient, showParticles, showIcon)
+                        .getOrElse(new PotionEffect(potion, duration, amplifier, ambient, showParticles));
+                effects.add(effect);
+                i++;
+            }
+            return effects;
+        } catch (Exception e) {
+            if (i == -1) throw InvalidConfigurationException.path("potion", e);
+            else throw InvalidConfigurationException.path("potion, " + i, e);
+        }
+    }
+
+    private Option<Integer> getColorWrapper() {
+        try {
+            if (color == null) return Option.none();
+            if (color.isNull()) return Option.none();
+            if (color.isList()) throw new InvalidConfigurationException("Color node should be a value or a map");
+            if (!color.isMap()) {
+                String rawValue = color.getString();
+                Matcher matcher = COLOR_PATTERN.matcher(rawValue);
+                if (!matcher.matches())
+                    throw new InvalidConfigurationException("Invalid color value: " + rawValue + ". Expected: [dye|hex|decimal] <value>");
+                String type = matcher.group("type");
+                String value = matcher.group("value").toUpperCase();
+                if (type.equals("dye")) {
+                    Try<DyeColorWrapper> colorTry = Try.of(() -> DyeColorWrapper.valueOf(value))
+                            .mapFailure(API.Case(API.$(), e -> InvalidConfigurationException.unknownOptionWithSuggestions(
+                                    "dye color",
+                                    value,
+                                    Arrays.stream(DyeColorWrapper.values()).map(DyeColorWrapper::name)
+                            )));
+                    DyeColorWrapper dyeColor = colorTry.get();
+                    return Option.some(dyeColor.getColor());
+                }
+                int colorInt;
+                boolean isHex = type.equals("hex");
+                try {
+                    if (isHex) {
+                        String hex;
+                        if (value.startsWith("0X")) hex = value.substring(2);
+                        else if (value.startsWith("#")) hex = value.substring(1);
+                        else hex = value;
+                        if (hex.isEmpty())
+                            throw new InvalidConfigurationException("Invalid hexadecimal value: " + value + ". Should be like ffff00 or 0xffff00");
+                        colorInt = Integer.parseInt(hex, 16);
+                    } else colorInt = Integer.parseInt(value);
+                } catch (NumberFormatException e) {
+                    if (isHex)
+                        throw new InvalidConfigurationException("Invalid hexadecimal value: " + value + ". Should be like ffff00 or 0xffff00");
+                    else
+                        throw new InvalidConfigurationException("Invalid int value: " + value + ". Should be an integer value");
+                }
+                return Option.some(colorInt);
+            }
+            if (!color.hasChild("red")) throw new InvalidConfigurationException("'red' property is missing");
+            if (!color.hasChild("green")) throw new InvalidConfigurationException("'green' property is missing");
+            if (!color.hasChild("blue")) throw new InvalidConfigurationException("'blue' property is missing");
+            long nonColorProperties = color.childrenMap().keySet().stream().map(Object::toString)
+                    .filter(s -> !s.equals("red") && !s.equals("green") && !s.equals("blue")).count();
+            if (nonColorProperties > 0)
+                throw new InvalidConfigurationException("Only 'red', 'green' and 'blue' properties are allowed");
+            int red = Try.of(() -> color.node("red").get(Integer.class))
+                    .filter(Objects::nonNull)
+                    .filter(i -> i >= 0 && i <= 255)
+                    .getOrElseThrow(() -> new InvalidConfigurationException("red property should be an integer from 0 to 255"));
+            int blue = Try.of(() -> color.node("blue").get(Integer.class))
+                    .filter(Objects::nonNull)
+                    .filter(i -> i >= 0 && i <= 255)
+                    .getOrElseThrow(() -> new InvalidConfigurationException("blue property should be an integer from 0 to 255"));
+            int green = Try.of(() -> color.node("green").get(Integer.class))
+                    .filter(Objects::nonNull)
+                    .filter(i -> i >= 0 && i <= 255)
+                    .getOrElseThrow(() -> new InvalidConfigurationException("green property should be an integer from 0 to 255"));
+            return Option.some(red << 16 | green << 8 | blue);
+
+        } catch (Exception e) {
+            throw InvalidConfigurationException.path("color", e);
+        }
+    }
+
+    @Deprecated(forRemoval = true)
+    private Option<org.bukkit.Color> getColor() {
+        try {
+            if (color == null) return Option.none();
+            if (color.isNull()) return Option.none();
+            if (color.isList()) throw new InvalidConfigurationException("Color node should be a value or a map");
+            if (!color.isMap()) {
+                String rawValue = color.getString();
+                Matcher matcher = COLOR_PATTERN.matcher(rawValue);
+                if (!matcher.matches())
+                    throw new InvalidConfigurationException("Invalid color value: " + rawValue + ". Expected: [dye|hex|decimal] <value>");
+                String type = matcher.group("type");
+                String value = matcher.group("value").toUpperCase();
+                if (type.equals("dye")) {
+                    Try<DyeColor> colorTry = Try.of(() -> DyeColor.valueOf(value))
+                            .mapFailure(API.Case(API.$(), e -> {
+                                List<String> list = StringSimilarityUtils.getSuggestions(value, Arrays.stream(DyeColor.values())
+                                        .map(DyeColor::name));
+                                return InvalidConfigurationException.unknownOption("dye color", value, list);
+                            }));
+                    DyeColor dyeColor = colorTry.get();
+                    return Option.some(dyeColor.getColor());
+                }
+                int colorInt;
+                boolean isHex = type.equals("hex");
+                try {
+                    if (isHex) {
+                        String hex;
+                        if (value.startsWith("0X")) hex = value.substring(2);
+                        else if (value.startsWith("#")) hex = value.substring(1);
+                        else hex = value;
+                        if (hex.isEmpty())
+                            throw new InvalidConfigurationException("Invalid hexadecimal value: " + value + ". Should be like ffff00 or 0xffff00");
+                        colorInt = Integer.parseInt(hex, 16);
+                    } else colorInt = Integer.parseInt(value);
+                } catch (NumberFormatException e) {
+                    if (isHex)
+                        throw new InvalidConfigurationException("Invalid hexadecimal value: " + value + ". Should be like ffff00 or 0xffff00");
+                    else
+                        throw new InvalidConfigurationException("Invalid int value: " + value + ". Should be an integer value");
+                }
+                return Option.some(org.bukkit.Color.fromRGB(colorInt));
+            }
+            if (!color.hasChild("red")) throw new InvalidConfigurationException("'red' property is missing");
+            if (!color.hasChild("green")) throw new InvalidConfigurationException("'green' property is missing");
+            if (!color.hasChild("blue")) throw new InvalidConfigurationException("'blue' property is missing");
+            long nonColorProperties = color.childrenMap().keySet().stream().map(Object::toString)
+                    .filter(s -> !s.equals("red") && !s.equals("green") && !s.equals("blue")).count();
+            if (nonColorProperties > 0)
+                throw new InvalidConfigurationException("Only 'red', 'green' and 'blue' properties are allowed");
+            int red = Try.of(() -> color.node("red").get(Integer.class))
+                    .filter(Objects::nonNull)
+                    .filter(i -> i >= 0 && i <= 255)
+                    .getOrElseThrow(() -> new InvalidConfigurationException("red property should be an integer from 0 to 255"));
+            int blue = Try.of(() -> color.node("blue").get(Integer.class))
+                    .filter(Objects::nonNull)
+                    .filter(i -> i >= 0 && i <= 255)
+                    .getOrElseThrow(() -> new InvalidConfigurationException("blue property should be an integer from 0 to 255"));
+            int green = Try.of(() -> color.node("green").get(Integer.class))
+                    .filter(Objects::nonNull)
+                    .filter(i -> i >= 0 && i <= 255)
+                    .getOrElseThrow(() -> new InvalidConfigurationException("green property should be an integer from 0 to 255"));
+            return Option.some(org.bukkit.Color.fromRGB(red, green, blue));
+
+        } catch (Exception e) {
+            throw InvalidConfigurationException.path("color", e);
+        }
+    }
+
+    @Override
+    public RawItem clone() {
+        return withName(name);
+    }
+
+    @SneakyThrows
+    public RawItem withCmd(int cmd) {
+        ensureCmdSupport();
+        ConfigurationNode rawCmd = DefaultLoader.yaml().createNode();
+        rawCmd.set(cmd);
+        return withCustomModelData(rawCmd);
+    }
+
+    @SneakyThrows
+    public RawItem withCmd(float... cmds) {
+        ensureModernCmdSupport();
+        ConfigurationNode rawCmd = DefaultLoader.yaml().createNode();
+        if (cmds.length == 0) return this;
+        if (cmds.length == 1) {
+            rawCmd.set(cmds[0]);
+        } else rawCmd.setList(Float.class, Floats.asList(cmds));
+        return withCustomModelData(rawCmd);
+    }
+
+    public ItemRepository.ItemPatch getCustomModelDataWrapper() throws InvalidConfigurationException {
+        if (customModelData == null || customModelData.isNull()) return new ItemRepository.ItemPatch.CustomModelDataLegacy(null);
+        boolean isModernCmdSupported = FeatureSupport.MODERN_CMD_SUPPORT;
+        try {
+            boolean nodeIsList = customModelData.isList();
+            boolean nodeIsMap = customModelData.isMap();
+            boolean isScalar = !nodeIsList && !nodeIsMap;
+            if (!isScalar && !isModernCmdSupported)
+                throw new InvalidConfigurationException("Modern custom model data(list of floats) is supported from >=1.21.4. Current version " + SemanticVersion.CURRENT_MINECRAFT);
+            if (!isModernCmdSupported) {
+                return new ItemRepository.ItemPatch.CustomModelDataLegacy(parseInt(customModelData));
+            }
+            if (nodeIsList) {
+                List<Float> floats = customModelData.getList(ConfigurationNode.class)
+                        .stream()
+                        .map(RawItem::parseFloat).toList();
+                return new ItemRepository.ItemPatch.CustomModelDataModern(
+                        floats,
+                        List.of(),
+                        List.of(),
+                        List.of()
+                );
+            }
+            if (isScalar) {
+                return new ItemRepository.ItemPatch.CustomModelDataModern(
+                        List.of(parseFloat(customModelData)),
+                        List.of(),
+                        List.of(),
+                        List.of()
+                );
+            }
+            ConfigurationNode floats = customModelData.node("floats");
+            ConfigurationNode flags = customModelData.node("flags");
+            ConfigurationNode strings = customModelData.node("strings");
+            ConfigurationNode colors = customModelData.node("colors");
+
+            List<Float> floatList = floats.isNull() ? Collections.emptyList() : floats.isList() ? floats.getList(ConfigurationNode.class).stream().map(RawItem::parseFloat).toList() : Collections.singletonList(parseFloat(floats));
+            List<Boolean> flagList = flags.isNull() ? Collections.emptyList() : flags.isList() ? flags.getList(Boolean.class) : Collections.singletonList(flags.getBoolean());
+            List<String> stringList = strings.isNull() ? Collections.emptyList() : strings.isList() ? strings.getList(String.class) : Collections.singletonList(strings.getString());
+            List<Integer> colorList = colors.isNull() ? Collections.emptyList() : colors.isList() ? colors.getList(ConfigurationNode.class).stream().map(RawItem::parseInt).toList() : Collections.singletonList(parseInt(colors));
+
+            return new ItemRepository.ItemPatch.CustomModelDataModern(
+                    floatList,
+                    flagList,
+                    stringList,
+                    colorList
+            );
+        } catch (Exception e) {
+            throw InvalidConfigurationException.path("cmd", e);
+        }
+    }
+
+    @Deprecated(forRemoval = true)
     public Option<ItemCustomModelData> getCustomModelData() throws InvalidConfigurationException {
         if (customModelData == null || customModelData.isNull()) return Option.none();
         boolean isCmdSupported = FeatureSupport.CMD_SUPPORT;
         boolean isModernCmdSupported = FeatureSupport.MODERN_CMD_SUPPORT;
         ItemCustomModelData cmd;
         try {
-            if (!isCmdSupported) throw new InvalidConfigurationException("Custom model data is supported from >=1.14. Current version " + SemanticVersion.CURRENT_MINECRAFT);
+            if (!isCmdSupported)
+                throw new InvalidConfigurationException("Custom model data is supported from >=1.14. Current version " + SemanticVersion.CURRENT_MINECRAFT);
             boolean nodeIsList = customModelData.isList();
             boolean nodeIsMap = customModelData.isMap();
             boolean isScalar = !nodeIsList && !nodeIsMap;
-            if (!isScalar && !isModernCmdSupported) throw new InvalidConfigurationException("Modern custom model data(list of floats) is supported from >=1.21.4. Current version " + SemanticVersion.CURRENT_MINECRAFT);
+            if (!isScalar && !isModernCmdSupported)
+                throw new InvalidConfigurationException("Modern custom model data(list of floats) is supported from >=1.21.4. Current version " + SemanticVersion.CURRENT_MINECRAFT);
             if (!isModernCmdSupported) {
                 cmd = new ItemCustomModelData(parseInt(customModelData));
             } else if (nodeIsList) {
@@ -276,10 +470,10 @@ public class RawItem implements Cloneable {
                 ConfigurationNode strings = customModelData.node("strings");
                 ConfigurationNode colors = customModelData.node("colors");
 
-                List<Float> floatList = floats.isNull()? Collections.emptyList() : floats.isList() ? floats.getList(ConfigurationNode.class).stream().map(RawItem::parseFloat).collect(Collectors.toList()) : Collections.singletonList(parseFloat(floats));
-                List<Boolean> flagList = flags.isNull()? Collections.emptyList() : flags.isList() ? flags.getList(Boolean.class) : Collections.singletonList(flags.getBoolean());
-                List<String> stringList = strings.isNull()? Collections.emptyList() : strings.isList() ? strings.getList(String.class) : Collections.singletonList(strings.getString());
-                List<Integer> colorList = colors.isNull()? Collections.emptyList() : colors.isList() ? colors.getList(ConfigurationNode.class).stream().map(RawItem::parseInt).collect(Collectors.toList()) : Collections.singletonList(parseInt(colors));
+                List<Float> floatList = floats.isNull() ? Collections.emptyList() : floats.isList() ? floats.getList(ConfigurationNode.class).stream().map(RawItem::parseFloat).collect(Collectors.toList()) : Collections.singletonList(parseFloat(floats));
+                List<Boolean> flagList = flags.isNull() ? Collections.emptyList() : flags.isList() ? flags.getList(Boolean.class) : Collections.singletonList(flags.getBoolean());
+                List<String> stringList = strings.isNull() ? Collections.emptyList() : strings.isList() ? strings.getList(String.class) : Collections.singletonList(strings.getString());
+                List<Integer> colorList = colors.isNull() ? Collections.emptyList() : colors.isList() ? colors.getList(ConfigurationNode.class).stream().map(RawItem::parseInt).collect(Collectors.toList()) : Collections.singletonList(parseInt(colors));
                 cmd = new ItemCustomModelData(floatList, flagList, stringList, colorList.stream().map(Color::new).collect(Collectors.toList()));
             }
         } catch (Exception e) {
@@ -306,6 +500,30 @@ public class RawItem implements Cloneable {
                 .withLore(lore.stream().map(s -> s.replace(placeholder, value)).collect(Collectors.toList()));
     }
 
+    public List<ItemFlagWrapper> getWrappedFlags(WrappedRegistry<ItemFlagWrapper> registry) throws InvalidConfigurationException {
+        if (itemFlags == null || itemFlags.isEmpty()) return Collections.emptyList();
+        List<ItemFlagWrapper> flags = new ArrayList<>();
+        int i = 0;
+        for (String rawFlag : itemFlags) {
+            rawFlag = rawFlag.toUpperCase();
+            String finalRawFlag = rawFlag;
+
+            try {
+                ItemFlagWrapper flag = registry.wrapSafely(rawFlag).getOrElseThrow(() -> InvalidConfigurationException.unknownOptionWithSuggestions(
+                        "flag",
+                        finalRawFlag,
+                        registry.getPossibleValues().stream()
+                ));
+                flags.add(flag);
+            } catch (Throwable e) {
+                throw InvalidConfigurationException.path("item-flags, " + i, e);
+            }
+            i++;
+        }
+        return flags;
+    }
+
+    @Deprecated(forRemoval = true)
     public List<ItemFlag> getFlags() throws InvalidConfigurationException {
         if (itemFlags == null || itemFlags.isEmpty()) return Collections.emptyList();
         List<ItemFlag> flags = new ArrayList<>();
@@ -337,6 +555,22 @@ public class RawItem implements Cloneable {
         return flags;
     }
 
+    public ItemMaterialWrapper getMaterialWrapper(Set<String> validValues) throws InvalidConfigurationException {
+        try {
+            if (this.material == null) throw new InvalidConfigurationException("Property is not defined");
+            String rawMaterial = material.toUpperCase();
+            return ItemMaterialWrapper.of(rawMaterial, validValues::contains).getOrElseThrow(() ->
+                    InvalidConfigurationException.unknownOptionWithSuggestions(
+                            "material",
+                            rawMaterial,
+                            validValues.stream()
+                    ));
+        } catch (Exception e) {
+            throw InvalidConfigurationException.path("material", e);
+        }
+    }
+
+    @Deprecated(forRemoval = true)
     public Material getMaterial() throws InvalidConfigurationException {
         try {
             if (this.material == null) throw new InvalidConfigurationException("Property is not defined");
@@ -370,7 +604,43 @@ public class RawItem implements Cloneable {
     }
 
 
+    public List<ItemRepository.ItemPatch> bakePatches(WrappedRegistries registries) throws InvalidConfigurationException {
+        List<ItemRepository.ItemPatch> patches = new ArrayList<>();
+        ItemMaterialWrapper material = getMaterialWrapper(registries.getItemMaterialRegistry().getPossibleValues());
+        patches.add(new ItemRepository.ItemPatch.Material(material));
+        AtomicInteger increment = new AtomicInteger();
+        try {
+            patches.add(new ItemRepository.ItemPatch.Attributes(
+                    attributes.stream()
+                            .map(attribute -> {
+                                Attribute a = Attribute.fromNode(attribute);
+                                increment.incrementAndGet();
+                                return a;
+                            }).toList()
+            ));
+        } catch (Throwable e) {
+            throw InvalidConfigurationException.path("attributes, " + increment.get(), e);
+        }
+        patches.add(getCustomModelDataWrapper());
+        int damage = durability == null? 0 :
+                        registries.getItemMaterialRegistry().getMaxDurability(material) - durability;
+        patches.add(new ItemRepository.ItemPatch.Damage(damage));
+        patches.add(new ItemRepository.ItemPatch.Name(KyoriHelper.parseMiniMessage(name)));
+        patches.add(new ItemRepository.ItemPatch.Lore(
+                lore.stream()
+                        .map(KyoriHelper::parseMiniMessage)
+                        .toList()
+        ));
+        patches.add(new ItemRepository.ItemPatch.Color(getColorWrapper().getOrNull()));
+        patches.add(new ItemRepository.ItemPatch.PotionEffects(getOptionEffectWrappers(registries.getPotionEffectTypesRegistry())));
+        patches.add(new ItemRepository.ItemPatch.ItemFlags(new HashSet<>(getWrappedFlags(registries.getItemFlagWrapperRegistry()))));
+        patches.add(new ItemRepository.ItemPatch.Enchantments(getWrappedEnchantments(registries.getEnchantmentsWrapperRegistry())));
+        patches.add(new ItemRepository.ItemPatch.Unbreakable(unbreakable != null && unbreakable));
+        return patches;
+    }
 
+
+    @Deprecated(forRemoval = true)
     public ItemStack bake() throws InvalidConfigurationException {
 
         ItemStack preparedItem = ReflectedRepresentations.ItemStack.createItemStack(getMaterial());
@@ -415,7 +685,8 @@ public class RawItem implements Cloneable {
             ((LeatherArmorMeta) meta).setColor(colorOpt.get());
         } else if (meta instanceof PotionMeta && colorOpt.isDefined()) {
             boolean setColorSuccess = ReflectedRepresentations.PotionMeta.setColor((PotionMeta) meta, colorOpt.get());
-            if (!setColorSuccess) throw new InvalidConfigurationException("'color' node is not supported for potions until 1.11.");
+            if (!setColorSuccess)
+                throw new InvalidConfigurationException("'color' node is not supported for potions until 1.11.");
         } else if (colorOpt.isDefined()) {
             throw new InvalidConfigurationException("'color' node is not supported for this material.");
         }
@@ -439,6 +710,34 @@ public class RawItem implements Cloneable {
         return item;
     }
 
+
+    private Map<EnchantmentWrapper, Integer> getWrappedEnchantments(WrappedRegistry<EnchantmentWrapper> registry) throws InvalidConfigurationException {
+        if (enchantments == null || enchantments.isEmpty()) return Collections.emptyMap();
+        Map<EnchantmentWrapper, Integer> map = new HashMap<>();
+        try {
+            for (Map.Entry<String, Integer> entry : enchantments.entrySet()) {
+                try {
+                    int level = entry.getValue();
+                    String rawEnchantment = entry.getKey();
+                    EnchantmentWrapper enchantment = registry.wrapSafely(rawEnchantment)
+                            .getOrElseThrow(() -> InvalidConfigurationException.unknownOptionWithSuggestions(
+                                    "enchantment",
+                                    rawEnchantment,
+                                    registry.getPossibleValues().stream()
+                            ));
+                    map.put(enchantment, level);
+                } catch (Throwable e) {
+                    throw InvalidConfigurationException.path(entry.getKey(), e);
+                }
+
+            }
+            return map;
+        } catch (Exception e) {
+            throw InvalidConfigurationException.path("enchantments", e);
+        }
+    }
+
+    @Deprecated(forRemoval = true)
     private Map<Enchantment, Integer> getEnchantments() throws InvalidConfigurationException {
         if (enchantments == null || enchantments.isEmpty()) return Collections.emptyMap();
         Map<Enchantment, Integer> map = new HashMap<>();
@@ -456,7 +755,7 @@ public class RawItem implements Cloneable {
                         List<String> list = Arrays.stream(Enchantment.values())
                                 .map(e -> e.getKey().asString())
                                 .map(e -> new AbstractMap.SimpleEntry<>(
-                                        e, StringSimilarityUtils.jaroDistance(e, FeatureSupport.NAMESPACED_ENCHANTMENTS_SUPPORT? entry.getKey() : rawEnchantment)
+                                        e, StringSimilarityUtils.jaroDistance(e, FeatureSupport.NAMESPACED_ENCHANTMENTS_SUPPORT ? entry.getKey() : rawEnchantment)
                                 ))
                                 .filter(m -> m.getValue() > 0.8)
                                 .sorted(Comparator.comparingDouble(e -> -e.getValue()))

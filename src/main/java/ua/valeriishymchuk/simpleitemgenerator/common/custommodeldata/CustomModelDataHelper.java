@@ -4,9 +4,9 @@ import com.github.retrooper.packetevents.protocol.component.ComponentTypes;
 import com.github.retrooper.packetevents.protocol.component.builtin.item.ItemCustomModelData;
 import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import org.bukkit.inventory.ItemStack;
-import ua.valeriishymchuk.simpleitemgenerator.common.annotation.UsesBukkit;
+import ua.valeriishymchuk.simpleitemgenerator.common.annotation.UsesMinecraft;
 
-@UsesBukkit
+@UsesMinecraft
 public class CustomModelDataHelper {
 
     public static ItemStack applyModernCmd(ItemStack stack, ItemCustomModelData cmd) {

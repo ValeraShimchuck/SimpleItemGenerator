@@ -5,10 +5,14 @@ import io.vavr.CheckedFunction1;
 import io.vavr.control.Option;
 import lombok.NonNull;
 import lombok.SneakyThrows;
+import org.bukkit.Keyed;
+import org.bukkit.NamespacedKey;
+import org.bukkit.Registry;
 import ua.valeriishymchuk.libs.net.kyori.adventure.key.Key;
 import org.bukkit.Color;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.potion.PotionEffectType;
+import ua.valeriishymchuk.simpleitemgenerator.common.annotation.UsesMinecraft;
 import ua.valeriishymchuk.simpleitemgenerator.common.boundingbox.BoundingBox;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
@@ -16,10 +20,12 @@ import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 import java.lang.reflect.*;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static ua.valeriishymchuk.simpleitemgenerator.common.reflection.MinecraftReflection.getCraftBukkit;
 
+@UsesMinecraft
 public class ReflectedRepresentations {
 
     public static class ItemStack {
@@ -105,6 +111,34 @@ public class ReflectedRepresentations {
             return result.get();
         }
     }
+
+//    public static class Registry {
+//        public static final Class<org.bukkit.Registry> CLASS = org.bukkit.Registry.class;
+//
+//        @SneakyThrows
+//        public PotionEffectType getByKeyOrName(String name) {
+//            if (Arrays.stream(CLASS.getFields()).anyMatch(f -> f.getName().equals("EFFECT"))) {
+//                org.bukkit.Registry<?> potionsRegistry = (org.bukkit.Registry<?>) CLASS.getField("EFFECT").get(null);
+//                Keyed rawPotion = potionsRegistry.get(org.bukkit.NamespacedKey.fromString(name));
+//                return (PotionEffectType) rawPotion;
+//            }
+//            return PotionEffectType.getByName(name);
+//        }
+//
+//        @SneakyThrows
+//        public Set<String> getPossiblePotionTypes() {
+//            if (Arrays.stream(CLASS.getFields()).anyMatch(f -> f.getName().equals("EFFECT"))) {
+//                org.bukkit.Registry<? extends Keyed> potionsRegistry = (org.bukkit.Registry<? extends Keyed>) CLASS.getField("EFFECT").get(null);
+//                return io.vavr.collection.List.ofAll(potionsRegistry)
+//                        .map(it -> it.getKey().asString())
+//                        .map(rawKey -> {
+//                            if (rawKey.startsWith("minecraft:"))
+//                        })
+//                        .toJavaSet();
+//            }
+//        }
+//
+//    }
 
     public static class PotionEffect {
         public static final Class<org.bukkit.potion.PotionEffect> CLASS = org.bukkit.potion.PotionEffect.class;

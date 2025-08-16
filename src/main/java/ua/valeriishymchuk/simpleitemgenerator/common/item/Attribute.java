@@ -13,7 +13,7 @@ import ua.valeriishymchuk.libs.net.kyori.adventure.key.Key;
 import org.spongepowered.configurate.ConfigurationNode;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.DefaultLoader;
 import ua.valeriishymchuk.simpleitemgenerator.common.config.exception.InvalidConfigurationException;
-import ua.valeriishymchuk.simpleitemgenerator.common.slot.EquipmentSlotWrapper;
+import ua.valeriishymchuk.simpleitemgenerator.common.wrapper.EquipmentSlotWrapper;
 import ua.valeriishymchuk.simpleitemgenerator.common.text.StringSimilarityUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
@@ -144,7 +144,22 @@ public class Attribute {
         return new Attribute(operation, modifier, amount, null, name, slot);
     }
 
+    @Override
+    public boolean equals(Object o) {
+        if (o == null || getClass() != o.getClass()) return false;
+        Attribute attribute = (Attribute) o;
+        return Double.compare(amount, attribute.amount) == 0 &&
+                operation == attribute.operation &&
+                modifier == attribute.modifier &&
+                Objects.equals(uuid, attribute.uuid) &&
+                Objects.equals(name, attribute.name) &&
+                slot == attribute.slot;
+    }
 
+    @Override
+    public int hashCode() {
+        return Objects.hash(operation, modifier, amount, uuid, name, slot);
+    }
 
     public enum Operation {
         ADD_VALUE,

@@ -8,9 +8,8 @@ import de.tr7zw.changeme.nbtapi.NBT;
 import de.tr7zw.changeme.nbtapi.iface.ReadWriteNBT;
 import io.github.retrooper.packetevents.util.SpigotConversionUtil;
 import org.bukkit.inventory.ItemStack;
-import ua.valeriishymchuk.simpleitemgenerator.common.annotation.UsesBukkit;
-import ua.valeriishymchuk.simpleitemgenerator.common.bridge.PacketEventsBridge;
-import ua.valeriishymchuk.simpleitemgenerator.common.slot.EquipmentSlotWrapper;
+import ua.valeriishymchuk.simpleitemgenerator.common.annotation.UsesMinecraft;
+import ua.valeriishymchuk.simpleitemgenerator.common.wrapper.EquipmentSlotWrapper;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
 
@@ -21,7 +20,8 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import static ua.valeriishymchuk.simpleitemgenerator.common.item.Attribute.*;
 
-@UsesBukkit
+@UsesMinecraft
+@Deprecated(forRemoval = true) // move it back to Attribute and mark every method with @UsesMinecraft
 public class AttributeApplier {
 
     private static ReadWriteNBT toNbt(Attribute attribute, int entropy) {
@@ -82,7 +82,7 @@ public class AttributeApplier {
                             attribute.getAmount(),
                             AttributeOperation.values()[attribute.getOperation().ordinal()]
                     ),
-                    attribute.getSlot() == null ? ItemAttributeModifiers.EquipmentSlotGroup.ANY : PacketEventsBridge.bridge(attribute.getSlot())
+                    attribute.getSlot() == null ? ItemAttributeModifiers.EquipmentSlotGroup.ANY : attribute.getSlot().toPacketEvents()
             ));
         });
         peStack.getComponents().set(ComponentTypes.ATTRIBUTE_MODIFIERS, modifiers);

@@ -1,7 +1,11 @@
 package ua.valeriishymchuk.simpleitemgenerator.common.config.exception;
 
+import ua.valeriishymchuk.simpleitemgenerator.common.text.StringSimilarityUtils;
+
+import java.util.Collection;
 import java.util.List;
 import java.util.function.Function;
+import java.util.stream.Stream;
 
 public class InvalidConfigurationException extends RuntimeException {
     public InvalidConfigurationException(String message) {
@@ -54,6 +58,10 @@ public class InvalidConfigurationException extends RuntimeException {
                 chosenOption,
                 (!suggestions.isEmpty() ? "Did you mean: <white>" + suggestions + "</white>" : "")
         );
+    }
+
+    public static InvalidConfigurationException unknownOptionWithSuggestions(String optionName, String chosenOption, Stream<String> possibleValues) {
+        return unknownOption(optionName, chosenOption, StringSimilarityUtils.getSuggestions(chosenOption, possibleValues));
     }
 
 

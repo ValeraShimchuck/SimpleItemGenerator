@@ -38,6 +38,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.usage.Predicate;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickAt;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.ClickButton;
 import ua.valeriishymchuk.simpleitemgenerator.common.usage.predicate.SlotPredicate;
+import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ItemRepository;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -73,7 +74,10 @@ public class CustomItemEntity {
     @NonFinal
     transient List<UsageEntity> usages;
     @NonFinal
+    @Deprecated(forRemoval = true)
     transient ItemStack itemStack;
+    @NonFinal
+    transient List<ItemRepository.ItemPatch> patches;
     @NonFinal
     transient Boolean hasPlaceholders;
     @NonFinal
@@ -369,6 +373,7 @@ public class CustomItemEntity {
         return usages;
     }
 
+    @Deprecated(forRemoval = true)
     public ItemStack getItemStack() throws InvalidConfigurationException {
         if (itemStack == null) {
             itemStack = parseItem();
@@ -388,11 +393,16 @@ public class CustomItemEntity {
         return itemStack.clone();
     }
 
+    public List<ItemRepository.ItemPatch> getPatches() throws InvalidConfigurationException {
+
+    }
+
     public int getSignature() {
         if (itemStack == null) getItemStack();
         return NBTCustomItem.getSignature(itemStack).get();
     }
 
+    @Deprecated(forRemoval = true)
     private ItemStack parseItem() throws InvalidConfigurationException {
         try {
             if (item == null || item.isNull()) throw new InvalidConfigurationException("Property is not defined");
