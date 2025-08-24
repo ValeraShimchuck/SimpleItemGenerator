@@ -181,6 +181,7 @@ tasks.named("shadowJar", com.github.jengelman.gradle.plugins.shadow.tasks.Shadow
     relocate("org.bstats", "$mainPackage.bstats")
     relocate("org.joml", "$mainPackage.joml")
     relocate("com.github.retrooper.packetevents", "$mainPackage.packetevents")
+    relocate("io.github.retrooper.packetevents", "$mainPackage.io.packetevents")
     exclude("kotlin/**")
     if (!debugMode) {
         minimize()
