@@ -13,6 +13,7 @@ import org.bukkit.persistence.PersistentDataContainer;
 import org.bukkit.persistence.PersistentDataType;
 import org.jetbrains.annotations.Nullable;
 import ua.valeriishymchuk.libs.net.kyori.adventure.key.Key;
+import ua.valeriishymchuk.simpleitemgenerator.common.annotation.UsesMinecraft;
 import ua.valeriishymchuk.simpleitemgenerator.common.wrapper.PersistentDataTypeWrapper;
 import ua.valeriishymchuk.simpleitemgenerator.repository.impl.ItemRepository;
 
@@ -38,24 +39,26 @@ public class NBTCustomItem {
         return Key.key(CUSTOM_ITEM_COOLDOWN_FREEZETIME_KEY.asString() + cooldownId);
     }
 
+    @UsesMinecraft
     public static Option<String> getCustomItemId(ItemStack item) {
         if (item == null || item.getType().isAir()) return Option.none();
         return Option.of(
                 item.getItemMeta().getPersistentDataContainer()
-                        .get(CUSTOM_ITEM_ID_KEY, PersistentDataType.STRING)
+                        .get(NamespacedKey.fromString(CUSTOM_ITEM_ID_KEY.asString()) , PersistentDataType.STRING)
         );
     }
 
+    @UsesMinecraft
     public static boolean hasCustomItemId(ItemStack item) {
         if (item == null || item.getType().isAir()) return false;
-        return item.getItemMeta().getPersistentDataContainer().has(CUSTOM_ITEM_ID_KEY, PersistentDataType.STRING);
+        return item.getItemMeta().getPersistentDataContainer().has(NamespacedKey.fromString(CUSTOM_ITEM_ID_KEY.asString()), PersistentDataType.STRING);
     }
 
-    public static void setCustomItemId(ItemStack item, String customItemId) {
-        updateNBT(item, persistentDataContainer ->  {
-            persistentDataContainer.set(CUSTOM_ITEM_ID_KEY, PersistentDataType.STRING, customItemId);
-        });
-    }
+//    public static void setCustomItemId(ItemStack item, String customItemId) {
+//        updateNBT(item, persistentDataContainer ->  {
+//            persistentDataContainer.set(CUSTOM_ITEM_ID_KEY, PersistentDataType.STRING, customItemId);
+//        });
+//    }
 
     private static void updateNBT(ItemStack item, Consumer<PersistentDataContainer> consumer) {
         ItemMeta itemMeta = item.getItemMeta();
@@ -93,6 +96,7 @@ public class NBTCustomItem {
     }
 
 
+    @UsesMinecraft
     public static Cooldown getCooldown(ItemStack itemStack, int cooldownId) {
         PersistentDataContainer persistentDataContainer = itemStack.getItemMeta().getPersistentDataContainer();
         Long cooldown = persistentDataContainer.get(cooldown(cooldownId), PersistentDataType.LONG);
@@ -101,6 +105,18 @@ public class NBTCustomItem {
         if (freezetime == null || freezetime < System.currentTimeMillis()) return CooldownType.DEFAULT.toCooldown(cooldown);
         return CooldownType.FROZEN.toCooldown(freezetime);
     }
+
+//    public static Cooldown queryCooldown(ItemStack itemStack, long cooldownMillis, long freezetimeMillis, int cooldownId) {
+//        Cooldown cooldown = getCooldown(itemStack, cooldownId);
+//        if (cooldown.isFrozen()) return cooldown;
+//        if (cooldown.isAbsent()) {
+//            updateCooldown(itemStack, cooldownMillis <= 0 ? null : System.currentTimeMillis() + cooldownMillis, cooldownId);
+//            updateFreezetime(itemStack,  freezetimeMillis <= 0 || cooldownMillis <= 0 ? null : System.currentTimeMillis() + freezetimeMillis, cooldownId);
+//            return CooldownType.NONE.toCooldown(0);
+//        }
+//        updateFreezetime(itemStack, System.currentTimeMillis() + freezetimeMillis, cooldownId);
+//        return cooldown;
+//    }
 
     public static Cooldown queryCooldown(ItemStack itemStack, long cooldownMillis, long freezetimeMillis, int cooldownId) {
         Cooldown cooldown = getCooldown(itemStack, cooldownId);
