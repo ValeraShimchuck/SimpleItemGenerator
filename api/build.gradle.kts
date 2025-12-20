@@ -130,8 +130,8 @@ jreleaser {
                 create("simpleitemgenerator-api") {
                     active.set(Active.ALWAYS)
                     url = "https://central.sonatype.com/api/v1/publisher"
-                    username = findProperty("mavencentral.name")!! as String
-                    password = findProperty("mavencentral.password")!! as String
+                    username = (findProperty("mavencentral.name") ?: return@create )as String
+                    password = (findProperty("mavencentral.password") ?: return@create) as String
                     applyMavenCentralRules = true
                     artifactOverride {
                         groupId = "io.github.valerashimchuck"

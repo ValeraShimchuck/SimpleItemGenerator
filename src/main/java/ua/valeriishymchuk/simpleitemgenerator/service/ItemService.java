@@ -409,13 +409,13 @@ public class ItemService {
     }
 
     public ItemUsageResultDTO tickItem(ItemUsageGeneralDTO itemUsageGeneralDTO, PipelineDebug pipelineDebug) {
+        boolean shouldPrint = itemUsageGeneralDTO.getCurrentTick() % 20 == 0;
         Player player = itemUsageGeneralDTO.getPlayer();
         ItemStack item = itemUsageGeneralDTO.getItemStack();
         ItemUsageResultDTO nop = ItemUsageResultDTO.EMPTY
                 .withPipelineDebug(pipelineDebug);
         if (item == null || !NBTCustomItem.hasCustomItemId(item)) return nop;
         String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
-        if (customItemId == null) return nop;
         PipelineDebug prependedDebug = PipelineDebug.prepend(pipelineDebug, customItemId);
         CustomItemEntity customItem = itemRepository.getItem(customItemId).getOrNull();
         if (customItem == null) {

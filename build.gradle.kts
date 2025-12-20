@@ -102,6 +102,7 @@ dependencies {
     relocatedLib("net.kyori:adventure-text-serializer-legacy:$adventureVersion")
     api("org.joml:joml:1.10.8")
     implementation(project(":api"))
+    compileOnly("com.mojang:brigadier:1.2.9")
 
 
     compileOnlyApi("com.github.LoneDev6:API-ItemsAdder:3.6.1")
@@ -113,7 +114,7 @@ dependencies {
     compileOnlyApi("com.sk89q.worldedit:worldedit-bukkit:7.2.17")
 
 
-    api("de.tr7zw:item-nbt-api:2.15.2-SNAPSHOT")
+    api("de.tr7zw:item-nbt-api:2.15.5-SNAPSHOT")
 
 
     val configVersion = "4.1.2"
@@ -128,7 +129,7 @@ dependencies {
     api("cloud.commandframework:cloud-core:$cloudVersion")
     api("cloud.commandframework:cloud-minecraft-extras:$cloudVersion")
     api("org.bstats:bstats-bukkit:3.0.2")
-    api("com.github.retrooper:packetevents-spigot:2.9.3")
+    api("com.github.retrooper:packetevents-spigot:2.11.0")
     testImplementation("com.tngtech.archunit:archunit:1.4.0")
     testImplementation("junit:junit:4.13.2")
 }
