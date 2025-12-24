@@ -8,7 +8,7 @@ import lombok.AccessLevel;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import lombok.experimental.FieldDefaults;
-import lombok.val;
+import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Material;
@@ -134,11 +134,11 @@ public class ItemRepository {
                             .peek(itemMeta::displayName);
                     break;
                 case LORE:
-                     itemMeta.lore(Option.of(configItemMeta.lore()).getOrElse(List.of()).stream()
-                             .map(KyoriHelper::convert)
-                             .map(line -> PapiSupport.tryParseComponent(player, line))
-                             .map(KyoriHelper::convert)
-                             .toList());
+                    itemMeta.lore(Option.of(configItemMeta.lore()).getOrElse(List.of()).stream()
+                            .map(KyoriHelper::convert)
+                            .map(line -> PapiSupport.tryParseComponent(player, line))
+                            .map(KyoriHelper::convert)
+                            .toList());
                     break;
                 case CUSTOM_MODEL_DATA:
                     if (FeatureSupport.MODERN_CMD_SUPPORT) {
@@ -161,6 +161,7 @@ public class ItemRepository {
                     break;
                 case ENCHANTMENTS:
                     itemMeta.getEnchants().forEach((e, l) -> itemMeta.removeEnchant(e));
+                    configItemMeta.getEnchants().forEach((enchantment, level) -> itemMeta.addEnchant(enchantment, level,true));
                     break;
                 case ATTRIBUTES:
                     final Multimap<Attribute, AttributeModifier> oldAttributes = itemMeta.getAttributeModifiers();

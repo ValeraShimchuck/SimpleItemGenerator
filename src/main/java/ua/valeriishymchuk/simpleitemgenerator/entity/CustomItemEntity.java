@@ -382,7 +382,7 @@ public class CustomItemEntity {
                     itemNbt.mergeCompound(nbt2);
                 });
             }
-            int signature = itemStack.serialize().hashCode();
+            int signature = itemStack.serialize().toString().hashCode();
             NBTCustomItem.setSignature(itemStack, signature);
         }
         return itemStack.clone();

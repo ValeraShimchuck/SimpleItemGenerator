@@ -32,7 +32,7 @@ checkstyle {
 }
 
 group = "ua.valeriishymchuk"
-version = "1.10.1"
+version = "1.10.2"
 
 
 val relocatedLib by configurations.creating
