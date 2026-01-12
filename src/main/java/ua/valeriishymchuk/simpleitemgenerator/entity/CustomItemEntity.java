@@ -58,6 +58,43 @@ public class CustomItemEntity {
             Pattern.compile("\\[(?<enum>" + PredicateType.getPattern() + ")] (?<type>.*)");
     private static final Pattern ITEM_LINK_PATTERN = Pattern.compile("\\[(?<linktype>.+)] (?<link>.*)");
 
+    public static ItemStack parseExternalItem(String rawItem) throws InvalidConfigurationException {
+        Matcher matcher = ITEM_LINK_PATTERN.matcher(rawItem);
+        if (!matcher.find())
+            throw InvalidConfigurationException.format("Invalid item: <white>%s</white>", rawItem);
+        String linkType = matcher.group("linktype");
+        String link = matcher.group("link");
+        ItemStack item;
+        if (linkType.equals("itemsadder")) {
+            try {
+                item = ItemsAdderSupport.getItem(link);
+            } catch (Exception e) {
+                if (!ItemsAdderSupport.isPluginEnabled())
+                    throw new InvalidConfigurationException("Plugin ItemsAdder is not enabled!");
+                else throw new InvalidConfigurationException("Can't find ItemsAdder item <white>" + link + "</white>");
+            }
+
+        } else if (linkType.equals("oraxen")) {
+            try {
+                item = OraxenSupport.getItem(link);
+            } catch (Exception e) {
+                if (!OraxenSupport.isPluginEnabled())
+                    throw new InvalidConfigurationException("Plugin Oraxen is not enabled!");
+                else throw new InvalidConfigurationException("Can't find Oraxen item <white>" + link + "</white>");
+            }
+        } else if (linkType.equals("nexo")) {
+            try {
+                item = NexoSupport.getItem(link);
+            } catch (Exception e) {
+                if (!NexoSupport.isPluginEnabled())
+                    throw new InvalidConfigurationException("Plugin Nexo is not enabled!");
+                else throw new InvalidConfigurationException("Can't find Nexo item <white>" + link + "</white>");
+            }
+        } else {
+            throw InvalidConfigurationException.format("Invalid link type: <white>[%s]</white>[", linkType);
+        }
+        return item;
+    }
 
     ConfigurationNode item;
     ConfigurationNode usage;
@@ -233,6 +270,7 @@ public class CustomItemEntity {
         Material material = item.getType();
         RawItem rawItem = new RawItem(
                 material.name(),
+                null,
                 Option.of(meta.displayName())
                         .map(KyoriHelper::convert)
                         .map(KyoriHelper::toJson)
@@ -398,41 +436,7 @@ public class CustomItemEntity {
             if (item == null || item.isNull()) throw new InvalidConfigurationException("Property is not defined");
             if (item.isMap()) return item.get(RawItem.class).bake();
             String rawItem = item.getString();
-            Matcher matcher = ITEM_LINK_PATTERN.matcher(rawItem);
-            if (!matcher.find())
-                throw InvalidConfigurationException.format("Invalid item: <white>%s</white>", rawItem);
-            String linkType = matcher.group("linktype");
-            String link = matcher.group("link");
-            ItemStack item;
-            if (linkType.equals("itemsadder")) {
-                try {
-                    item = ItemsAdderSupport.getItem(link);
-                } catch (Exception e) {
-                    if (!ItemsAdderSupport.isPluginEnabled())
-                        throw new InvalidConfigurationException("Plugin ItemsAdder is not enabled!");
-                    else throw new InvalidConfigurationException("Can't find ItemsAdder item <white>" + link + "</white>");
-                }
-
-            } else if (linkType.equals("oraxen")) {
-                try {
-                    item = OraxenSupport.getItem(link);
-                } catch (Exception e) {
-                    if (!OraxenSupport.isPluginEnabled())
-                        throw new InvalidConfigurationException("Plugin Oraxen is not enabled!");
-                    else throw new InvalidConfigurationException("Can't find Oraxen item <white>" + link + "</white>");
-                }
-            } else if (linkType.equals("nexo")) {
-                try {
-                    item = NexoSupport.getItem(link);
-                } catch (Exception e) {
-                    if (!NexoSupport.isPluginEnabled())
-                        throw new InvalidConfigurationException("Plugin Nexo is not enabled!");
-                    else throw new InvalidConfigurationException("Can't find Nexo item <white>" + link + "</white>");
-                }
-            } else {
-                throw InvalidConfigurationException.format("Invalid link type: <white>[%s]</white>[", linkType);
-            }
-            return item;
+            return parseExternalItem(rawItem);
         } catch (Exception e) {
             throw InvalidConfigurationException.path("item", e);
         }

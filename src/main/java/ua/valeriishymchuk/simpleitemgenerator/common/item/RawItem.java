@@ -30,6 +30,7 @@ import ua.valeriishymchuk.simpleitemgenerator.common.text.StringSimilarityUtils;
 import ua.valeriishymchuk.simpleitemgenerator.common.time.TimeTokenParser;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.FeatureSupport;
 import ua.valeriishymchuk.simpleitemgenerator.common.version.SemanticVersion;
+import ua.valeriishymchuk.simpleitemgenerator.entity.CustomItemEntity;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -47,7 +48,10 @@ public class RawItem implements Cloneable {
     public static final RawItem EMPTY = new RawItem();
     private static final Pattern COLOR_PATTERN = Pattern.compile("^ *\\[(?<type>dye|hex|decimal)] *(?<value>#?\\w+) *$");
 
+    @Nullable
     String material;
+    @Nullable
+    String from;
     @Nullable
     String name;
     List<String> lore;
@@ -65,6 +69,7 @@ public class RawItem implements Cloneable {
         this(
                 null,
                 null,
+                null,
                 Collections.emptyList(),
                 null,
                 null,
@@ -75,6 +80,11 @@ public class RawItem implements Cloneable {
                 null,
                 null
         );
+    }
+
+    private Option<ItemStack> getFrom() throws InvalidConfigurationException {
+        if (from == null) return Option.none();
+        return Option.some(CustomItemEntity.parseExternalItem(from));
     }
 
     private List<PotionEffect> getPotionEffects() throws InvalidConfigurationException {
@@ -337,9 +347,10 @@ public class RawItem implements Cloneable {
         return flags;
     }
 
-    public Material getMaterial() throws InvalidConfigurationException {
+    public Option<Material> getMaterial() throws InvalidConfigurationException {
         try {
-            if (this.material == null) throw new InvalidConfigurationException("Property is not defined");
+            if (this.material == null && this.from == null) throw new InvalidConfigurationException("Property is not defined");
+            if (material == null) return Option.none();
             String rawMaterial = material.toUpperCase();
             Try<Material> materialTry = Try.of(() -> Material.valueOf(rawMaterial))
                     .filter(Material::isItem)
@@ -363,7 +374,7 @@ public class RawItem implements Cloneable {
                         );
                     }));
             if (materialTry.isFailure()) throw (InvalidConfigurationException) materialTry.getCause();
-            return materialTry.get();
+            return materialTry.toOption();
         } catch (Exception e) {
             throw InvalidConfigurationException.path("material", e);
         }
@@ -373,7 +384,10 @@ public class RawItem implements Cloneable {
 
     public ItemStack bake() throws InvalidConfigurationException {
 
-        ItemStack preparedItem = ReflectedRepresentations.ItemStack.createItemStack(getMaterial());
+        Option<Material> material = getMaterial();
+        ItemStack preparedItem = getFrom().getOrElse(() -> ReflectedRepresentations.ItemStack
+                .createItemStack(material.get()));
+        material.peek(preparedItem::setType);
         ItemStack item;
         if (!attributes.isEmpty()) {
             AtomicInteger increment = new AtomicInteger();

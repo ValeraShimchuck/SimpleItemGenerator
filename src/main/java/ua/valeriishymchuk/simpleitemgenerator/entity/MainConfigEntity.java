@@ -147,6 +147,7 @@ public class MainConfigEntity {
     private static Map<String, CustomItemEntity> initConfigDefaults() {
         RawItem preparedItem = new RawItem(
                 "DIAMOND",
+                null,
                 "<red><bold>Cool diamond%id%",
                 Arrays.asList("<green>First lore", "<red>Second lore"),
                 null,
