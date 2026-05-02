@@ -121,6 +121,8 @@ public class ItemService {
     public ItemUsageResultDTO dropItem(ItemUsageGeneralDTO itemUsageGeneralDTO, PipelineDebug pipelineDebug) {
         Player player = itemUsageGeneralDTO.getPlayer();
         ItemStack item = itemUsageGeneralDTO.getItemStack();
+        String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
+        if (customItemId == null) return ItemUsageResultDTO.EMPTY.withPipelineDebug(pipelineDebug);
         RaytraceResultDomain raytraceResult = raytrace(itemUsageGeneralDTO.getPlayer());
         ItemUsageResultDTO usageResult = useItem0(
                 player,
@@ -141,7 +143,6 @@ public class ItemService {
                 raytraceResult.placeholders,
                 pipelineDebug
         );
-        String customItemId = NBTCustomItem.getCustomItemId(item).getOrNull();
         if (usageResult.isShouldCancel() && player.getGameMode() == GameMode.CREATIVE && customItemId != null) {
             usageResult = usageResult.withMessage(lang()
                     .getCreativeDrop()

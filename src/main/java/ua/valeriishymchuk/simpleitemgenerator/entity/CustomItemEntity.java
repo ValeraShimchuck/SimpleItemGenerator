@@ -58,6 +58,8 @@ public class CustomItemEntity {
             Pattern.compile("\\[(?<enum>" + PredicateType.getPattern() + ")] (?<type>.*)");
     private static final Pattern ITEM_LINK_PATTERN = Pattern.compile("\\[(?<linktype>.+)] (?<link>.*)");
 
+    // Move this method to somewhere else
+    @Deprecated
     public static ItemStack parseExternalItem(String rawItem) throws InvalidConfigurationException {
         Matcher matcher = ITEM_LINK_PATTERN.matcher(rawItem);
         if (!matcher.find())
