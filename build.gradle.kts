@@ -32,7 +32,7 @@ checkstyle {
 }
 
 group = "ua.valeriishymchuk"
-version = "1.11.0"
+version = "1.11.1"
 
 
 val relocatedLib by configurations.creating
@@ -114,7 +114,7 @@ dependencies {
     compileOnlyApi("com.sk89q.worldedit:worldedit-bukkit:7.2.17")
 
 
-    api("de.tr7zw:item-nbt-api:2.15.7")
+    api("de.tr7zw:item-nbt-api:2.15.8-SNAPSHOT")
 
 
     val configVersion = "4.1.2"
@@ -129,7 +129,7 @@ dependencies {
     api("cloud.commandframework:cloud-core:$cloudVersion")
     api("cloud.commandframework:cloud-minecraft-extras:$cloudVersion")
     api("org.bstats:bstats-bukkit:3.0.2")
-    api("com.github.retrooper:packetevents-spigot:2.12.1")
+    api("com.github.retrooper:packetevents-spigot:2.13.0")
     testImplementation("com.tngtech.archunit:archunit:1.4.0")
     testImplementation("junit:junit:4.13.2")
 }
